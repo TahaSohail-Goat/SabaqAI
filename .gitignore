@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.env
+.env.*
+!.env.example
+data/source/*
+!data/source/README.md
+*.log
+.DS_Store
