@@ -1,0 +1,6 @@
+{
+  "name": "Sabaq AI",
+  "description": "Syllabus-grounded AI tutor for Pakistani board students with strict confidence guardrails, verifiable page citations, and adaptive chapter quizzes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
