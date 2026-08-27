@@ -14,7 +14,7 @@ Legend: **Real** = works against live data · **Stub** = returns hardcoded or fa
 
 | Subsystem | Status | Owner | Where |
 | --- | --- | --- | --- |
-| Database schema + RLS | **Real** | Dev C | `supabase/migrations/0001_init.sql` |
+| Database schema + RLS | **Real** ✅ v2 normalised, **unverified** | Dev C | `supabase/migrations/0001_init.sql` |
 | Confidence guardrail | **Real** | Dev A | `src/lib/ai/guardrail.ts` |
 | Citation validator | **Real** | Dev A | `src/lib/ai/citation.ts` |
 | Eval scoring loop | **Real** | Dev D | `src/app/api/eval/route.ts` |
@@ -27,12 +27,13 @@ Legend: **Real** = works against live data · **Stub** = returns hardcoded or fa
 | UI metrics honesty | **Real** ✅ fixed | Dev D | `src/app/page.tsx` |
 | Eval set (single source) | **Real** ✅ fixed | Dev D | `src/lib/evaluation/` |
 | Near-miss evaluation | **Real** ✅ new | Dev D | `src/lib/evaluation/questions.ts` |
-| Vector search RPC | **Real** ✅ new, **unverified** | Dev C | `supabase/migrations/0002_*.sql` |
+| Vector search RPC | **Real** ✅ v2 joins, **unverified** | Dev C | `supabase/migrations/0002_*.sql` |
+| Atomic ingestion RPC | **Real** ✅ new, **unverified** | Dev C | `supabase/migrations/0003_*.sql` |
 | Retrieval (pgvector path) | **Real** ✅ new, **unverified** | Dev A | `src/lib/ai/retrieval.ts` |
 | Qwen embeddings (DashScope) | **Real** ✅ new, **unverified** | Dev D | `src/lib/ai/embeddings.ts` |
-| Ingestion pipeline | **Real** ✅ new, **unverified** | Dev C | `scripts/ingest.ts` |
-| `qa_log` writes | **Real** ✅ new, **unverified** | Dev A | `src/lib/qa-log.ts` |
-| `student_profiles` creation | **Real** ✅ new, **unverified** | Dev B | `src/app/api/auth/signup/` |
+| Ingestion pipeline | **Real** ✅ v2 (transactional RPC), **unverified** | Dev C | `scripts/ingest.ts` |
+| `qa_log` writes | **Real** ✅ v2 junction rows, **unverified** | Dev A | `src/lib/qa-log.ts` |
+| `student_profiles` creation | **Real** ✅ v2 (+ student_subjects), **unverified** | Dev B | `src/app/api/auth/signup/` |
 | Syllabus browser | **Real** ✅ new, **unverified** | Dev C | `src/app/api/syllabus/` |
 | Syllabus corpus | **Stub** (10 hardcoded, dev only) | Dev C | `src/lib/syllabus-data.ts` |
 | Quiz persistence | **Missing** | Dev B | tables exist, unused |
@@ -47,6 +48,17 @@ question has come back with a real embedding score.
 ---
 
 ## Fixed
+
+**✅ Schema v2 — BCNF-normalised, approved in `docs/schema-proposal.md`.** The v1 schema never
+ran anywhere, so it was replaced in place rather than migrated. Arrays and JSONB repeating groups
+are gone (`student_profiles.subjects text[]` → `student_subjects`; `qa_log` chunk-id arrays →
+`qa_log_chunks` with per-chunk rank and score; quiz `options jsonb` → `quiz_options`; attempt
+`answers jsonb` → `quiz_attempt_answers`). Chapter/section metadata is factored out of
+`content_chunks` into `chapters` → `chapter_sources` → `sections`. Every enumerated domain is a
+reference table. Quiz answers moved to `quiz_answer_keys`, which has **no** client RLS policy —
+deny by default, service role only. Ingestion writes go through the `ingest_document` RPC, one
+transaction per document. `/api/syllabus` reads the `content_chunks_expanded` view. None of this
+has executed against a live Supabase project yet — that verification is step 1 below.
 
 **✅ `getNearestChapters()` now computes from real scores.** Takes the retrieved chunks, keeps the
 best score per chapter, sorts, returns the top three. Returns an empty array when retrieval found
@@ -122,9 +134,9 @@ ingestion insert will fail.
 dimension on Day 1 before anyone runs the migration.
 
 **RLS will silently refuse every question.** The `chunks_match_profile` policy requires a matching
-`student_profiles` row, and nothing in the app ever creates one. Point retrieval at Supabase with
-the anon key and every query returns zero rows → the guardrail returns REFUSE → the app refuses
-everything, with no error anywhere to tell you why.
+`student_profiles` + `student_subjects` row, which signup now creates (unverified against a live
+project). Point retrieval at Supabase with the anon key and every query returns zero rows → the
+guardrail returns REFUSE → the app refuses everything, with no error anywhere to tell you why.
 
 *Resolution:* run retrieval server-side with `service_role` and keep the explicit board/class/
 subject filter already in the code. Keep RLS on for `qa_log`, `quizzes`, and `quiz_attempts`.

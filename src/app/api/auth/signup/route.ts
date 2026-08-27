@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
         const { error: profileError } = await admin.from('users').upsert(
           {
             id: data.user.id,
-            role: 'student',
+            role_code: 'student',
             display_name: full_name || '',
             preferred_language: 'en',
           },
@@ -65,19 +65,24 @@ export async function POST(req: NextRequest) {
         const { error: studentError } = await admin.from('student_profiles').upsert(
           {
             user_id: data.user.id,
-            board,
+            board_code: board,
             class_level: class_level,
-            subjects: ['physics'],
           },
           { onConflict: 'user_id' }
         );
 
+        // Subjects are a junction table in schema v2, not an array column on the profile.
+        const { error: subjectsError } = await admin.from('student_subjects').upsert(
+          { user_id: data.user.id, subject_code: 'physics' },
+          { onConflict: 'user_id,subject_code' }
+        );
+
         // Don't fail the signup over this — the account exists and the user can log in. Log it
         // loudly so it's visible, and surface a flag so the UI can tell them setup is incomplete.
-        if (profileError || studentError) {
+        if (profileError || studentError || subjectsError) {
           console.error(
             'Signup succeeded but profile creation failed:',
-            profileError?.message ?? studentError?.message
+            profileError?.message ?? studentError?.message ?? subjectsError?.message
           );
           return NextResponse.json({
             success: true,

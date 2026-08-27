@@ -43,20 +43,37 @@ export interface SourceDocument {
   sections: SourceSection[];
 }
 
-/** One row destined for `content_chunks`. Column names match the migration. */
-export interface PreparedChunk {
-  board: string;
-  class_level: number;
-  subject: string;
-  chapter_no: number;
-  chapter_title: string;
-  section: string;
-  page_from: number | null;
-  page_to: number | null;
-  source_type: 'textbook' | 'past_paper' | 'marking_scheme';
-  language: 'en' | 'ur';
+/** One chunk of a section, ready for `content_chunks`. chunkIndex is 1-based within its section. */
+export interface PreparedSectionChunk {
+  chunkIndex: number;
   content: string;
-  content_hash: string;
+  contentHash: string;
+}
+
+/** A section with its chunks — mirrors the `sections` → `content_chunks` tables in schema v2. */
+export interface PreparedSection {
+  section: string;
+  /** 1-based order of the section within the document. */
+  position: number;
+  pageFrom: number | null;
+  pageTo: number | null;
+  chunks: PreparedSectionChunk[];
+}
+
+/**
+ * A whole document, chunked and ready to hand to the ingest_document() RPC, which writes it in a
+ * single transaction. The nested shape matches the normalised schema: chapter metadata lives at
+ * the top, section metadata on the section, and a chunk carries only its own content.
+ */
+export interface PreparedDocument {
+  board: string;
+  classLevel: number;
+  subject: string;
+  chapterNo: number;
+  chapterTitle: string;
+  sourceType: 'textbook' | 'past_paper' | 'marking_scheme';
+  language: 'en' | 'ur';
+  sections: PreparedSection[];
 }
 
 /**
@@ -179,35 +196,38 @@ export function hashChunk(
 }
 
 /**
- * Chunk a whole document into rows ready for `content_chunks`.
- * Deduplicates within the document; the database unique constraint catches the rest.
+ * Chunk a whole document into the nested shape ingest_document() expects.
+ * Deduplicates within the document; the database unique constraint on content_hash catches the
+ * rest. Chunks are numbered per section — schema v2 enforces unique(section_id, chunk_index).
  */
-export function chunkDocument(doc: SourceDocument, options: ChunkOptions = {}): PreparedChunk[] {
-  const prepared: PreparedChunk[] = [];
+export function chunkDocument(doc: SourceDocument, options: ChunkOptions = {}): PreparedDocument {
   const seen = new Set<string>();
 
-  for (const section of doc.sections) {
+  const sections: PreparedSection[] = doc.sections.map((section, sectionIdx) => {
+    const chunks: PreparedSectionChunk[] = [];
     for (const content of chunkText(section.content, options)) {
       const contentHash = hashChunk(doc, content);
       if (seen.has(contentHash)) continue;
       seen.add(contentHash);
-
-      prepared.push({
-        board: doc.board,
-        class_level: doc.classLevel,
-        subject: doc.subject,
-        chapter_no: doc.chapterNo,
-        chapter_title: doc.chapterTitle,
-        section: section.section,
-        page_from: section.pageFrom ?? null,
-        page_to: section.pageTo ?? null,
-        source_type: doc.sourceType,
-        language: doc.language,
-        content,
-        content_hash: contentHash,
-      });
+      chunks.push({ chunkIndex: chunks.length + 1, content, contentHash });
     }
-  }
+    return {
+      section: section.section,
+      position: sectionIdx + 1,
+      pageFrom: section.pageFrom ?? null,
+      pageTo: section.pageTo ?? null,
+      chunks,
+    };
+  });
 
-  return prepared;
+  return {
+    board: doc.board,
+    classLevel: doc.classLevel,
+    subject: doc.subject,
+    chapterNo: doc.chapterNo,
+    chapterTitle: doc.chapterTitle,
+    sourceType: doc.sourceType,
+    language: doc.language,
+    sections,
+  };
 }

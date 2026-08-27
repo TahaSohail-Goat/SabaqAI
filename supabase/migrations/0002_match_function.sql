@@ -4,6 +4,10 @@
 -- PostgREST cannot express pgvector's distance operators directly, so retrieval goes through this
 -- function. It is the ONLY way the app queries content_chunks for search.
 --
+-- The return shape is unchanged from v1 — src/lib/ai/retrieval.ts and the RetrievedChunk type do
+-- not change. Only the internals are joins over the normalised tables (chapters →
+-- chapter_sources → sections → content_chunks).
+--
 -- IMPORTANT: if you changed vector(1024) in 0001_init.sql to match a different embedding model,
 -- change the query_embedding parameter below to the same size. A mismatch fails at call time with
 -- an error that never mentions your embedding model.
@@ -31,20 +35,23 @@ stable
 as $$
   select
     c.id,
-    c.chapter_no,
-    c.chapter_title,
-    c.section,
-    c.page_from,
-    c.page_to,
-    c.source_type,
+    ch.chapter_no,
+    ch.chapter_title,
+    s.section_label,
+    s.page_from,
+    s.page_to,
+    cs.source_type,
     c.content,
     -- <=> is cosine DISTANCE in pgvector. Score = 1 - distance, so higher is better and the
     -- thresholds in docs/confidence-guardrails.md read the way you'd expect.
     (1 - (c.embedding <=> query_embedding))::double precision as score
   from content_chunks c
-  where lower(c.board)   = lower(filter_board)
-    and c.class_level    = filter_class
-    and lower(c.subject) = lower(filter_subject)
+  join sections s         on s.id = c.section_id
+  join chapter_sources cs on cs.id = s.source_id
+  join chapters ch        on ch.id = cs.chapter_id
+  where lower(ch.board_code)   = lower(filter_board)
+    and ch.class_level         = filter_class
+    and lower(ch.subject_code) = lower(filter_subject)
   order by c.embedding <=> query_embedding
   limit match_count;
 $$;

@@ -1,4 +1,8 @@
-// Ingestion: source documents → recursive chunks → Qwen embeddings → Supabase content_chunks.
+// Ingestion: source documents → recursive chunks → Qwen embeddings → Supabase.
+//
+// Writes go through the ingest_document RPC (supabase/migrations/0003_ingest_function.sql),
+// which upserts chapter → source → sections → chunks in ONE Postgres transaction per document:
+// a document either lands whole or not at all.
 //
 // Idempotent. Chunks are keyed by a content hash, and re-running skips anything already stored,
 // so you can ingest repeatedly while iterating on chunk size without duplicating rows.
@@ -11,12 +15,15 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { chunkDocument, type SourceDocument, type PreparedChunk } from '../src/lib/ingest/chunker';
+import {
+  chunkDocument,
+  type SourceDocument,
+  type PreparedDocument,
+} from '../src/lib/ingest/chunker';
 import { embedTexts } from '../src/lib/ai/embeddings';
 import { requireServiceRoleClient } from '../src/lib/supabase/admin';
 
 const SOURCE_DIR = path.join(process.cwd(), 'data/source');
-const INSERT_BATCH = 50;
 
 const args = new Set(process.argv.slice(2));
 const DRY_RUN = args.has('--dry-run');
@@ -68,6 +75,12 @@ function validateDocument(file: string, doc: SourceDocument): void {
   });
 }
 
+const countChunks = (doc: PreparedDocument): number =>
+  doc.sections.reduce((n, s) => n + s.chunks.length, 0);
+
+const countChars = (doc: PreparedDocument): number =>
+  doc.sections.reduce((n, s) => n + s.chunks.reduce((m, c) => m + c.content.length, 0), 0);
+
 async function main(): Promise<void> {
   console.log('Sabaq AI — ingestion');
   console.log('='.repeat(60));
@@ -77,28 +90,22 @@ async function main(): Promise<void> {
   console.log(`Found ${documents.length} source document(s) in data/source/\n`);
 
   // 1. Chunk everything first, so a malformed document fails before we spend any API quota.
-  const allChunks: PreparedChunk[] = [];
-  for (const { file, doc } of documents) {
-    const chunks = chunkDocument(doc);
-    const chars = chunks.reduce((sum, c) => sum + c.content.length, 0);
-    const avg = chunks.length > 0 ? Math.round(chars / chunks.length) : 0;
+  const prepared = documents.map(({ file, doc }) => {
+    const chunked = chunkDocument(doc);
+    const chunkCount = countChunks(chunked);
+    const avg = chunkCount > 0 ? Math.round(countChars(chunked) / chunkCount) : 0;
     console.log(
       `  ${file}\n` +
       `    Chapter ${doc.chapterNo}: ${doc.chapterTitle}\n` +
-      `    ${doc.sections.length} section(s) → ${chunks.length} chunk(s), avg ${avg} chars`
+      `    ${doc.sections.length} section(s) → ${chunkCount} chunk(s), avg ${avg} chars`
     );
-    allChunks.push(...chunks);
-  }
+    return { file, chunked };
+  });
 
-  // Deduplicate across documents too — the same passage extracted twice must not be embedded twice.
-  const byHash = new Map<string, PreparedChunk>();
-  for (const chunk of allChunks) byHash.set(chunk.content_hash, chunk);
-  const unique = [...byHash.values()];
+  const total = prepared.reduce((n, p) => n + countChunks(p.chunked), 0);
+  console.log(`\nTotal: ${total} chunk(s)`);
 
-  const dupes = allChunks.length - unique.length;
-  console.log(`\nTotal: ${allChunks.length} chunk(s)${dupes > 0 ? `, ${dupes} duplicate(s) removed` : ''}`);
-
-  if (unique.length === 0) {
+  if (total === 0) {
     console.log('Nothing to ingest.');
     return;
   }
@@ -110,54 +117,82 @@ async function main(): Promise<void> {
 
   const supabase = requireServiceRoleClient();
 
-  // 2. Skip what's already stored, so re-running is cheap and idempotent.
-  let toProcess = unique;
+  // 2. Find what's already stored, so re-running is cheap and idempotent. The RPC also enforces
+  //    this via the content_hash unique constraint; checking first just saves embedding quota.
+  const existing = new Set<string>();
   if (!FORCE) {
-    const hashes = unique.map((c) => c.content_hash);
-    const existing = new Set<string>();
+    const allHashes = prepared.flatMap((p) =>
+      p.chunked.sections.flatMap((s) => s.chunks.map((c) => c.contentHash))
+    );
 
-    for (let i = 0; i < hashes.length; i += 200) {
+    for (let i = 0; i < allHashes.length; i += 200) {
       const { data, error } = await supabase
         .from('content_chunks')
         .select('content_hash')
-        .in('content_hash', hashes.slice(i, i + 200));
+        .in('content_hash', allHashes.slice(i, i + 200));
       if (error) throw new Error(`Failed to check existing chunks: ${error.message}`);
       for (const row of data ?? []) existing.add(row.content_hash as string);
     }
 
-    toProcess = unique.filter((c) => !existing.has(c.content_hash));
-    console.log(`${existing.size} chunk(s) already stored, ${toProcess.length} new.`);
-
-    if (toProcess.length === 0) {
-      console.log('\nEverything is already ingested. Use --force to re-embed.');
-      return;
-    }
+    console.log(`${existing.size} chunk(s) already stored.`);
   }
 
-  // 3. Embed. One vector per chunk, computed once, stored — never recomputed per question.
-  console.log(`\nEmbedding ${toProcess.length} chunk(s)…`);
-  const vectors = await embedTexts(toProcess.map((c) => c.content));
-  console.log(`Embedded ${vectors.length} chunk(s) at ${vectors[0]?.length ?? 0} dimensions.`);
+  // 3. Per document: embed what's new, then write the whole document in one transaction.
+  for (const { file, chunked } of prepared) {
+    const sectionsToWrite = chunked.sections
+      .map((s) => ({
+        ...s,
+        chunks: FORCE ? s.chunks : s.chunks.filter((c) => !existing.has(c.contentHash)),
+      }))
+      .filter((s) => s.chunks.length > 0);
 
-  // 4. Store.
-  const rows = toProcess.map((chunk, i) => ({ ...chunk, embedding: vectors[i] }));
-  let written = 0;
+    const toWrite = sectionsToWrite.reduce((n, s) => n + s.chunks.length, 0);
+    if (toWrite === 0) {
+      console.log(`\n${file}: already ingested, skipping.`);
+      continue;
+    }
 
-  for (let i = 0; i < rows.length; i += INSERT_BATCH) {
-    const batch = rows.slice(i, i + INSERT_BATCH);
-    const { error } = await supabase
-      .from('content_chunks')
-      .upsert(batch, { onConflict: 'content_hash', ignoreDuplicates: !FORCE });
+    // Embed. One vector per chunk, computed once, stored — never recomputed per question.
+    console.log(`\n${file}: embedding ${toWrite} chunk(s)…`);
+    const flat = sectionsToWrite.flatMap((s) => s.chunks);
+    const vectors = await embedTexts(flat.map((c) => c.content));
+    console.log(`  Embedded at ${vectors[0]?.length ?? 0} dimensions.`);
 
+    let cursor = 0;
+    const payload = {
+      board: chunked.board,
+      classLevel: chunked.classLevel,
+      subject: chunked.subject,
+      chapterNo: chunked.chapterNo,
+      chapterTitle: chunked.chapterTitle,
+      sourceType: chunked.sourceType,
+      language: chunked.language,
+      sections: sectionsToWrite.map((s) => ({
+        section: s.section,
+        position: s.position,
+        pageFrom: s.pageFrom,
+        pageTo: s.pageTo,
+        chunks: s.chunks.map((c) => ({
+          chunkIndex: c.chunkIndex,
+          content: c.content,
+          contentHash: c.contentHash,
+          embedding: vectors[cursor++],
+        })),
+      })),
+    };
+
+    const { data, error } = await supabase.rpc('ingest_document', { payload, p_force: FORCE });
     if (error) {
       throw new Error(
-        `Insert failed on batch starting at ${i}: ${error.message}\n` +
-        `If this mentions dimensions, your embedding model's size does not match ` +
-        `vector(N) in the migration. See docs/setup.md.`
+        `Ingest failed for ${file}: ${error.message}\n` +
+        `If this mentions the function, run supabase/migrations/0003_ingest_function.sql.\n` +
+        `If this mentions dimensions, your embedding model's size does not match vector(N) ` +
+        `in 0001_init.sql. See docs/setup.md.`
       );
     }
-    written += batch.length;
-    process.stdout.write(`\r  Stored ${written}/${rows.length}`);
+
+    const result = data as { chunksWritten?: number } | null;
+    console.log(`  Stored ${result?.chunksWritten ?? toWrite}/${toWrite} chunk(s) — chapter ${chunked.chapterNo} committed atomically.`);
   }
 
   const { count } = await supabase
