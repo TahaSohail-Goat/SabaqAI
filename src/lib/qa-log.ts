@@ -25,33 +25,53 @@ export interface QaLogEntry {
   latencyMs: number;
 }
 
-/** UUID check — the local fallback corpus uses string ids like "pctb-10-phy-ch14-01", and the
- *  qa_log columns are uuid[]. Passing those through would fail the insert. */
+/** UUID check — the local fallback corpus uses string ids like "pctb-10-phy-ch14-01". Those
+ *  aren't database rows, so there's nothing to link in qa_log_chunks; the qa_log row itself
+ *  still records the scores. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const onlyUuids = (ids: string[]): string[] => ids.filter((id) => UUID_RE.test(id));
 
 export async function logQuestion(entry: QaLogEntry): Promise<void> {
   const supabase = getServiceRoleClient();
   if (!supabase) return;
 
   try {
-    const retrievedIds = onlyUuids(entry.retrievedChunks.map((c) => c.id));
-    const citedIds = onlyUuids(entry.citedChunkIds ?? []);
+    const { data, error } = await supabase
+      .from('qa_log')
+      .insert({
+        user_id: entry.userId ?? null,
+        subject_code: entry.subject,
+        question_language: entry.questionLanguage,
+        top1_score: entry.top1Score,
+        support_count: entry.supportCount,
+        gate_decision: entry.decision,
+        refusal_reason: entry.refusalReason ?? null,
+        latency_total_ms: Math.round(entry.latencyMs),
+      })
+      .select('id')
+      .single();
 
-    const { error } = await supabase.from('qa_log').insert({
-      user_id: entry.userId ?? null,
-      subject: entry.subject,
-      question_language: entry.questionLanguage,
-      top1_score: entry.top1Score,
-      support_count: entry.supportCount,
-      gate_decision: entry.decision,
-      refusal_reason: entry.refusalReason ?? null,
-      retrieved_chunk_ids: retrievedIds,
-      cited_chunk_ids: citedIds,
-      latency_total_ms: Math.round(entry.latencyMs),
-    });
+    if (error) {
+      console.error('qa_log insert failed:', error.message);
+      return;
+    }
 
-    if (error) console.error('qa_log insert failed:', error.message);
+    // Junction rows: which chunks were retrieved, at what rank and score, and which the answer
+    // actually cited. (Schema v2 — v1 stored these as two uuid[] columns and lost rank/score.)
+    const cited = new Set(entry.citedChunkIds ?? []);
+    const rows = entry.retrievedChunks
+      .filter((c) => UUID_RE.test(c.id))
+      .map((c, i) => ({
+        qa_log_id: data.id as string,
+        chunk_id: c.id,
+        rank: i + 1,
+        score: c.score,
+        was_cited: cited.has(c.id),
+      }));
+
+    if (rows.length > 0) {
+      const { error: linkError } = await supabase.from('qa_log_chunks').insert(rows);
+      if (linkError) console.error('qa_log_chunks insert failed:', linkError.message);
+    }
   } catch (err) {
     console.error('qa_log insert threw:', err instanceof Error ? err.message : err);
   }

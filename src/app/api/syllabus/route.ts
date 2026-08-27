@@ -14,8 +14,10 @@ export async function GET() {
   const supabase = getServiceRoleClient();
 
   if (supabase) {
+    // content_chunks_expanded is a view flattening the normalised chain (chunks → sections →
+    // chapter_sources → chapters) back into the shape this endpoint exposes.
     const { data, error } = await supabase
-      .from('content_chunks')
+      .from('content_chunks_expanded')
       .select('id, chapter_no, chapter_title, section, page_from, page_to, source_type, language, content')
       .eq('board', BOARD)
       .eq('class_level', CLASS_LEVEL)
