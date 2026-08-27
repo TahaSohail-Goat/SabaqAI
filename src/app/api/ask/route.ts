@@ -3,9 +3,11 @@ import { retrieve, getNearestChapters } from '@/lib/ai/retrieval';
 import { evaluateConfidence } from '@/lib/ai/guardrail';
 import { generateGroundedAnswer } from '@/lib/ai/generation';
 import { validateCitations } from '@/lib/ai/citation';
+import { logQuestion } from '@/lib/qa-log';
 import type { AskResponse, Language } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now();
   try {
     const body = await req.json();
     const {
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     // CRITICAL: On REFUSE, the LLM is NEVER called.
     if (guardrail.decision === 'REFUSE') {
-      const nearestChapters = getNearestChapters(subject);
+      const nearestChapters = getNearestChapters(retrievedChunks);
       const refusalResponse: AskResponse = {
         status: 'refused',
         reason: guardrail.reason || 'low_similarity',
@@ -52,6 +54,18 @@ export async function POST(req: NextRequest) {
             ? "Try asking about Class 10 Physics topics like 'Ohm's law', 'Electric current', 'Joule's law', 'Electromagnetic induction', or 'Transformer'."
             : 'Try rephrasing with specific textbook chapter terminology.',
       };
+
+      await logQuestion({
+        subject,
+        questionLanguage: language,
+        top1Score: guardrail.top1,
+        supportCount: guardrail.support,
+        decision: 'REFUSE',
+        refusalReason: guardrail.reason || 'low_similarity',
+        retrievedChunks,
+        latencyMs: Date.now() - startedAt,
+      });
+
       return NextResponse.json(refusalResponse);
     }
 
@@ -66,7 +80,7 @@ export async function POST(req: NextRequest) {
     const validation = validateCitations(rawAnswer, retrievedChunks);
 
     if (!validation.ok) {
-      const nearestChapters = getNearestChapters(subject);
+      const nearestChapters = getNearestChapters(retrievedChunks);
       const refusalResponse: AskResponse = {
         status: 'refused',
         reason: 'ungrounded_output',
@@ -75,6 +89,18 @@ export async function POST(req: NextRequest) {
         nearestChapters,
         suggestion: "Please try specifying a particular chapter or concept from the syllabus.",
       };
+
+      await logQuestion({
+        subject,
+        questionLanguage: language,
+        top1Score: guardrail.top1,
+        supportCount: guardrail.support,
+        decision: guardrail.decision,
+        refusalReason: 'ungrounded_output',
+        retrievedChunks,
+        latencyMs: Date.now() - startedAt,
+      });
+
       return NextResponse.json(refusalResponse);
     }
 
@@ -91,6 +117,17 @@ export async function POST(req: NextRequest) {
       notCovered: rawAnswer.notCovered || null,
     };
 
+    await logQuestion({
+      subject,
+      questionLanguage: language,
+      top1Score: guardrail.top1,
+      supportCount: guardrail.support,
+      decision: guardrail.decision,
+      retrievedChunks,
+      citedChunkIds: validation.citations.map((c) => c.chunkId),
+      latencyMs: Date.now() - startedAt,
+    });
+
     return NextResponse.json(successResponse);
   } catch (error: unknown) {
     console.error('API /api/ask error:', error);
@@ -99,7 +136,9 @@ export async function POST(req: NextRequest) {
         status: 'refused',
         reason: 'low_similarity',
         message: 'Unable to safely process question against the syllabus database.',
-        nearestChapters: getNearestChapters('physics'),
+        // Retrieval never completed, so there is nothing to be "nearest" to. Say nothing
+        // rather than suggesting chapters we didn't actually score.
+        nearestChapters: [],
         suggestion: 'Please try again with a syllabus question.',
       },
       { status: 500 }

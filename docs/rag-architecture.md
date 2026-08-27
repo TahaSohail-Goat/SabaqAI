@@ -25,12 +25,20 @@ question
 
 ## Embeddings
 
+**Model: Qwen `text-embedding-v3` via Alibaba Cloud DashScope (1024-dim).**
+
+Chosen for two reasons: it matches `vector(1024)` in the migration as written, and it makes the
+hackathon's title sponsor load-bearing infrastructure rather than a decorative API call. Gemini
+stays for generation.
+
 - Use ONE model for both ingesting chunks and embedding questions. Mixing models silently
   destroys search quality.
+- **Embed once, at ingest time.** Chunk embeddings are stored in `content_chunks.embedding`. Only
+  the incoming question is embedded per request — one API call, not one per chunk.
 - Urdu text embeds as-is. Roman Urdu questions are transliterated to Urdu script first (this is
   your hardest problem — see below).
-- The vector dimension is fixed. If you change the embedding model later, you must re-embed
-  everything.
+- The vector dimension is fixed. If you change the embedding model later, you must change the
+  migration, `EMBEDDING_DIM`, and re-embed everything.
 
 ## Retrieval
 
@@ -38,6 +46,18 @@ question
   breaks grounding by pulling in the wrong curriculum.
 - Get the top ~20, keep the best ~6 after removing near-duplicates.
 - Distance is cosine; score = 1 - distance.
+- **Run the search server-side with the `service_role` key.** The RLS policy on `content_chunks`
+  requires a `student_profiles` row that nothing currently creates — with the anon key, every query
+  returns zero rows and the app refuses everything with no visible error. The explicit board/class/
+  subject filter in code is what enforces correctness here; RLS stays on for `qa_log`, `quizzes`,
+  and `quiz_attempts`, where it protects actual student data.
+
+## Nearest chapters (on refusal)
+
+When the gate refuses, the student is shown the chapters that came *closest*. These must be
+computed from the actual retrieval scores for that question — the top distinct chapters below the
+threshold. A fixed list is worse than showing nothing: it invites a judge to ask why a chemistry
+question suggests Simple Harmonic Motion, and there is no good answer.
 
 ## Citation validation
 

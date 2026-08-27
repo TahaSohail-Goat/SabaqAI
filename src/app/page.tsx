@@ -32,8 +32,10 @@ interface EvalBenchmarkData {
     totalEvaluated: number;
     inSyllabusTotal: number;
     outSyllabusTotal: number;
+    nearMissTotal: number;
     retrievalAccuracy: number;
     offSyllabusRefusalRate: number;
+    nearMissRefusalRate: number;
     falseAcceptanceRate: number;
     falseRefusalRate: number;
     thresholds: {
@@ -47,6 +49,7 @@ interface EvalBenchmarkData {
     question: string;
     lang: string;
     label: string;
+    nearMiss: boolean;
     expectedChapter: number[];
     retrievedChapters: number[];
     top1Score: number;
@@ -57,17 +60,31 @@ interface EvalBenchmarkData {
   }>;
 }
 
+// No correctIndex or explanation — the server withholds the answer key until submission.
 interface QuizQuestion {
   id: string;
   position: number;
   stem: string;
   options: string[];
-  correctIndex: number;
-  explanation: string;
   chunkId: string;
   chapterNo: number;
   page: number;
   section: string;
+}
+
+interface GradedQuestion {
+  questionId: string;
+  selectedIndex: number | null;
+  correctIndex: number;
+  correct: boolean;
+  explanation: string;
+}
+
+interface QuizGrade {
+  score: number;
+  total: number;
+  answered: number;
+  results: GradedQuestion[];
 }
 
 export default function SabaqApp() {
@@ -86,6 +103,10 @@ export default function SabaqApp() {
   const [quizLoading, setQuizLoading] = useState(false);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [isQuizSubmitted, setIsQuizSubmitted] = useState(false);
+  const [answerToken, setAnswerToken] = useState<string | null>(null);
+  const [quizGrade, setQuizGrade] = useState<QuizGrade | null>(null);
+  const [gradeError, setGradeError] = useState<string | null>(null);
+  const [isGrading, setIsGrading] = useState(false);
 
   // Eval Benchmark State
   const [evalData, setEvalData] = useState<EvalBenchmarkData | null>(null);
@@ -172,6 +193,8 @@ export default function SabaqApp() {
     setQuizLoading(true);
     setSelectedAnswers({});
     setIsQuizSubmitted(false);
+    setQuizGrade(null);
+    setGradeError(null);
     try {
       const res = await fetch('/api/quiz', {
         method: 'POST',
@@ -180,12 +203,48 @@ export default function SabaqApp() {
       });
       const data = await res.json();
       setQuizQuestions(data.questions || []);
+      setAnswerToken(data.answerToken ?? null);
     } catch (err) {
       console.error('Quiz load error:', err);
     } finally {
       setQuizLoading(false);
     }
   };
+
+  // Grading happens on the server — the browser never held the answer key.
+  const submitQuiz = async () => {
+    if (!answerToken || isGrading) return;
+    setIsGrading(true);
+    setGradeError(null);
+
+    const answersById: Record<string, number> = {};
+    quizQuestions.forEach((q, idx) => {
+      const selected = selectedAnswers[idx];
+      if (typeof selected === 'number') answersById[q.id] = selected;
+    });
+
+    try {
+      const res = await fetch('/api/quiz/grade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answerToken, answers: answersById }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setGradeError(data.error || 'Could not grade this quiz. Load a new one and try again.');
+        return;
+      }
+      setQuizGrade(data);
+      setIsQuizSubmitted(true);
+    } catch {
+      setGradeError('Could not reach the server to grade this quiz. Check your connection.');
+    } finally {
+      setIsGrading(false);
+    }
+  };
+
+  const gradeFor = (questionId: string): GradedQuestion | undefined =>
+    quizGrade?.results.find((r) => r.questionId === questionId);
 
   const loadEval = async () => {
     setEvalLoading(true);
@@ -624,7 +683,10 @@ export default function SabaqApp() {
                   Why Sabaq AI is Different
                 </h4>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  General AI chatbots hallucinate because they answer from open-web data. Sabaq AI runs strict confidence scoring (PASS ≥ 0.62, BORDERLINE ≥ 0.52). If the question is outside the syllabus, it refuses immediately without invoking the LLM.
+                  General AI chatbots hallucinate because they answer from open-web data. Sabaq AI
+                  scores retrieval confidence before generating, against thresholds calibrated on a
+                  hand-labelled question set. If the question is outside the syllabus, it refuses
+                  immediately without invoking the LLM.
                 </p>
                 <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
                   <div className="bg-slate-950 p-2 rounded border border-slate-800/80">
@@ -683,7 +745,8 @@ export default function SabaqApp() {
               <div className="space-y-4">
                 {quizQuestions.map((q, qIdx) => {
                   const selectedOpt = selectedAnswers[qIdx];
-                  const isCorrect = selectedOpt === q.correctIndex;
+                  const graded = gradeFor(q.id);
+                  const isCorrect = graded?.correct ?? false;
 
                   return (
                     <div key={q.id || qIdx} className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-4">
@@ -704,8 +767,8 @@ export default function SabaqApp() {
                         {q.options.map((opt, oIdx) => {
                           let optStyle = 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700';
 
-                          if (isQuizSubmitted) {
-                            if (oIdx === q.correctIndex) {
+                          if (graded) {
+                            if (oIdx === graded.correctIndex) {
                               optStyle = 'bg-emerald-950/70 border-emerald-500 text-emerald-200 font-semibold';
                             } else if (selectedOpt === oIdx && !isCorrect) {
                               optStyle = 'bg-rose-950/70 border-rose-500 text-rose-200';
@@ -723,10 +786,10 @@ export default function SabaqApp() {
                               className={`p-3 rounded-lg border text-xs text-left transition flex items-center justify-between ${optStyle}`}
                             >
                               <span>{opt}</span>
-                              {isQuizSubmitted && oIdx === q.correctIndex && (
+                              {graded && oIdx === graded.correctIndex && (
                                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                               )}
-                              {isQuizSubmitted && selectedOpt === oIdx && !isCorrect && (
+                              {graded && selectedOpt === oIdx && !isCorrect && (
                                 <XCircle className="w-4 h-4 text-rose-400" />
                               )}
                             </button>
@@ -734,14 +797,14 @@ export default function SabaqApp() {
                         })}
                       </div>
 
-                      {/* Explanation when submitted */}
-                      {isQuizSubmitted && (
+                      {/* Explanation — arrives from the server only after grading */}
+                      {graded && (
                         <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 text-xs space-y-1">
                           <div className="font-semibold text-emerald-400 flex items-center gap-1.5">
                             <BookOpen className="w-3.5 h-3.5" />
                             <span>Textbook Explanation ({q.section}):</span>
                           </div>
-                          <p className="text-slate-300">{q.explanation}</p>
+                          <p className="text-slate-300">{graded.explanation}</p>
                         </div>
                       )}
                     </div>
@@ -749,22 +812,29 @@ export default function SabaqApp() {
                 })}
 
                 {/* Submit / Reset Actions */}
-                <div className="flex items-center justify-between bg-slate-900/80 border border-slate-800 p-4 rounded-xl">
+                <div className="flex flex-col gap-3 bg-slate-900/80 border border-slate-800 p-4 rounded-xl">
+                  {gradeError && (
+                    <div className="text-xs text-amber-300 bg-amber-950/30 border border-amber-900/40 rounded-lg px-3 py-2">
+                      {gradeError}
+                    </div>
+                  )}
                   {!isQuizSubmitted ? (
                     <button
                       type="button"
-                      onClick={() => setIsQuizSubmitted(true)}
-                      disabled={Object.keys(selectedAnswers).length === 0}
-                      className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-xs font-semibold rounded-lg shadow transition cursor-pointer"
+                      onClick={submitQuiz}
+                      disabled={Object.keys(selectedAnswers).length === 0 || isGrading}
+                      className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-xs font-semibold rounded-lg shadow transition cursor-pointer self-start"
                     >
-                      Submit & Grade Quiz ({Object.keys(selectedAnswers).length}/{quizQuestions.length} answered)
+                      {isGrading
+                        ? 'Grading…'
+                        : `Submit & Grade Quiz (${Object.keys(selectedAnswers).length}/${quizQuestions.length} answered)`}
                     </button>
                   ) : (
                     <div className="flex items-center justify-between w-full">
                       <div className="text-sm font-semibold">
                         Score:{' '}
                         <span className="text-emerald-400">
-                          {quizQuestions.filter((q, idx) => selectedAnswers[idx] === q.correctIndex).length} / {quizQuestions.length} Correct
+                          {quizGrade?.score ?? 0} / {quizGrade?.total ?? quizQuestions.length} Correct
                         </span>
                       </div>
                       <button
@@ -814,23 +884,51 @@ export default function SabaqApp() {
               </div>
 
               {evalData && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
                   <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-lg">
                     <div className="text-[11px] text-slate-400">Retrieval Accuracy</div>
                     <div className="text-xl font-bold text-emerald-400 mt-1">{evalData.summary.retrievalAccuracy}%</div>
                     <div className="text-[10px] text-slate-400 mt-0.5">In-syllabus chapter hits</div>
                   </div>
 
+                  {/* The hard cases: same subject, wrong syllabus. This is the defensible number. */}
+                  <div className="bg-slate-950 border border-emerald-800/50 p-3.5 rounded-lg ring-1 ring-emerald-500/20">
+                    <div className="text-[11px] text-emerald-300">Near-Miss Refusal</div>
+                    <div className={`text-xl font-bold mt-1 ${
+                      evalData.summary.nearMissRefusalRate === 100 ? 'text-emerald-400' : 'text-amber-400'
+                    }`}>
+                      {evalData.summary.nearMissRefusalRate}%
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      Class 9/11 physics ({evalData.summary.nearMissTotal})
+                    </div>
+                  </div>
+
                   <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-lg">
                     <div className="text-[11px] text-slate-400">Off-Syllabus Refusal Rate</div>
-                    <div className="text-xl font-bold text-emerald-400 mt-1">{evalData.summary.offSyllabusRefusalRate}%</div>
-                    <div className="text-[10px] text-emerald-400/80 mt-0.5">100% safe refusal</div>
+                    <div className={`text-xl font-bold mt-1 ${
+                      evalData.summary.offSyllabusRefusalRate === 100 ? 'text-emerald-400' : 'text-amber-400'
+                    }`}>
+                      {evalData.summary.offSyllabusRefusalRate}%
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      of {evalData.summary.outSyllabusTotal} off-syllabus questions
+                    </div>
                   </div>
 
                   <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-lg">
                     <div className="text-[11px] text-slate-400">False Acceptance (Leakage)</div>
-                    <div className="text-xl font-bold text-emerald-400 mt-1">{evalData.summary.falseAcceptanceRate}%</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">Off-syllabus answered: 0</div>
+                    <div className={`text-xl font-bold mt-1 ${
+                      evalData.summary.falseAcceptanceRate === 0 ? 'text-emerald-400' : 'text-rose-400'
+                    }`}>
+                      {evalData.summary.falseAcceptanceRate}%
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      Off-syllabus answered:{' '}
+                      {Math.round(
+                        (evalData.summary.falseAcceptanceRate / 100) * evalData.summary.outSyllabusTotal
+                      )}
+                    </div>
                   </div>
 
                   <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-lg">
@@ -876,10 +974,16 @@ export default function SabaqApp() {
                             className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
                               r.label === 'in_syllabus'
                                 ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/60'
+                                : r.nearMiss
+                                ? 'bg-violet-950/80 text-violet-300 border border-violet-800/60'
                                 : 'bg-amber-950/80 text-amber-300 border border-amber-800/60'
                             }`}
                           >
-                            {r.label === 'in_syllabus' ? 'In-Syllabus' : 'Out-of-Syllabus'}
+                            {r.label === 'in_syllabus'
+                              ? 'In-Syllabus'
+                              : r.nearMiss
+                              ? 'Near-Miss'
+                              : 'Out-of-Syllabus'}
                           </span>
                         </td>
                         <td className="p-3 font-medium text-slate-200 max-w-xs">{r.question}</td>

@@ -1,4 +1,0 @@
-{"id":"is-001","lang":"en","label":"in_syllabus","subject":"physics","question":"What is Ohm's law?","expected_chapter":[14]}
-{"id":"is-002","lang":"roman_ur","label":"in_syllabus","subject":"physics","question":"Ohm ka qanoon kya hai?","expected_chapter":[14]}
-{"id":"oos-001","lang":"en","label":"out_of_syllabus","subject":"physics","question":"Explain the mechanism of an organic SN2 reaction.","expected_chapter":[],"reason":"chemistry, different subject"}
-{"id":"oos-002","lang":"en","label":"out_of_syllabus","subject":"physics","question":"What is the time complexity of quicksort?","expected_chapter":[],"reason":"not in board syllabus"}

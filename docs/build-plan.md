@@ -1,141 +1,165 @@
-# Sabaq AI — 7-Day Solo Build Plan
+# Sabaq AI — 7-Day Hackathon Build Plan (Team of 4)
 
-Your daily map. Each day: the goal, exact steps, and a "done when" check. If a day's check
-doesn't pass, do not move on — a broken foundation costs two days later. Every day ends with
-something you can see working.
+> Supersedes the earlier solo build plan. Bano Qabil AI Hackathon 2026, Education category.
 
----
+**Architecture decision: we extend the existing single Next.js app. We do not split into an
+Express backend + a separate Vite dashboard.**
 
-## Day 0 — Accounts (BEFORE Day 1, ~1 hour)
-
-Three things, none involve Docker:
-
-1. **Supabase** (free tier) → create a project → copy the Project URL, `anon` key, and
-   `service_role` key from Project Settings → API. Enable the vector extension:
-   Database → Extensions → search "vector" → enable.
-2. **One AI provider** that gives both embeddings and chat (keeps setup simple). Copy the key.
-3. **Node.js 20+** installed. Check: `node --version`.
-
-**Done when:** you have the Supabase URL + two keys, one AI key, and Node 20+.
+Why: one deploy target, one auth context, no CORS, no cross-service debugging at 2am. With four
+people on a seven-day clock, a "proper" service split costs more in coordination than it returns.
+Next.js API routes already are the backend. The submission brief's architecture story stays true —
+retrieval, guardrail, and generation are still cleanly separated in `src/lib/ai/`.
 
 ---
 
-## Day 1 — Foundations
+## Part 1 — Read this before you write any code
 
-**Goal:** the app runs, you can log in, the database has tables.
+The repo does not currently do what its README claims. Four of these are demo-breaking. Fix them
+before building anything new.
 
-1. `npx create-next-app@latest sabaq --typescript --app --tailwind` (decline the extras). Then
-   `cd sabaq && npm install @supabase/supabase-js @supabase/ssr zod`.
-2. Copy `.env.example` to `.env.local`, fill in your keys.
-3. Run the migration: paste `supabase/migrations/0001_init.sql` into Supabase SQL Editor and run.
-4. Wire Supabase Auth (email/password) with `@supabase/ssr`. One login page, one signup page.
-5. `npm run dev`, log in.
+| # | What's broken | Where | Severity |
+| --- | --- | --- | --- |
+| 1 | **No database.** Retrieval reads a hardcoded 10-paragraph array. Nothing queries Supabase. | `src/lib/ai/retrieval.ts:103`, `src/lib/syllabus-data.ts` | Critical |
+| 2 | **`getNearestChapters()` is fake.** Always returns chapters 10/11/12 with a hardcoded `score: 0.3`, whatever the question. | `src/lib/ai/retrieval.ts:194` | **Demo-breaking** |
+| 3 | **Ingestion script is theater.** It `console.log`s the hardcoded chunks and writes nothing. | `scripts/ingest.ts` | Critical |
+| 4 | **Re-embeds every chunk on every request** — 11 API calls per question, nothing cached. | `src/lib/ai/retrieval.ts:138` | High (rate limits + stage latency) |
+| 5 | **UI hardcodes its own metrics.** "100% safe refusal" and "Off-syllabus answered: 0" are static text regardless of computed results. | `src/app/page.tsx:827` | **Credibility risk** |
+| 6 | **Generation fallback fabricates answers.** On any Gemini failure it chops the top chunk into sentences and returns `answerable: true`. | `src/lib/ai/generation.ts:78` | High (silent stage failure) |
+| 7 | **Eval off-syllabus set is trivially easy** — SN2, quicksort, kidneys, Black-Scholes. Proves little. | `src/app/api/eval/route.ts:65` | Medium |
 
-**Done when:** you can sign up, log in, and see tables in the Supabase Table Editor.
+**Finding #2 is the one that loses you the hackathon.** Your entire pitch (plan §16, §18) hangs on
+the refusal moment. Right now, asking the SN2 chemistry question returns "nearest chapters: Simple
+Harmonic Motion, Sound, Geometrical Optics." A judge who reads that card and asks *why* has exposed
+the demo. Fix it Day 2.
 
-> Auth is the fiddliest part of the week. If it eats the whole day, that's normal. Get it working
-> before Day 2 — everything assumes a logged-in user.
-
----
-
-## Day 2 — Ingest content + vector search
-
-**Goal:** real chunks in the database, and search returns the right ones.
-
-1. Put one or two chapters of plain text into `data/source/`. Start with past papers or openly
-   available material if the textbook licence isn't cleared (see the licensing note in the PRD).
-2. `npm run ingest` — splits text into chunks, embeds each, inserts into `content_chunks`.
-3. Write a tiny query: embed "What is Ohm's law?", run the vector search, print top 5 + scores.
-
-**Done when:** a known question returns the correct chapter near the top, with visible scores.
-If not, your chunking or embedding is wrong — fix it here, not later.
+What is genuinely good and should not be rewritten: `supabase/migrations/0001_init.sql` (real
+schema, real RLS, HNSW index), the guardrail logic in `src/lib/ai/guardrail.ts`, the citation
+validator, and `/api/eval`'s scoring loop — it honestly computes from live retrieval.
 
 ---
 
-## Day 3 — Confidence gate + grounded answer (THE CORE)
+## Part 2 — Two traps that will cost you a day each
 
-**Goal:** `POST /api/ask` returns a grounded answer OR a refusal. This is the whole product.
+**Trap A — embedding dimensions.** The migration declares `vector(1024)`. Gemini
+`text-embedding-004` outputs **768**. Ingest with Gemini against this schema and every insert
+fails.
 
-1. Build `src/lib/ai/`: `language → retrieval → guardrail → generation → citation`.
-2. The guardrail returns PASS / BORDERLINE / REFUSE from the scores. **On REFUSE, do not call the
-   LLM at all.**
-3. On PASS, send only retrieved chunks + question to the LLM. Require chunk-ID citations.
-4. Validate citations: drop any citing a chunk that wasn't retrieved.
-5. Test both paths: an in-syllabus question (answer) and an off-syllabus one (refusal).
+*Resolution (this is also your sponsor-tech answer):* use **Qwen `text-embedding-v3` via Alibaba
+DashScope for embeddings** — it is 1024-dimensional, so the migration runs unchanged. Keep Gemini
+for generation. This makes Alibaba Cloud **load-bearing infrastructure rather than a token API
+call**, which is a far stronger answer when a judge asks how you used sponsor tech. Confirm the
+model's actual dimension on Day 1 and set `EMBEDDING_DIM` to match before anyone runs the
+migration.
 
-**Done when:** in-syllabus returns an answer + citation; off-syllabus returns a refusal + nearest
-chapters. Prove the LLM wasn't called on refusal (a `console.log` in the generation function
-should not fire).
+**Trap B — RLS will silently refuse everything.** The `chunks_match_profile` policy requires a
+matching `student_profiles` row. The app has a signup flow but never creates that row. Switch
+retrieval to Supabase with the anon key and RLS on, and every query returns zero rows → the
+guardrail correctly returns REFUSE → the entire app refuses every question, with no error message.
 
-> Give this day everything. If Day 3 works, you have a demo. If it doesn't, nothing else matters.
-
----
-
-## Day 4 — Ask screen UI
-
-**Goal:** a student can ask and see answer, citation, and refusal states.
-
-1. Input, send, answer card, citation chip that expands to the excerpt.
-2. Refusal state: neutral (not red), nearest chapters, a reformulation hint.
-3. Confidence indicator: icon + label (not colour alone).
-4. Loading: "Searching your syllabus…" then "Writing the answer…".
-5. Works on a phone. Test Urdu `dir="rtl"` if you have Urdu content.
-
-**Done when:** Demo 1 (answer) and Demo 2 (refusal) look good on your phone.
+*Resolution:* run retrieval **server-side with the service_role key** and keep the explicit
+`board / class_level / subject` filter that's already in the code. Content chunks are textbook
+material, not sensitive data — the filter is a correctness concern, not a security one. RLS stays
+on for `qa_log`, `quizzes`, and `quiz_attempts`, where it actually matters.
 
 ---
 
-## Day 5 — Quiz generation
+## Part 3 — Team split
 
-**Goal:** generate a short quiz from a chapter, grade, show explanations.
+Chosen so file ownership barely overlaps. Agree the shared contract on Day 1 (below), then work in
+parallel.
 
-1. `POST /api/quiz`: retrieve a chapter's chunks, ask the LLM for N MCQs with correct answer,
-   explanation, and the source chunk ID.
-2. Discard any question whose answer isn't supported by its cited chunk.
-3. Quiz UI: show questions, grade on submit, show explanations + citations.
+- **Dev A — Retrieval & Guardrail.** Owns `src/lib/ai/`. Replaces the hardcoded array with real
+  pgvector search, fixes `getNearestChapters()` to compute actual nearest chapters from scores,
+  calibrates thresholds against real distributions.
+- **Dev B — Student UI & Voice.** Owns `src/app/page.tsx` and screens. Builds the Ask screen from
+  `.stitch/screen-specs/ask.md`, the quiz UI, and Urdu voice input.
+- **Dev C — Ingestion & Content.** Owns `scripts/ingest.ts` and `supabase/`. PDF → chunk → embed →
+  Supabase. **This is the critical path** — nothing downstream is real until it lands.
+- **Dev D — Eval, Deploy & Pitch.** Owns `src/app/api/eval/route.ts`, DashScope wiring, Vercel
+  deploy, demo script, deck. Also owns deleting the hardcoded metric labels (finding #5).
 
-**Done when:** you can take a 5-question quiz and see your score with explanations.
+### The Day-1 contract that unblocks everyone
 
-> **First cut point.** If Day 4 ran long, skip quiz, go to Day 6. Polished Ask + refusal beats a
-> half-working quiz.
-
----
-
-## Day 6 — Evaluation set
-
-**Goal:** prove it works with numbers. This is what wins judging.
-
-1. Write 20–30 questions in `data/evaluation/questions.jsonl`: in-syllabus (with expected
-   chapter), off-syllabus (must refuse), a few Roman Urdu.
-2. **Label them yourself against the actual book.** Do not have the AI write them.
-3. `npm run eval` — reports retrieval accuracy, wrong-answers-on-off-syllabus, wrong-refusals.
-4. Fix what the numbers reveal. Off-syllabus getting answered? Raise the threshold, re-run.
-
-**Done when:** you have a metrics table to show a judge, and off-syllabus questions mostly refuse.
+A and C must agree the `RetrievedChunk` shape (already in `src/lib/types.ts`) and the Postgres
+similarity-search function signature **before lunch on Day 1**. Once that's fixed, A codes against
+the interface with the hardcoded array as a stub while C builds the real pipeline behind it. Swap
+the implementation on Day 3. Neither blocks the other.
 
 ---
 
-## Day 7 — Polish, rehearse, freeze
+## Part 4 — Day by day
 
-1. Fix the top 3 rough edges only. No new features.
-2. Rehearse the full demo out loud, twice, on your presentation device.
-3. Screenshot every step as backup.
-4. **Freeze.** Only demo-breaking bug fixes after your last rehearsal.
+**Day 1 — Accounts, contract, scope lock.**
+Supabase project + vector extension enabled. Alibaba Cloud DashScope key. Gemini key. Groq key (for
+voice). Confirm Qwen embedding dimension, set it in the migration, run the migration. A+C lock the
+retrieval contract. Lock scope to **PCTB, Class 10, Physics** — one board, one class, one subject,
+fully done (per submission plan §11). C starts PDF text extraction.
+*Done when:* migration is live in Supabase and `npm run dev` boots.
 
-**Done when:** two clean end-to-end runs, and you can explain your evaluation numbers.
+**Day 2 — Real ingestion + kill the fakes.**
+C: real `ingest.ts` — chunk, embed via Qwen, insert with `content_hash` dedupe. A: fix
+`getNearestChapters()` to return true nearest chapters from actual retrieval scores; delete the
+hardcoded `0.3`. D: delete the hardcoded metric strings in `page.tsx` — the dashboard must only
+ever render computed numbers.
+*Done when:* `select count(*) from content_chunks` returns real rows, and a refusal shows chapters
+that are genuinely closest to the question.
+
+**Day 3 — Swap retrieval to pgvector. THE CORE.**
+A: replace `INITIAL_SYLLABUS_CHUNKS` with a real vector query (service_role, explicit filter).
+Embeddings are now precomputed — one API call per question, not eleven. Fix the generation fallback
+(#6) to return an honest refusal instead of a fabricated answer.
+*Done when:* an in-syllabus question answers with a citation, an off-syllabus one refuses with real
+nearest chapters, and the LLM provably isn't called on refusal.
+
+**Day 4 — Ask screen.**
+B: build the four states from `.stitch/screen-specs/ask.md` — idle, two-stage loading, answered
+with citation chip, refused. Mobile-first, Urdu block-level RTL, confidence as icon + label.
+*Done when:* both demo moments look right on a real phone.
+
+**Day 5 — Quiz + Urdu voice input.**
+B: quiz UI wired to `/api/quiz`. B: voice input via **Groq `whisper-large-v3`** — record →
+transcribe → drop into the question box as editable text. **The text input stays visible and usable
+at all times**; voice is an accelerator, never the only path.
+*Done when:* you can take a graded quiz, and an Urdu spoken question reaches the input box.
+
+**Day 6 — Calibrate and prove.**
+D: run the eval, read where in-syllabus and off-syllabus scores actually separate, set
+`PASS_TOP1` just above the off-syllabus band. Re-run until off-syllabus reliably refuses.
+*Optional, ~30 min, high value:* add 4–6 **near-miss** questions — Class 9 and Class 11 physics,
+same subject, wrong syllabus. Refusing those is a much harder and more defensible claim than
+refusing a quicksort question, and it directly answers plan §18's "how do you know it won't
+hallucinate?"
+*Done when:* you have a metrics table computed from live data that you'd be comfortable projecting.
+
+**Day 7 — Deploy, rehearse, freeze.**
+Vercel deploy. Test on the actual presentation device on conference wifi. Screenshot every demo
+step as offline backup. Rehearse the 5-minute pitch three times. **Freeze** — demo-breaking fixes
+only.
 
 ---
+
+## Part 5 — Demo risk notes
+
+- **Voice on stage is the riskiest thing you'll do.** Ambient noise, an unfamiliar mic, and live
+  transcription of Urdu. Demo it *second*, never first, and always with the text box visible so a
+  failed transcription is a shrug rather than a dead stop. Have a screen recording as backup.
+- **Rate limits.** Precomputed embeddings (Day 3) take you from 11 API calls per question to 1.
+  Test heavily on Day 6 and you'll still be fine.
+- **The refusal is your strongest 20 seconds.** Don't narrate over it. Ask the off-syllabus
+  question, let the refusal card render, pause, then point out it was *faster* because no answer
+  was generated.
 
 ## Cut list (decide now, not under pressure)
 
-1. Revision plan (not in this plan — post-MVP for a solo week)
-2. Parent/teacher dashboard (cut entirely if needed)
-3. Quiz (Day 5) — cut to Ask-only
-4. Second subject — demo one, say the second is "ingestion-ready"
+1. Revision planner — cut. LLM output with no grounding story; it dilutes the pitch.
+2. Parent/teacher dashboard — cut. Highest effort, least airtime in five minutes.
+3. Weekly progress reports — cut with the dashboard.
+4. Second subject — demo Physics, say the second is "ingestion-ready."
 
-**Never cut:** the confidence gate, citations, the evaluation set. Those three *are* Sabaq AI.
+**Never cut:** the confidence gate, real citations, the evaluation numbers. Those three *are*
+Sabaq AI.
 
-## One-sentence pitch (never lose this thread)
+## One-sentence pitch
 
 "Other AI tutors answer confidently from the wrong curriculum. Sabaq AI answers only from your
 actual textbook, shows you the page, and honestly refuses when your syllabus doesn't cover it —

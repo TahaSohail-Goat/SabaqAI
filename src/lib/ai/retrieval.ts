@@ -1,9 +1,16 @@
 // Vector search. ALWAYS filtered by the student's board/class/subject.
 // An unfiltered search is a bug — it breaks grounding by pulling the wrong curriculum.
+//
+// Two paths:
+//   1. Supabase configured  -> real pgvector search via the match_content_chunks RPC.
+//      One embedding call per question; chunk embeddings were computed once at ingest time.
+//   2. Not configured       -> a keyword-ranked fallback over the small hardcoded corpus, so the
+//      frontend is workable locally without keys. It is NOT the product and says so loudly.
 
 import type { RetrievedChunk } from '../types';
-import { INITIAL_SYLLABUS_CHUNKS, CHAPTER_DIRECTORY } from '../syllabus-data';
-import { getGeminiClient } from '../gemini';
+import { INITIAL_SYLLABUS_CHUNKS } from '../syllabus-data';
+import { getServiceRoleClient } from '../supabase/admin';
+import { embedText } from './embeddings';
 
 export interface RetrievalInput {
   normalisedQuery: string;
@@ -42,158 +49,156 @@ export function normaliseQueryText(query: string): string {
   return text;
 }
 
-function calculateKeywordScore(query: string, content: string, keywords: string[]): number {
-  const qTerms = query.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => t.length > 2);
-  if (qTerms.length === 0) return 0.1;
-
-  let termMatches = 0;
-  let exactPhraseBonus = 0;
-  const contentLower = content.toLowerCase();
-
-  // Check exact phrases
-  if (contentLower.includes(query.toLowerCase()) && query.length > 5) {
-    exactPhraseBonus += 0.35;
-  }
-
-  // Check keywords
-  for (const kw of keywords) {
-    if (kw.toLowerCase().includes(query.toLowerCase()) || query.toLowerCase().includes(kw.toLowerCase())) {
-      exactPhraseBonus += 0.25;
-      break;
-    }
-  }
-
-  // Check individual key terms
-  for (const term of qTerms) {
-    const regex = new RegExp(`\\b${term}`, 'i');
-    if (regex.test(contentLower)) {
-      termMatches += 1;
-    }
-    for (const kw of keywords) {
-      if (kw.toLowerCase().includes(term)) {
-        termMatches += 0.5;
-      }
-    }
-  }
-
-  const coverage = termMatches / (qTerms.length * 1.5);
-  const baseScore = Math.min(0.85, 0.2 + (coverage * 0.5) + exactPhraseBonus);
-  return Number(baseScore.toFixed(3));
-}
-
-// Cosine similarity for embedding vectors
-function cosineSimilarity(vecA: number[], vecB: number[]): number {
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < vecA.length; i++) {
-    dotProduct += vecA[i] * vecB[i];
-    normA += vecA[i] * vecA[i];
-    normB += vecB[i] * vecB[i];
-  }
-  if (normA === 0 || normB === 0) return 0;
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-}
-
 export async function retrieve(input: RetrievalInput): Promise<RetrievedChunk[]> {
   const normQuery = normaliseQueryText(input.normalisedQuery);
+  const topK = Number(process.env.TOP_K ?? 20);
   const maxChunks = Number(process.env.CONTEXT_MAX_CHUNKS ?? 6);
 
-  // Filter chunks strictly by board, class level, subject
-  const filteredChunks = INITIAL_SYLLABUS_CHUNKS.filter((c) => {
-    const boardMatch = c.board.toLowerCase() === input.board.toLowerCase();
-    const classMatch = c.classLevel === input.classLevel;
-    const subjectMatch = c.subject.toLowerCase() === input.subject.toLowerCase();
-    return boardMatch && classMatch && subjectMatch;
-  });
+  const supabase = getServiceRoleClient();
 
-  if (filteredChunks.length === 0) {
-    return [];
-  }
+  if (supabase) {
+    // Embed the question once. Chunk vectors are already stored — never re-embed the corpus.
+    const queryVector = await embedText(normQuery);
 
-  // Check if Gemini embedding API is available
-  const ai = getGeminiClient();
-  const scoredChunks: RetrievedChunk[] = [];
+    const { data, error } = await supabase.rpc('match_content_chunks', {
+      query_embedding: queryVector,
+      filter_board: input.board,
+      filter_class: input.classLevel,
+      filter_subject: input.subject,
+      match_count: topK,
+    });
 
-  if (ai) {
-    try {
-      // Generate embedding for query
-      const embedModel = process.env.EMBEDDING_MODEL || 'text-embedding-004';
-      const embedRes = await ai.models.embedContent({
-        model: embedModel,
-        contents: normQuery,
-      });
-
-      const anyRes = embedRes as any;
-      const queryVector: number[] | undefined = anyRes.embedding?.values || anyRes.embeddings?.[0]?.values;
-
-      if (queryVector && queryVector.length > 0) {
-        // Embed candidate chunks (or hybrid rank)
-        for (const chunk of filteredChunks) {
-          const kwScore = calculateKeywordScore(normQuery, chunk.content, chunk.keywords);
-          
-          // Hybrid score combining semantic keyword relevance with safety
-          let score = kwScore;
-          try {
-            const chunkEmbedRes = await ai.models.embedContent({
-              model: embedModel,
-              contents: `${chunk.chapterTitle} ${chunk.section} ${chunk.content}`,
-            });
-            const anyChunkRes = chunkEmbedRes as any;
-            const chunkVector: number[] | undefined = anyChunkRes.embedding?.values || anyChunkRes.embeddings?.[0]?.values;
-            if (chunkVector) {
-              const semSim = (cosineSimilarity(queryVector, chunkVector) + 1) / 2;
-              score = Number((0.6 * semSim + 0.4 * kwScore).toFixed(3));
-            }
-          } catch {
-            score = kwScore;
-          }
-
-          scoredChunks.push({
-            id: chunk.id,
-            chapterNo: chunk.chapterNo,
-            chapterTitle: chunk.chapterTitle,
-            section: chunk.section,
-            pageFrom: chunk.pageFrom,
-            pageTo: chunk.pageTo,
-            sourceType: chunk.sourceType,
-            content: chunk.content,
-            score: Math.min(0.98, Math.max(0.05, score)),
-          });
-        }
-      }
-    } catch {
-      // Fallback to calibrated keyword ranking
+    if (error) {
+      // Fail loudly. Returning [] here would look identical to "nothing matched", the gate would
+      // refuse, and a broken database would silently masquerade as a working guardrail.
+      throw new Error(
+        `Vector search failed: ${error.message}. ` +
+        `If this mentions the function, run supabase/migrations/0002_match_function.sql.`
+      );
     }
+
+    type MatchRow = {
+      id: string;
+      chapter_no: number;
+      chapter_title: string | null;
+      section: string | null;
+      page_from: number | null;
+      page_to: number | null;
+      source_type: RetrievedChunk['sourceType'];
+      content: string;
+      score: number;
+    };
+
+    return ((data ?? []) as MatchRow[]).slice(0, maxChunks).map((row) => ({
+      id: row.id,
+      chapterNo: row.chapter_no,
+      chapterTitle: row.chapter_title,
+      section: row.section,
+      pageFrom: row.page_from,
+      pageTo: row.page_to,
+      sourceType: row.source_type,
+      content: row.content,
+      score: Number(row.score.toFixed(3)),
+    }));
   }
 
-  if (scoredChunks.length === 0) {
-    for (const chunk of filteredChunks) {
-      const score = calculateKeywordScore(normQuery, chunk.content, chunk.keywords);
-      scoredChunks.push({
-        id: chunk.id,
-        chapterNo: chunk.chapterNo,
-        chapterTitle: chunk.chapterTitle,
-        section: chunk.section,
-        pageFrom: chunk.pageFrom,
-        pageTo: chunk.pageTo,
-        sourceType: chunk.sourceType,
-        content: chunk.content,
-        score: Math.min(0.95, Math.max(0.05, score)),
-      });
-    }
-  }
-
-  // Sort descending by score
-  scoredChunks.sort((a, b) => b.score - a.score);
-
-  // Return top CONTEXT_MAX_CHUNKS
-  return scoredChunks.slice(0, maxChunks);
+  warnFallbackOnce();
+  return retrieveFromLocalCorpus(normQuery, input, maxChunks);
 }
 
-export function getNearestChapters(subject: string = 'physics'): { chapterNo: number; chapterTitle: string | null; score: number }[] {
-  return CHAPTER_DIRECTORY
-    .filter(c => c.subject.toLowerCase() === subject.toLowerCase())
-    .slice(0, 3)
-    .map(c => ({ chapterNo: c.chapterNo, chapterTitle: c.chapterTitle, score: 0.3 }));
+let warned = false;
+function warnFallbackOnce(): void {
+  if (warned) return;
+  warned = true;
+  console.warn(
+    '[retrieval] Supabase is not configured — using the hardcoded local corpus with keyword ' +
+    'ranking. Scores are NOT real embedding similarity and thresholds calibrated against them ' +
+    'are meaningless. Never demo or quote metrics from this path. See docs/setup.md.'
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Local development fallback. Not the product.
+// ---------------------------------------------------------------------------
+
+function retrieveFromLocalCorpus(
+  normQuery: string,
+  input: RetrievalInput,
+  maxChunks: number,
+): RetrievedChunk[] {
+  const filtered = INITIAL_SYLLABUS_CHUNKS.filter(
+    (c) =>
+      c.board.toLowerCase() === input.board.toLowerCase() &&
+      c.classLevel === input.classLevel &&
+      c.subject.toLowerCase() === input.subject.toLowerCase()
+  );
+
+  return filtered
+    .map((chunk) => ({
+      id: chunk.id,
+      chapterNo: chunk.chapterNo,
+      chapterTitle: chunk.chapterTitle,
+      section: chunk.section,
+      pageFrom: chunk.pageFrom,
+      pageTo: chunk.pageTo,
+      sourceType: chunk.sourceType,
+      content: chunk.content,
+      score: keywordScore(normQuery, chunk.content, chunk.keywords),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxChunks);
+}
+
+function keywordScore(query: string, content: string, keywords: string[]): number {
+  const terms = query.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((t) => t.length > 2);
+  if (terms.length === 0) return 0.1;
+
+  const contentLower = content.toLowerCase();
+  const queryLower = query.toLowerCase();
+  let matches = 0;
+  let phraseBonus = 0;
+
+  if (queryLower.length > 5 && contentLower.includes(queryLower)) phraseBonus += 0.35;
+  if (keywords.some((k) => k.toLowerCase().includes(queryLower) || queryLower.includes(k.toLowerCase()))) {
+    phraseBonus += 0.25;
+  }
+
+  for (const term of terms) {
+    if (new RegExp(`\\b${term}`, 'i').test(contentLower)) matches += 1;
+    for (const k of keywords) if (k.toLowerCase().includes(term)) matches += 0.5;
+  }
+
+  const coverage = matches / (terms.length * 1.5);
+  const score = Math.min(0.85, 0.2 + coverage * 0.5 + phraseBonus);
+  return Number(Math.min(0.95, Math.max(0.05, score)).toFixed(3));
+}
+
+// ---------------------------------------------------------------------------
+
+// The chapters that came CLOSEST to this question, computed from the scores retrieval actually
+// produced. Shown to the student on a refusal.
+//
+// This must never be a fixed list. "Nearest" has to mean nearest to what was asked, or the
+// refusal card is making a claim the system can't back — and that card is the whole demo.
+// When retrieval found nothing at all, the honest answer is an empty list, not a guess.
+export function getNearestChapters(
+  chunks: RetrievedChunk[],
+  limit = 3,
+): { chapterNo: number; chapterTitle: string | null; score: number }[] {
+  const bestPerChapter = new Map<number, { chapterNo: number; chapterTitle: string | null; score: number }>();
+
+  for (const chunk of chunks) {
+    const existing = bestPerChapter.get(chunk.chapterNo);
+    if (!existing || chunk.score > existing.score) {
+      bestPerChapter.set(chunk.chapterNo, {
+        chapterNo: chunk.chapterNo,
+        chapterTitle: chunk.chapterTitle,
+        score: chunk.score,
+      });
+    }
+  }
+
+  return [...bestPerChapter.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
 }

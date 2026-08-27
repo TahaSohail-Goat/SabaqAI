@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { INITIAL_SYLLABUS_CHUNKS } from '@/lib/syllabus-data';
 import { getGeminiClient } from '@/lib/gemini';
+import { sealAnswerKey, type AnswerKeyEntry } from '@/lib/quiz/answer-key';
 
+/** Internal shape, including the answer. Never returned to the browser as-is. */
 export interface QuizQuestionData {
   id: string;
   position: number;
@@ -13,6 +15,27 @@ export interface QuizQuestionData {
   chapterNo: number;
   page: number;
   section: string;
+}
+
+/** What the browser actually receives: no correctIndex, no explanation. */
+export type PublicQuizQuestion = Omit<QuizQuestionData, 'correctIndex' | 'explanation'>;
+
+/**
+ * Strip the answer key out of the questions and seal it into a signed token.
+ * docs/database.md: the correct answer must never reach the browser before the student submits.
+ */
+function toPublicQuiz(questions: QuizQuestionData[]) {
+  const answerKey: AnswerKeyEntry[] = questions.map((q) => ({
+    questionId: q.id,
+    correctIndex: q.correctIndex,
+    explanation: q.explanation,
+  }));
+
+  const publicQuestions: PublicQuizQuestion[] = questions.map(
+    ({ correctIndex: _correctIndex, explanation: _explanation, ...rest }) => rest
+  );
+
+  return { questions: publicQuestions, answerToken: sealAnswerKey(answerKey) };
 }
 
 const PRECOMPUTED_QUIZZES: Record<number, QuizQuestionData[]> = {
@@ -175,22 +198,48 @@ Return strictly a JSON array of objects in this shape:
           const cleaned = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
           const parsed = JSON.parse(cleaned);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const mappedQuestions: QuizQuestionData[] = parsed.map((q, idx) => {
-              const matchedChunk = matchingChunks.find(c => c.id === q.chunkId) || matchingChunks[0];
-              return {
-                id: q.id || `gen-q-${idx}`,
-                position: idx + 1,
-                stem: q.stem,
-                options: q.options,
-                correctIndex: q.correctIndex,
-                explanation: q.explanation,
-                chunkId: matchedChunk.id,
-                chapterNo: matchedChunk.chapterNo,
-                page: matchedChunk.pageFrom,
-                section: matchedChunk.section
-              };
-            });
-            return NextResponse.json({ questions: mappedQuestions, chapterNo, subject });
+            // Validate each question's citation against the chunks we actually retrieved.
+            // A question citing a chunk id that doesn't exist is DISCARDED, never reassigned:
+            // substituting a real chunk would give a hallucinated question real-looking
+            // provenance, which is worse than dropping it.
+            const mappedQuestions: QuizQuestionData[] = parsed
+              .map((q, idx) => {
+                const matchedChunk = matchingChunks.find((c) => c.id === q.chunkId);
+                if (!matchedChunk) {
+                  console.warn(
+                    `Quiz: discarding question ${q.id ?? idx} — cites unknown chunk "${q.chunkId}"`
+                  );
+                  return null;
+                }
+                if (!q.stem || !Array.isArray(q.options) || typeof q.correctIndex !== 'number') {
+                  console.warn(`Quiz: discarding question ${q.id ?? idx} — malformed`);
+                  return null;
+                }
+                return {
+                  id: q.id || `gen-q-${idx}`,
+                  position: 0, // renumbered after filtering
+                  stem: q.stem,
+                  options: q.options,
+                  correctIndex: q.correctIndex,
+                  explanation: q.explanation,
+                  chunkId: matchedChunk.id,
+                  chapterNo: matchedChunk.chapterNo,
+                  page: matchedChunk.pageFrom,
+                  section: matchedChunk.section,
+                };
+              })
+              .filter((q): q is QuizQuestionData => q !== null)
+              .map((q, idx) => ({ ...q, position: idx + 1 }));
+
+            if (mappedQuestions.length > 0) {
+              return NextResponse.json({
+                ...toPublicQuiz(mappedQuestions),
+                chapterNo,
+                subject,
+                discarded: parsed.length - mappedQuestions.length,
+              });
+            }
+            console.warn('Quiz: every generated question failed citation validation.');
           }
         }
       } catch (err) {
@@ -198,12 +247,16 @@ Return strictly a JSON array of objects in this shape:
       }
     }
 
+    // Hand-written fallback bank, used only when generation is unavailable or produced nothing
+    // that validated. Flagged honestly: these were not generated from the live corpus for this
+    // request, and the UI should say so rather than implying they were.
     const fallbackQuestions = PRECOMPUTED_QUIZZES[chapterNo] || PRECOMPUTED_QUIZZES[14];
     return NextResponse.json({
-      questions: fallbackQuestions,
+      ...toPublicQuiz(fallbackQuestions),
       chapterNo,
       subject,
-      note: 'Verified syllabus questions from PCTB Class 10'
+      isFallback: true,
+      note: 'Fallback question bank — live generation unavailable for this request.',
     });
   } catch (error) {
     console.error('Quiz API error:', error);

@@ -14,15 +14,21 @@ syllabus doesn't cover the question — plus quizzes and an evaluation set that 
 A Class 10 student on a low-end Android, often typing Roman Urdu, weeks from board exams.
 
 ## MVP scope
-- **One board (PCTB), one class (10), one or two subjects.**
+- **One board (PCTB), one class (10), one subject (Physics)** — fully ingested, not spread thin.
 - Grounded Ask with citations.
 - Confidence gate + refusal.
-- Adaptive quiz (cuttable).
+- Chapter quiz (cuttable).
 - Evaluation set with real metrics.
+- Urdu voice input (speech-to-text) — accessibility, and it demos memorably.
 
 ## Explicit non-goals for this week
-Revision planner, parent/teacher dashboard, voice input, multiple boards, payments,
-notifications. The architecture allows them later; the week does not.
+Revision planner, parent/teacher dashboard, weekly progress reports, multiple boards, payments,
+notifications. The architecture allows them later; the week does not. These are cut deliberately —
+see the cut list in `docs/build-plan.md`.
+
+## Team
+Four people, seven days. Ownership split and the day-by-day plan are in `docs/build-plan.md`.
+What is actually built versus still stubbed is tracked in `docs/project-status.md`.
 
 ## What makes it different
 The refusal path is a real, tested, measured feature — not a disclaimer. Most "AI tutor" demos

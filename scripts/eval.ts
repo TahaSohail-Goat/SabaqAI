@@ -1,97 +1,69 @@
-// Day 6. Run data/evaluation/questions.jsonl through retrieval + guardrail
-import { retrieve } from '../src/lib/ai/retrieval';
-import { evaluateConfidence } from '../src/lib/ai/guardrail';
-import fs from 'fs';
-import path from 'path';
+// Evaluation CLI. Same labelled set and same scoring as /api/eval — both call runEvaluation(),
+// so the dashboard and this script can never report different numbers for the same system.
+//
+//   npm run eval
+//
+// See docs/evaluation.md for what each metric means and how to calibrate thresholds against them.
 
-async function runEval() {
-  console.log('====================================================');
-  console.log('  SABAQ AI — DAY 6 EVALUATION & CALIBRATION BENCHMARK');
-  console.log('====================================================\n');
+import { runEvaluation } from '../src/lib/evaluation/run';
 
-  const questionsFile = path.join(process.cwd(), 'data/evaluation/questions.jsonl');
-  let rawQuestions: any[] = [];
-  
-  if (fs.existsSync(questionsFile)) {
-    const lines = fs.readFileSync(questionsFile, 'utf8').split('\n').filter(l => l.trim());
-    rawQuestions = lines.map(l => JSON.parse(l));
-  } else {
-    rawQuestions = [
-      { id: 'is-001', lang: 'en', label: 'in_syllabus', subject: 'physics', question: "What is Ohm's law?", expected_chapter: [14] },
-      { id: 'is-002', lang: 'roman_ur', label: 'in_syllabus', subject: 'physics', question: "Ohm ka qanoon kya hai?", expected_chapter: [14] },
-      { id: 'oos-001', lang: 'en', label: 'out_of_syllabus', subject: 'physics', question: "Explain the mechanism of an organic SN2 reaction.", expected_chapter: [], reason: "chemistry" },
-      { id: 'oos-002', lang: 'en', label: 'out_of_syllabus', subject: 'physics', question: "What is the time complexity of quicksort?", expected_chapter: [], reason: "computer science" }
-    ];
-  }
+const pad = (v: string | number, n: number) => String(v).padEnd(n);
 
-  let inCount = 0;
-  let inHits = 0;
-  let falseRefusal = 0;
-  let outCount = 0;
-  let trueRefusal = 0;
-  let falseAcceptance = 0;
+async function main(): Promise<void> {
+  console.log('Sabaq AI — evaluation');
+  console.log('='.repeat(96));
 
-  console.log('Evaluating queries against PCTB Matric Physics corpus:\n');
+  const { summary, results } = await runEvaluation();
+
   console.log(
-    'ID'.padEnd(10) +
-    'Type'.padEnd(16) +
-    'Top1'.padEnd(8) +
-    'Supp'.padEnd(6) +
-    'Decision'.padEnd(12) +
-    'Status'.padEnd(8) +
-    'Question'
+    pad('ID', 9) + pad('Type', 16) + pad('Top1', 8) +
+    pad('Supp', 6) + pad('Decision', 12) + pad('Result', 9) + 'Question'
   );
-  console.log('-'.repeat(85));
+  console.log('-'.repeat(96));
 
-  for (const q of rawQuestions) {
-    const chunks = await retrieve({
-      normalisedQuery: q.question,
-      board: 'PCTB',
-      classLevel: 10,
-      subject: q.subject || 'physics',
-    });
-
-    const guardrail = evaluateConfidence(chunks);
-    const expected = q.expected_chapter || [];
-    const retrievedChapters = Array.from(new Set(chunks.map(c => c.chapterNo)));
-
-    let status = 'PASS';
-    if (q.label === 'in_syllabus') {
-      inCount++;
-      const hit = expected.some((ch: number) => retrievedChapters.includes(ch));
-      if (hit) inHits++;
-      if (guardrail.decision === 'REFUSE') {
-        falseRefusal++;
-        status = 'FAIL (Refused)';
-      }
-    } else {
-      outCount++;
-      if (guardrail.decision === 'REFUSE') {
-        trueRefusal++;
-        status = 'OK (Refused)';
-      } else {
-        falseAcceptance++;
-        status = 'FAIL (Leaked)';
-      }
-    }
-
+  for (const r of results) {
+    const type = r.label === 'in_syllabus' ? 'in-syllabus' : r.nearMiss ? 'NEAR-MISS' : 'off-syllabus';
     console.log(
-      q.id.padEnd(10) +
-      q.label.padEnd(16) +
-      guardrail.top1.toFixed(2).padEnd(8) +
-      String(guardrail.support).padEnd(6) +
-      guardrail.decision.padEnd(12) +
-      status.padEnd(8) +
-      q.question.slice(0, 30)
+      pad(r.id, 9) +
+      pad(type, 16) +
+      pad(r.top1Score.toFixed(3), 8) +
+      pad(r.supportCount, 6) +
+      pad(r.decision, 12) +
+      pad(r.passedVerification ? 'ok' : 'FAIL', 9) +
+      r.question.slice(0, 44)
     );
   }
 
-  console.log('\n================== BENCHMARK SUMMARY ==================');
-  console.log(`Retrieval Accuracy (In-Syllabus): ${((inHits / inCount) * 100).toFixed(1)}%`);
-  console.log(`Refusal Rate (Off-Syllabus):      ${((trueRefusal / outCount) * 100).toFixed(1)}%`);
-  console.log(`False Acceptance Rate (Leakage):  ${((falseAcceptance / outCount) * 100).toFixed(1)}%`);
-  console.log(`False Refusal Rate:               ${((falseRefusal / inCount) * 100).toFixed(1)}%`);
-  console.log('=======================================================\n');
+  console.log('\n' + '='.repeat(96));
+  console.log(`Retrieval accuracy (in-syllabus):   ${summary.retrievalAccuracy}%  (${summary.inSyllabusTotal} questions)`);
+  console.log(`Refusal rate (all off-syllabus):    ${summary.offSyllabusRefusalRate}%  (${summary.outSyllabusTotal} questions)`);
+  console.log(`Refusal rate (NEAR-MISS only):      ${summary.nearMissRefusalRate}%  (${summary.nearMissTotal} questions)  <- the number that matters`);
+  console.log(`False acceptance (leakage):         ${summary.falseAcceptanceRate}%`);
+  console.log(`False refusal:                      ${summary.falseRefusalRate}%`);
+  console.log('-'.repeat(96));
+  console.log(
+    `Thresholds: PASS_TOP1=${summary.thresholds.PASS_TOP1}  ` +
+    `BORDERLINE_TOP1=${summary.thresholds.BORDERLINE_TOP1}  ` +
+    `SUPPORT_SCORE=${summary.thresholds.SUPPORT_SCORE}`
+  );
+
+  const failures = results.filter((r) => !r.passedVerification);
+  if (failures.length > 0) {
+    console.log(`\n${failures.length} question(s) failed:`);
+    for (const f of failures) {
+      console.log(`  ${f.id}  ${f.decision.padEnd(11)} top1=${f.top1Score.toFixed(3)}  ${f.question.slice(0, 56)}`);
+    }
+  }
+
+  // Leakage is the number that maps directly to "does it lie to students". Fail the command on it
+  // so this can gate CI later without anyone having to remember to read the output.
+  if (summary.falseAcceptanceRate > 0) {
+    console.log('\nFAIL: off-syllabus questions were answered. Raise PASS_TOP1 and re-run.');
+    process.exitCode = 1;
+  }
 }
 
-runEval().catch(console.error);
+main().catch((err: unknown) => {
+  console.error('\nEvaluation failed:', err instanceof Error ? err.message : err);
+  process.exitCode = 1;
+});
