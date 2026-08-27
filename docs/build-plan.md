@@ -2,6 +2,146 @@
 
 > Supersedes the earlier solo build plan. Bano Qabil AI Hackathon 2026, Education category.
 
+---
+
+## Part 0 — Current sprint, real names (2026-08-27)
+
+Everything below Part 1 was the plan for a green-field build. It's not green-field anymore: one
+person (Taha) has already written the retrieval/guardrail/generation/quiz/eval code solo, per
+`docs/project-status.md`. It type-checks and looks right, but **nothing has run against a real
+Supabase project, a real DashScope key, or real textbook content.** That's the actual state of the
+repo today, and it's the entire remaining scope for the four of us.
+
+**Division is by development layer** — three people each own one build layer end-to-end so file
+ownership doesn't overlap; **DevOps & QA is not a fourth lane, it's a shared final phase everyone
+does together** once the three layers land.
+
+| Development area | Owner(s) | GitHub |
+| --- | --- | --- |
+| **Database & infrastructure** | Abdullah Adnan | `Abdullah-SE-bit` |
+| **AI / backend** (retrieval, guardrail, generation) | Taha Sohail | `TahaSohail-Goat` |
+| **Frontend** (UI, quiz, voice) | Artfever + Muhammad Hasnain | `Artfever`, `voidloop-dev` |
+| **DevOps & QA** (eval, deploy, pitch) | **All four, at the end** | — |
+
+Dependency order: Database work unblocks AI/backend verification and the frontend's quiz-persistence
+piece. The rest of frontend does not depend on live data and can proceed in parallel from day one.
+DevOps & QA starts only once the three build layers are actually working together.
+
+### 1. Database & infrastructure development — Abdullah
+
+Nobody can verify anything until this lands. Do it first, ideally today.
+
+1. Create the real Supabase project, enable the `vector` extension.
+2. Get a DashScope API key. Confirm `text-embedding-v3` actually returns 1024 dims before running
+   anything else — this is Trap A below, and it silently breaks every insert if wrong.
+3. Run `supabase/migrations/0001_init.sql` then `0002_match_function.sql` against the real project.
+4. Fill real values into `.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `DASHSCOPE_API_KEY`.
+5. Run `npm run ingest` against real chapter text (coordinate with whoever sources the PCTB Class
+   10 Physics PDF/text — see Part 4, Day 1 scope lock) and confirm
+   `select count(*) from content_chunks` returns real rows, not 0.
+6. Verify the `match_content_chunks` RPC returns sane results for a real question — this is marked
+   "unverified" in `project-status.md` and is the single riskiest unverified piece in the repo.
+7. Confirm RLS behaves as documented (Trap B below): retrieval must run with `service_role`, not
+   anon — the anon key + RLS combination will silently return zero rows and make the guardrail
+   refuse every question with no visible error.
+8. Wire up the currently-unused `quizzes` / `quiz_questions` / `quiz_attempts` tables so quiz
+   results persist (see `project-status.md` → "Quiz persistence — Missing"). Coordinate the request
+   shape with Artfever, who owns the frontend side of this.
+
+*Done when:* `content_chunks` has real ingested rows, a real question returns a real similarity
+score (not the local-corpus keyword fallback), and quiz attempts are stored instead of discarded.
+
+### 2. AI / backend development — Taha
+
+Blocked on Abdullah's step 5–7 for anything that needs live data; until then, review/tighten the
+existing code.
+
+1. Once real data lands, confirm retrieval is actually hitting Supabase (`[retrieval]` warning in
+   logs means it silently fell back to the 10-row local corpus — that must not happen in the demo).
+2. Fix the known near-miss leakage: `nm-003` ("Derive Ohm's law from the Drude model") currently
+   scores 0.709 and gets answered — false acceptance. Recalibrate `PASS_TOP1` /
+   `BORDERLINE_TOP1` against the real score distribution, not the placeholder `0.62` / `0.52` in
+   `.env.example`.
+3. Re-verify the citation validator (`src/lib/ai/citation.ts`) against real chunk ids once ingestion
+   is live.
+4. Review Artfever's and Hasnain's PRs against `src/lib/ai/` and `src/lib/types.ts` — you wrote the
+   contract, you're best placed to catch drift from it.
+
+*Done when:* an in-syllabus question answers with a real citation, an off-syllabus one refuses, and
+the near-miss questions in `src/lib/evaluation/questions.ts` refuse too.
+
+### 3. Frontend development — Artfever + Hasnain
+
+Split the screen surface so both can work without touching the same files.
+
+**Artfever — Ask screen & voice:**
+
+1. Wire the Ask screen's metric cards to confirm they render only computed numbers from `/api/eval`
+   (already fixed per `project-status.md`, but verify on real data once Abdullah's ingestion runs —
+   numbers looked plausible against zero rows, which is not the same as correct).
+2. Build Urdu voice input — Groq `whisper-large-v3`: record → transcribe → drop into the question
+   box as **editable** text. The text input must stay visible and usable at all times; voice is an
+   accelerator, never the only path (see Part 5 demo-risk notes — this is the riskiest live demo
+   moment).
+3. Sanity-check the four Ask-screen states (idle / loading / answered / refused) on an actual phone,
+   not just desktop Chrome.
+
+**Hasnain — Quiz screen:**
+
+1. Frontend side of quiz persistence: once Abdullah's tables are live, save attempts via
+   `/api/quiz/grade` and show a results/history view instead of discarding them client-side.
+2. Confirm the near-miss set in `src/lib/evaluation/questions.ts` still holds under real data;
+   propose 2-3 more near-miss questions if the current ones are too easy — this feeds directly into
+   the shared eval run below.
+
+*Done when:* a quiz attempt survives a page refresh, and a spoken Urdu question reaches the input
+box as editable text with the text box still usable if transcription fails.
+
+### 4. DevOps & QA — everyone, at the end
+
+Not one person's lane. Once Database, AI/backend, and Frontend are each working on their own, all
+four regroup and close the sprint together:
+
+1. **Everyone:** run `npm run eval` against the real ingested content and read the metrics table
+   together — in-syllabus vs. off-syllabus vs. near-miss. Taha owns interpreting the numbers since he
+   owns the thresholds, but everyone should see where it actually separates.
+2. **Abdullah + Taha:** if the eval run exposes bad calibration or missing data, they're the two who
+   can fix it fastest — database or threshold, respectively.
+3. **Hasnain:** deploy to Vercel with the real env vars (get `QUIZ_SECRET` generated and set —
+   without it, quiz grading fails intermittently across server instances, see `.env.example`).
+4. **Everyone:** test the deployed build on the actual presentation device on conference wifi.
+   Screenshot every demo step as an offline backup — split this by feature area (Ask / quiz / voice)
+   so each person verifies the screen they built.
+5. **Everyone:** rehearse the 5-minute pitch together at least twice (`docs/demo-script.md`,
+   `docs/submission.md`) — whoever isn't presenting plays judge and asks the hard questions.
+
+*Done when:* you have a metrics table computed from live data you'd be comfortable projecting to
+judges, the deployed app has been rehearsed end-to-end on the demo device, and all four people have
+seen the whole flow work at least once — not just their own piece.
+
+### Layer dependency graph
+
+```
+Database & infra (Abdullah)  ──▶  AI / backend (Taha)             ──┐
+                              └─▶  Frontend / quiz (Hasnain)         ├──▶  DevOps & QA (all four)
+                                                                     │
+Frontend / Ask screen + voice (Artfever)  ── independent, starts immediately ──┘
+```
+
+Abdullah's steps 1-7 block Taha's calibration and Hasnain's quiz-persistence wiring — that work
+genuinely cannot start until real data exists. Artfever's voice input and Ask-screen polish don't
+depend on live data and can start in parallel immediately. The three layers re-sync once
+`content_chunks` has real rows, and only then does the whole team move into the shared DevOps & QA
+phase together.
+
+Everything from here down (Parts 1-5) is background: what's broken, why the architecture is what it
+is, the two dimension/RLS traps in more detail, and the demo-risk notes. Worth reading once, not
+re-planning — the plan above supersedes the original Day-1-through-7 schedule now that most of it is
+already built.
+
+---
+
 **Architecture decision: we extend the existing single Next.js app. We do not split into an
 Express backend + a separate Vite dashboard.**
 
