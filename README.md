@@ -75,7 +75,6 @@ scripts/          ingest.ts, eval.ts
 data/source/      your textbook/past-paper text (never committed)
 data/evaluation/  your labelled question set
 supabase/         the database migration
-.stitch/          design brief + screen specs (design handoff, not code)
 docs/             everything below
 ```
 

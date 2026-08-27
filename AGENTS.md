@@ -104,7 +104,6 @@ scripts/ingest.ts          ingestion pipeline
 scripts/eval.ts            evaluation CLI
 supabase/migrations/       0001 schema + RLS, 0002 match_content_chunks RPC
 data/source/               your syllabus JSON (gitignored)
-.stitch/                   design briefs and screen specs — specs only, not code
 docs/                      see below
 ```
 
@@ -207,7 +206,7 @@ reason this is visible. Fix it by recalibrating against the real corpus (step 4)
   `DASHSCOPE_API_KEY` must never reach the browser.
 - **UI:** mobile-first for a low-end Android. The citation is a primary element, not a footnote.
   Refusal is styled calm and neutral — never red, never an error icon. Confidence is icon + label,
-  never colour alone. Urdu gets `dir="rtl"` at the block level. See `.stitch/design-brief.md`.
+  never colour alone. Urdu gets `dir="rtl"` at the block level.
 
 ---
 

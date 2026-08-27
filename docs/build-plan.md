@@ -71,8 +71,9 @@ parallel.
 - **Dev A — Retrieval & Guardrail.** Owns `src/lib/ai/`. Replaces the hardcoded array with real
   pgvector search, fixes `getNearestChapters()` to compute actual nearest chapters from scores,
   calibrates thresholds against real distributions.
-- **Dev B — Student UI & Voice.** Owns `src/app/page.tsx` and screens. Builds the Ask screen from
-  `.stitch/screen-specs/ask.md`, the quiz UI, and Urdu voice input.
+- **Dev B — Student UI & Voice.** Owns `src/app/page.tsx` and screens. Builds the Ask screen's four
+  states (idle, two-stage loading, answered, refused — see Day 4 below), the quiz UI, and Urdu
+  voice input.
 - **Dev C — Ingestion & Content.** Owns `scripts/ingest.ts` and `supabase/`. PDF → chunk → embed →
   Supabase. **This is the critical path** — nothing downstream is real until it lands.
 - **Dev D — Eval, Deploy & Pitch.** Owns `src/app/api/eval/route.ts`, DashScope wiring, Vercel
@@ -112,8 +113,12 @@ Embeddings are now precomputed — one API call per question, not eleven. Fix th
 nearest chapters, and the LLM provably isn't called on refusal.
 
 **Day 4 — Ask screen.**
-B: build the four states from `.stitch/screen-specs/ask.md` — idle, two-stage loading, answered
-with citation chip, refused. Mobile-first, Urdu block-level RTL, confidence as icon + label.
+B: build the four states — idle (input + example chips, nothing else), loading (single indicator,
+label changes "Searching your syllabus…" → "Writing the answer…", never reaches stage two on a
+refusal), answered (citation is the hero element — prominent and expandable, not a footnote),
+refused (calm and neutral — no red, no warning icon; nearest chapters + one reformulation hint).
+Mobile-first for a low-end Android, confidence shown as icon + label never colour alone, Urdu
+renders `dir="rtl"` at the block level.
 *Done when:* both demo moments look right on a real phone.
 
 **Day 5 — Quiz + Urdu voice input.**
