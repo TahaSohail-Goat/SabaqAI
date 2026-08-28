@@ -14,7 +14,7 @@ Legend: **Real** = works against live data · **Stub** = returns hardcoded or fa
 
 | Subsystem | Status | Owner | Where |
 | --- | --- | --- | --- |
-| Database schema + RLS | **Real** ✅ v2 normalised, **unverified** | Dev C | `supabase/migrations/0001_init.sql` |
+| Database schema + RLS | **Real** ✅ v2 verified live (22/22 torture tests) | Dev C | `supabase/migrations/0001_init.sql` |
 | Confidence guardrail | **Real** | Dev A | `src/lib/ai/guardrail.ts` |
 | Citation validator | **Real** | Dev A | `src/lib/ai/citation.ts` |
 | Eval scoring loop | **Real** | Dev D | `src/app/api/eval/route.ts` |
@@ -27,10 +27,11 @@ Legend: **Real** = works against live data · **Stub** = returns hardcoded or fa
 | UI metrics honesty | **Real** ✅ fixed | Dev D | `src/app/page.tsx` |
 | Eval set (single source) | **Real** ✅ fixed | Dev D | `src/lib/evaluation/` |
 | Near-miss evaluation | **Real** ✅ new | Dev D | `src/lib/evaluation/questions.ts` |
-| Vector search RPC | **Real** ✅ v2 joins, **unverified** | Dev C | `supabase/migrations/0002_*.sql` |
-| Atomic ingestion RPC | **Real** ✅ new, **unverified** | Dev C | `supabase/migrations/0003_*.sql` |
+| Vector search RPC | **Real** ✅ v2 verified live | Dev C | `supabase/migrations/0002_*.sql` |
+| Atomic ingestion RPC | **Real** ✅ verified live (atomicity + idempotency proven) | Dev C | `supabase/migrations/0003_*.sql` |
+| Schema torture tests | **Real** ✅ verified (22/22 green against live DB) | Dev C | `supabase/tests/001_schema_torture.sql` |
 | Retrieval (pgvector path) | **Real** ✅ new, **unverified** | Dev A | `src/lib/ai/retrieval.ts` |
-| Qwen embeddings (DashScope) | **Real** ✅ new, **unverified** | Dev D | `src/lib/ai/embeddings.ts` |
+| Embeddings (Jina AI; provider-agnostic client) | **Real** ✅ verified live (1024-dim probe passed) | Dev D | `src/lib/ai/embeddings.ts` |
 | Ingestion pipeline | **Real** ✅ v2 (transactional RPC), **unverified** | Dev C | `scripts/ingest.ts` |
 | `qa_log` writes | **Real** ✅ v2 junction rows, **unverified** | Dev A | `src/lib/qa-log.ts` |
 | `student_profiles` creation | **Real** ✅ v2 (+ student_subjects), **unverified** | Dev B | `src/app/api/auth/signup/` |
@@ -40,14 +41,27 @@ Legend: **Real** = works against live data · **Stub** = returns hardcoded or fa
 | Auth (signup/login) | **Real**, with demo bypass | Dev B | `src/app/api/auth/*` |
 | Urdu voice input (STT) | **Missing** | Dev B | planned Day 5 |
 
-**"Unverified" means it has never run once against a real service.** Nobody has supplied a
-DashScope key, a Supabase project, or source documents. The code is written and type-checks; that
-is all. Do not report any of it as working until `npm run ingest` has actually stored rows and a
-question has come back with a real embedding score.
+**"Unverified" means it has never run once against a real service.** A Supabase project is now
+connected (the v2 migrations have executed; `/api/syllabus` reads the live — empty — database;
+the schema and both RPCs passed a 22-assertion torture suite with synthetic vectors, and the Jina
+embedding key returned a verified 1024-dim vector), but nobody has supplied source documents, so no
+real content has ever been embedded or stored. Do not report the retrieval path as working until
+`npm run ingest` has actually stored rows and a question has come back with a real embedding score.
 
 ---
 
 ## Fixed
+
+**✅ RPC functions hardened after live torture testing (0004, 0005).** The first run of
+`supabase/tests/001_schema_torture.sql` against the live project caught two real defects:
+(1) `revoke ... from anon/authenticated` was not enough to make the RPCs service-role only —
+Postgres grants EXECUTE on new functions to PUBLIC by default and every role inherits it, so
+`has_function_privilege('anon', ...)` returned true until 0004 revoked from PUBLIC. (2) pgvector
+is installed in the `extensions` schema, but `ingest_document` pinned `search_path = public`
+and `match_content_chunks` pinned nothing — so `vector`/`<=>` failed to resolve inside the
+functions (and would have failed for service_role via PostgREST, whose search_path is `public`
+only: a production outage disguised as a test failure). 0005 pins `search_path = public,
+extensions` on both. The suite then went 22/22 green.
 
 **✅ Schema v2 — BCNF-normalised, approved in `docs/schema-proposal.md`.** The v1 schema never
 ran anywhere, so it was replaced in place rather than migrated. Arrays and JSONB repeating groups
@@ -57,8 +71,9 @@ are gone (`student_profiles.subjects text[]` → `student_subjects`; `qa_log` ch
 `content_chunks` into `chapters` → `chapter_sources` → `sections`. Every enumerated domain is a
 reference table. Quiz answers moved to `quiz_answer_keys`, which has **no** client RLS policy —
 deny by default, service role only. Ingestion writes go through the `ingest_document` RPC, one
-transaction per document. `/api/syllabus` reads the `content_chunks_expanded` view. None of this
-has executed against a live Supabase project yet — that verification is step 1 below.
+transaction per document. `/api/syllabus` reads the `content_chunks_expanded` view. The migrations
+have now executed against a live Supabase project, and both RPCs were exercised by the torture
+suite (22/22 green) — what remains unexercised is the app calling them with real embeddings.
 
 **✅ `getNearestChapters()` now computes from real scores.** Takes the retrieved chunks, keeps the
 best score per chapter, sorts, returns the top three. Returns an empty array when retrieval found
@@ -123,15 +138,13 @@ Once quizzes have real ids, grading can look the key up by id and `answer-key.ts
 
 ---
 
-## Two traps waiting for you
+## Traps
 
-**Embedding dimensions do not match.** `.env.example` says `EMBEDDING_DIM=768` with
-`EMBEDDING_MODEL=text-embedding-004`. The migration declares `vector(1024)`. As configured, every
-ingestion insert will fail.
-
-*Resolution:* use Qwen `text-embedding-v3` via DashScope (1024-dim) so the migration runs unchanged
-— and Alibaba Cloud becomes load-bearing infrastructure rather than a token API call. Confirm the
-dimension on Day 1 before anyone runs the migration.
+**~~Embedding dimensions do not match~~ — RESOLVED.** The embedding provider is Jina AI
+`jina-embeddings-v3` (native 1024-dim), matching `vector(1024)` exactly. Verified against the live
+API with `node scripts/verify-embeddings.mjs` (returned 1024 dims). The client is provider-agnostic
+— DashScope/Qwen remains a drop-in env-var alternative, but switching models after ingestion means
+re-embedding everything.
 
 **RLS will silently refuse every question.** The `chunks_match_profile` policy requires a matching
 `student_profiles` + `student_subjects` row, which signup now creates (unverified against a live
