@@ -36,7 +36,7 @@ Nobody can verify anything until this lands. Do it first, ideally today.
    anything else — this is Trap A below, and it silently breaks every insert if wrong.
 3. Run `supabase/migrations/0001_init.sql` then `0002_match_function.sql` against the real project.
 4. Fill real values into `.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `DASHSCOPE_API_KEY`.
+   `SUPABASE_SERVICE_ROLE_KEY`, `EMBEDDING_API_KEY`.
 5. Run `npm run ingest` against real chapter text (coordinate with whoever sources the PCTB Class
    10 Physics PDF/text — see Part 4, Day 1 scope lock) and confirm
    `select count(*) from content_chunks` returns real rows, not 0.

@@ -9,8 +9,9 @@ Built for the **Bano Qabil AI Hackathon 2026** (Education category) — one Next
 Supabase. No monorepo, no Docker, no separate backend.
 
 > ⚠️ **Read `docs/project-status.md` before writing code.** Parts of this README describe the
-> target system, not the current one. Retrieval, ingestion, and the nearest-chapters logic are
-> still stubs. That file tracks exactly what is real and what is fake.
+> target system, not the current one. The database schema is live and torture-tested, and the
+> embedding key is verified — but the corpus is empty, so retrieval has never served a real
+> answer and generation still needs a Gemini key. That file tracks exactly what is real.
 
 ## Start here
 
@@ -38,7 +39,7 @@ Supabase. No monorepo, no Docker, no separate backend.
 | --- | --- | --- |
 | App | Next.js (App Router) + Tailwind | One app for UI and API routes |
 | Database | Supabase (hosted) + pgvector | No local Docker; vectors and tables in one place |
-| Embeddings | Qwen `text-embedding-v3` via Alibaba Cloud DashScope | 1024-dim, matches the migration; sponsor tech that's load-bearing |
+| Embeddings | Jina AI `jina-embeddings-v3` | 1024-dim, matches the migration; OpenAI-compatible client — DashScope/Qwen remains a drop-in env-var alternative |
 | Generation | Gemini | Grounded answers and quiz generation |
 | Voice | Whisper via Groq | Urdu speech-to-text |
 | Language | TypeScript | Type safety without ceremony |
@@ -71,10 +72,10 @@ from the stored database row — the model picks *which* chunk, never *what the 
 src/app/          pages + API routes (api/ask, api/quiz, api/eval, api/syllabus, api/auth)
 src/lib/ai/       retrieval, guardrail, generation, citation
 src/prompts/      the LLM prompts (kept out of route files)
-scripts/          ingest.ts, eval.ts
+scripts/          ingest.ts, eval.ts, dev-db-sql.mjs (direct DB runner), verify-embeddings.mjs
 data/source/      your textbook/past-paper text (never committed)
-data/evaluation/  your labelled question set
-supabase/         the database migration
+src/lib/evaluation/  the labelled question set (single source of truth)
+supabase/         database migrations (0001–0005) + schema torture tests
 docs/             everything below
 ```
 

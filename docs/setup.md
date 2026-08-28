@@ -19,20 +19,24 @@ node --version   # must be 20 or higher
    - `anon` `public` key (safe for the browser)
    - `service_role` key (SECRET — server only, never in browser code, never in a `NEXT_PUBLIC_` var)
 
-## 3. Get an Alibaba Cloud DashScope key (embeddings)
+## 3. Get a Jina AI key (embeddings)
 
-1. Sign up at Alibaba Cloud and open the DashScope / Model Studio console.
-2. Create an API key and copy it.
-3. We use **`text-embedding-v3`**, which outputs **1024 dimensions** — matching `vector(1024)` in
+1. Go to https://jina.ai/api-dashboard and sign up (Google/GitHub/email).
+2. Copy the API key from the dashboard — new keys include **1M free tokens, no card required**.
+3. We use **`jina-embeddings-v3`**, which outputs **1024 dimensions** — matching `vector(1024)` in
    the migration, so nothing has to change.
 
-> **Confirm the dimension before step 5.** Check what the model actually returns. If it isn't 1024,
-> change `vector(1024)` in `supabase/migrations/0001_init.sql` **before running it**, and set
-> `EMBEDDING_DIM` to match. Mismatched dimensions is the #1 silent failure — every insert fails, and
-> the error doesn't say why.
+> **Confirm the dimension before step 8.** After filling `.env.local`, run
+> `node scripts/verify-embeddings.mjs` — it embeds one probe string and fails loudly if the
+> model's real output isn't 1024. Mismatched dimensions is the #1 silent failure: every insert
+> fails, and the database error never mentions the model.
 
-Using DashScope for embeddings is also a deliberate choice: Alibaba Cloud is the hackathon's title
-sponsor, and this makes their platform load-bearing infrastructure rather than a token API call.
+The embeddings client is provider-agnostic — any OpenAI-compatible `/embeddings` endpoint works
+via `EMBEDDING_BASE_URL` / `EMBEDDING_MODEL` env vars. To use Alibaba Cloud DashScope's Qwen
+`text-embedding-v3` instead (also 1024-dim, hackathon sponsor tech), set
+`EMBEDDING_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1` and
+`EMBEDDING_MODEL=text-embedding-v3`. ONE model must embed both chunks and questions — switching
+models later means re-embedding everything.
 
 ## 4. Get a Gemini key (generation)
 
