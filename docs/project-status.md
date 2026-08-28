@@ -24,7 +24,10 @@ Legend: **Real** = works against live data · **Stub** = returns hardcoded or fa
 | Quiz citation validation | **Real** ✅ fixed | Dev B | `src/app/api/quiz/route.ts` |
 | Quiz answer-key protection | **Real** ✅ new, tested | Dev B | `src/lib/quiz/answer-key.ts` |
 | Server-side quiz grading | **Real** ✅ new | Dev B | `src/app/api/quiz/grade/` |
-| UI metrics honesty | **Real** ✅ fixed | Dev D | `src/app/page.tsx` |
+| UI metrics honesty | **Real** ✅ fixed | Dev D | `src/app/(app)/*/page.tsx` |
+| App shell (sidebar/topbar/routed pages) | **Real** ✅ new | Dev D | `src/app/(app)/layout.tsx`, `src/components/app/` |
+| Student dashboard (M8) | **Frontend only** — empty-state widgets, no invented numbers | Dev D | `src/app/(app)/dashboard/page.tsx` |
+| Settings (M13) | **Partly real** — theme/scope/logout real; password/delete disabled | Dev D | `src/app/(app)/settings/page.tsx` |
 | Eval set (single source) | **Real** ✅ fixed | Dev D | `src/lib/evaluation/` |
 | Near-miss evaluation | **Real** ✅ new | Dev D | `src/lib/evaluation/questions.ts` |
 | Vector search RPC | **Real** ✅ v2 verified live | Dev C | `supabase/migrations/0002_*.sql` |
@@ -35,6 +38,7 @@ Legend: **Real** = works against live data · **Stub** = returns hardcoded or fa
 | Ingestion pipeline | **Real** ✅ v2 (transactional RPC), **unverified** | Dev C | `scripts/ingest.ts` |
 | `qa_log` writes | **Real** ✅ v2 junction rows, **unverified** | Dev A | `src/lib/qa-log.ts` |
 | `student_profiles` creation | **Real** ✅ v2 (+ student_subjects), **unverified** | Dev B | `src/app/api/auth/signup/` |
+| Onboarding (real board/class/subjects) | **Real** ✅ new, **unverified** — no live Supabase session tested against yet | Dev D | `src/app/onboarding/`, `src/app/api/auth/onboarding/` |
 | Syllabus browser | **Real** ✅ new, **unverified** | Dev C | `src/app/api/syllabus/` |
 | Syllabus corpus | **Stub** (10 hardcoded, dev only) | Dev C | `src/lib/syllabus-data.ts` |
 | Quiz persistence | **Missing** | Dev B | tables exist, unused |

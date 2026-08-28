@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
         user: {
           id: 'demo-user-101',
           email,
-          user_metadata: { full_name: 'Pakistani Matric Student', class_level: 10, board: 'PCTB' },
+          user_metadata: { full_name: 'Pakistani Matric Student', class_level: 10, board: 'FBISE' },
         },
         message: 'Logged in (Demo Mode - configure Supabase keys in .env for production database auth)',
         isDemo: true,

@@ -4,7 +4,9 @@ import { getServiceRoleClient } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, full_name, class_level = 10, board = 'PCTB' } = await req.json();
+    // PCTB removed for now, coming back later — this interim default is overwritten moments
+    // later by /api/auth/onboarding for any account that completes it.
+    const { email, password, full_name, class_level = 10, board = 'FBISE' } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
