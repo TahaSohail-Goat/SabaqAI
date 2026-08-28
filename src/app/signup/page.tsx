@@ -3,13 +3,14 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, BookOpen, User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function SignupPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -31,7 +32,6 @@ export default function SignupPage() {
     setSuccessMsg(null);
 
     try {
-      // Board and class are chosen inside the app (header selectors), not at signup.
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -48,7 +48,7 @@ export default function SignupPage() {
         throw new Error(data.error || 'Failed to create account.');
       }
 
-      setSuccessMsg(data.message || 'Account created successfully! Redirecting to study app...');
+      setSuccessMsg(data.message || 'Account created successfully! Redirecting...');
       setTimeout(() => {
         router.push('/');
       }, 1000);
@@ -60,113 +60,126 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-page text-navy">
-      {/* Full-page background artwork, shown at full strength — the card anchors right over it */}
-      <img
-        src="/assets/auth-illustration.png"
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover"
-      />
+    <div className="min-h-screen w-full flex bg-white selection:bg-brand/30 selection:text-brand-mint text-navy">
+      
+      {/* Left side: Image */}
+      <div className="hidden lg:flex lg:w-1/2 relative bg-[#f8fafc] items-center justify-center p-12">
+        <img src="/bg.png" alt="Study illustration" className="w-full h-full object-contain" />
+      </div>
 
-      <div className="relative flex min-h-screen items-center justify-end px-4 py-12 sm:px-10 lg:px-20">
-        <div className="w-full max-w-md space-y-6">
-          <Link href="/" className="block text-center text-3xl font-bold tracking-tight">
-            <span className="text-navy">Sabaq</span>
-            <span className="text-brand">AI</span>
+      {/* Right side: Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-24 relative bg-white">
+        
+        <div className="w-full max-w-[400px] animate-in fade-in slide-in-from-bottom-4 duration-700">
+          
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-3 mb-12 transition-transform hover:opacity-80">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand to-brand-dark flex items-center justify-center text-white shadow-[0_0_15px_rgba(27,181,107,0.3)] border border-brand-light/20 relative z-10">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-navy drop-shadow-sm font-serif relative z-10">
+              Sabaq<span className="text-brand">AI</span>
+            </h1>
           </Link>
 
-          <div className="space-y-5 rounded-card border border-border bg-surface px-6 py-8 shadow-[0_8px_24px_rgba(16,42,58,0.08)] sm:px-10">
-            <div className="space-y-1 text-center">
-              <h2 className="text-xl font-bold text-navy">Create your account</h2>
-              <p className="text-sm text-text-2">
-                Grounded answers from your board syllabus, with page citations.
-              </p>
+          {/* Header */}
+          <div className="mb-8">
+            <h2 className="text-[28px] font-bold text-navy mb-2 tracking-tight">Create an account</h2>
+            <p className="text-[15px] text-navy-2 font-medium">Join us to continue your studies.</p>
+          </div>
+
+          {error && (
+            <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-[#e82a47]/30 bg-[#e82a47]/10 p-3.5 text-sm text-[#ff6b81]">
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-brand/30 bg-brand/10 p-3.5 text-sm text-brand-mint">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            
+            {/* Full Name Input */}
+            <div className="relative flex items-center group">
+              <User className="absolute left-4 w-5 h-5 text-text-3 group-focus-within:text-brand transition-colors" />
+              <input
+                id="fullName"
+                name="fullName"
+                type="text"
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Full Name"
+                className="w-full rounded-[14px] border border-border bg-white pl-12 pr-4 py-3.5 text-[15px] text-navy placeholder:text-text-4 focus:border-brand focus:ring-1 focus:ring-brand focus:outline-none transition-all shadow-sm"
+              />
             </div>
 
-            {error && (
-              <div className="flex items-start gap-2.5 rounded-lg border border-error/30 bg-error-bg p-3 text-xs text-error">
-                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+            {/* Email Input */}
+            <div className="relative flex items-center group">
+              <Mail className="absolute left-4 w-5 h-5 text-text-3 group-focus-within:text-brand transition-colors" />
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                className="w-full rounded-[14px] border border-border bg-white pl-12 pr-4 py-3.5 text-[15px] text-navy placeholder:text-text-4 focus:border-brand focus:ring-1 focus:ring-brand focus:outline-none transition-all shadow-sm"
+              />
+            </div>
 
-            {successMsg && (
-              <div className="flex items-start gap-2.5 rounded-lg border border-brand/30 bg-brand-mint p-3 text-xs text-brand-dark">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                <span>{successMsg}</span>
-              </div>
-            )}
-
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-navy">
-                  Full Name
-                </label>
-                <input
-                  id="fullName"
-                  name="fullName"
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Ali Khan"
-                  className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-navy placeholder:text-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-navy">
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ali.khan@example.com"
-                  className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-navy placeholder:text-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-navy">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 6 characters"
-                  className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-navy placeholder:text-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition"
-                />
-              </div>
-
-              <button
-                type="submit"
-                id="signup-btn"
-                disabled={loading}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:bg-disabled disabled:text-disabled-text"
+            {/* Password Input */}
+            <div className="relative flex items-center group">
+              <Lock className="absolute left-4 w-5 h-5 text-text-3 group-focus-within:text-brand transition-colors" />
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full rounded-[14px] border border-border bg-white pl-12 pr-12 py-3.5 text-[15px] text-navy placeholder:text-text-4 focus:border-brand focus:ring-1 focus:ring-brand focus:outline-none transition-all shadow-sm"
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 text-text-3 hover:text-navy transition-colors focus:outline-none"
               >
-                {loading ? 'Creating account...' : 'Create student account'}
-                <ArrowRight className="h-4 w-4" />
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
-            </form>
-
-            <div className="border-t border-border pt-4 text-center">
-              <p className="text-sm text-text-2">
-                Already have an account?{' '}
-                <Link href="/login" className="font-semibold text-brand transition hover:text-brand-dark">
-                  Sign in
-                </Link>
-              </p>
             </div>
+
+            {/* Spacer */}
+            <div className="pt-2"></div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              id="signup-btn"
+              disabled={loading}
+              className="w-full cursor-pointer rounded-[14px] bg-brand px-4 py-3.5 text-[15px] font-bold text-white transition-all shadow-[0_4px_14px_rgba(27,181,107,0.3)] hover:shadow-[0_6px_20px_rgba(27,181,107,0.4)] hover:-translate-y-0.5 disabled:opacity-50 disabled:shadow-none disabled:transform-none"
+            >
+              {loading ? 'Creating account...' : 'Create Account'}
+            </button>
+          </form>
+
+          {/* Login Link */}
+          <div className="mt-8 text-center">
+            <p className="text-[14px] text-text-3">
+              Already have an account?{' '}
+              <Link href="/login" className="font-bold text-navy hover:text-brand transition-colors">
+                Log in
+              </Link>
+            </p>
           </div>
         </div>
       </div>

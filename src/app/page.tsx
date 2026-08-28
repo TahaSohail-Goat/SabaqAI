@@ -286,42 +286,108 @@ export default function SabaqApp() {
   }, [activeTab]);
 
   return (
-    <div className="min-h-screen bg-page text-navy flex flex-col">
-      {/* Top Header */}
-      <header className="border-b border-border bg-surface sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-brand-light border border-brand/30 flex items-center justify-center text-brand-dark font-bold text-lg shadow-sm">
+    <div className="min-h-screen bg-page text-navy flex flex-col selection:bg-brand/20">
+      {/* Top Header - Glassmorphism */}
+      <header className="sticky top-0 z-30 bg-surface/80 backdrop-blur-lg border-b border-border/50 shadow-sm transition-all">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+          
+          {/* Logo & Brand */}
+          <div className="flex items-center gap-3 shrink-0 cursor-default">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-light to-brand-mint border border-brand/20 flex items-center justify-center text-brand font-bold text-xl shadow-inner transition-transform hover:scale-105">
               سبق
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-bold text-navy text-lg tracking-tight">Sabaq AI</h1>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-brand-light text-brand-dark border border-brand/20 font-medium">
-                  Matric MVP
+            <div className="flex flex-col justify-center">
+              <div className="flex items-center gap-1.5">
+                <h1 className="font-bold tracking-tight text-lg">
+                  <span className="text-navy">Sabaq</span> <span className="text-brand">AI</span>
+                </h1>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-light text-brand-dark font-semibold tracking-wide uppercase shadow-sm">
+                  MVP
                 </span>
               </div>
-              <p className="text-xs text-text-2">{board} Class {classLevel} • Physics Syllabus Grounded</p>
+              <p className="text-[11px] text-text-2 font-medium tracking-wide">Physics Syllabus Grounded</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Language Toggle */}
-            <div className="flex items-center bg-surface-2 rounded-lg p-0.5 border border-border text-xs">
+          {/* Center Navigation - Pill-shaped Tabs */}
+          <div className="hidden md:flex flex-1 justify-center">
+            <div className="flex bg-surface-2/80 backdrop-blur-md p-1 rounded-full border border-white/50 shadow-inner gap-1">
+              {[
+                { id: 'ask', icon: Search, label: 'Ask' },
+                { id: 'quiz', icon: Award, label: 'Quiz' },
+                { id: 'eval', icon: ShieldCheck, label: 'Evaluation' },
+                { id: 'syllabus', icon: BookOpen, label: 'Syllabus' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ease-out ${
+                    activeTab === tab.id
+                      ? 'bg-white text-brand shadow-sm scale-100 ring-1 ring-black/5'
+                      : 'text-text-2 hover:text-navy hover:bg-white/50 scale-95'
+                  }`}
+                >
+                  <tab.icon className={`w-4 h-4 transition-colors ${activeTab === tab.id ? 'text-brand' : 'text-text-3'}`} />
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right Controls - Board/Class, Lang, User */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Scope Selectors */}
+            <div className="hidden lg:flex items-center gap-2 py-1 px-3 bg-surface-2/80 rounded-full border border-white/50 shadow-inner">
+              <div className="flex items-center">
+                <span className="text-[10px] text-text-2 font-medium mr-1.5 uppercase tracking-wide">Board</span>
+                <div className="relative">
+                  <select
+                    value={board}
+                    onChange={(e) => setBoard(e.target.value)}
+                    className="appearance-none bg-transparent text-xs font-semibold text-navy pr-4 focus:outline-none cursor-pointer"
+                  >
+                    <option value="PCTB">PCTB</option>
+                    <option value="FBISE">FBISE</option>
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-text-3 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+              <div className="w-px h-3 bg-border mx-1"></div>
+              <div className="flex items-center">
+                <span className="text-[10px] text-text-2 font-medium mr-1.5 uppercase tracking-wide">Class</span>
+                <div className="relative">
+                  <select
+                    value={classLevel}
+                    onChange={(e) => setClassLevel(Number(e.target.value))}
+                    className="appearance-none bg-transparent text-xs font-semibold text-navy pr-4 focus:outline-none cursor-pointer"
+                  >
+                    <option value={9}>9</option>
+                    <option value={10}>10</option>
+                    <option value={11}>11</option>
+                    <option value={12}>12</option>
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-text-3 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            {/* Language Pill Toggle */}
+            <div className="flex bg-surface-2 p-0.5 rounded-full border border-border/50 shadow-inner">
               <button
                 type="button"
                 onClick={() => setLanguage('en')}
-                className={`px-2.5 py-1 rounded-md transition font-medium ${
-                  language === 'en' ? 'bg-surface text-navy shadow-sm' : 'text-text-2 hover:text-navy'
+                className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all duration-300 ${
+                  language === 'en' ? 'bg-white text-navy shadow-sm' : 'text-text-2 hover:text-navy'
                 }`}
               >
-                English
+                EN
               </button>
               <button
                 type="button"
                 onClick={() => setLanguage('ur')}
-                className={`px-2.5 py-1 rounded-md transition font-medium ${
-                  language === 'ur' ? 'bg-surface text-navy shadow-sm' : 'text-text-2 hover:text-navy'
+                className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all duration-300 ${
+                  language === 'ur' ? 'bg-white text-navy shadow-sm' : 'text-text-2 hover:text-navy'
                 }`}
               >
                 اردو
@@ -331,10 +397,10 @@ export default function SabaqApp() {
             {/* User Auth */}
             {authChecked && (
               currentUser ? (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-2 border border-border rounded-lg text-xs">
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2 px-3 py-1 bg-brand-mint border border-brand/20 rounded-full text-xs shadow-sm hover:shadow transition-shadow">
                     <User className="w-3.5 h-3.5 text-brand" />
-                    <span className="font-medium text-navy truncate max-w-[120px]">
+                    <span className="font-semibold text-brand-dark truncate max-w-[100px]">
                       {currentUser.metadata?.full_name || currentUser.email?.split('@')[0] || 'Student'}
                     </span>
                   </div>
@@ -342,23 +408,23 @@ export default function SabaqApp() {
                     type="button"
                     onClick={handleLogout}
                     title="Sign Out"
-                    className="p-1.5 rounded-lg bg-surface hover:bg-surface-2 text-text-2 hover:text-navy border border-border transition cursor-pointer"
+                    className="p-1.5 rounded-full bg-surface-2 hover:bg-error-bg text-text-3 hover:text-error transition-colors cursor-pointer"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
+                    <LogOut className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">
                   <Link
                     href="/login"
-                    className="px-2.5 py-1 rounded-lg text-xs font-medium text-navy-2 hover:text-navy bg-surface hover:bg-surface-2 border border-border transition flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-full text-xs font-semibold text-navy-2 hover:bg-surface-2 transition-colors flex items-center gap-1.5"
                   >
                     <LogIn className="w-3.5 h-3.5" />
                     <span>Login</span>
                   </Link>
                   <Link
                     href="/signup"
-                    className="px-2.5 py-1 rounded-lg text-xs font-medium text-white bg-brand hover:bg-brand-dark border border-brand shadow-sm transition"
+                    className="px-4 py-1.5 rounded-full text-xs font-semibold text-white bg-brand hover:bg-brand-dark shadow-sm hover:shadow transition-all active:scale-95"
                   >
                     Sign up
                   </Link>
@@ -367,121 +433,32 @@ export default function SabaqApp() {
             )}
           </div>
         </div>
-
-        {/* Navigation tabs (left) + syllabus scope selectors (right) */}
-        <div className="border-t border-border">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4">
-            <div className="flex gap-1 overflow-x-auto py-1">
-              <button
-                type="button"
-                id="tab-ask"
-                onClick={() => setActiveTab('ask')}
-                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition whitespace-nowrap border-b-2 ${
-                  activeTab === 'ask'
-                    ? 'border-brand text-brand'
-                    : 'border-transparent text-text-2 hover:text-navy'
-                }`}
-              >
-                <Search className="w-4 h-4" />
-                <span>Ask</span>
-              </button>
-
-              <button
-                type="button"
-                id="tab-quiz"
-                onClick={() => setActiveTab('quiz')}
-                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition whitespace-nowrap border-b-2 ${
-                  activeTab === 'quiz'
-                    ? 'border-brand text-brand'
-                    : 'border-transparent text-text-2 hover:text-navy'
-                }`}
-              >
-                <Award className="w-4 h-4" />
-                <span>Quiz</span>
-              </button>
-
-              <button
-                type="button"
-                id="tab-eval"
-                onClick={() => setActiveTab('eval')}
-                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition whitespace-nowrap border-b-2 ${
-                  activeTab === 'eval'
-                    ? 'border-brand text-brand'
-                    : 'border-transparent text-text-2 hover:text-navy'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>Evaluation</span>
-              </button>
-
-              <button
-                type="button"
-                id="tab-syllabus"
-                onClick={() => setActiveTab('syllabus')}
-                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition whitespace-nowrap border-b-2 ${
-                  activeTab === 'syllabus'
-                    ? 'border-brand text-brand'
-                    : 'border-transparent text-text-2 hover:text-navy'
-                }`}
-              >
-                <BookOpen className="w-4 h-4" />
-                <span>Syllabus</span>
-              </button>
-            </div>
-
-            {/* Board + class picked here scope every retrieval (invariant 6) */}
-            <div className="flex items-center gap-2 py-1">
-              <label htmlFor="board-select" className="text-xs text-text-2 whitespace-nowrap">
-                Board
-              </label>
-              <select
-                id="board-select"
-                value={board}
-                onChange={(e) => setBoard(e.target.value)}
-                className="rounded-lg border border-border bg-surface px-2 py-1.5 text-xs text-navy focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              >
-                <option value="PCTB">Punjab (PCTB)</option>
-                <option value="FBISE">Federal (FBISE)</option>
-              </select>
-              <label htmlFor="class-select" className="text-xs text-text-2 whitespace-nowrap">
-                Class
-              </label>
-              <select
-                id="class-select"
-                value={classLevel}
-                onChange={(e) => setClassLevel(Number(e.target.value))}
-                className="rounded-lg border border-border bg-surface px-2 py-1.5 text-xs text-navy focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              >
-                <option value={9}>9</option>
-                <option value={10}>10 (Matric)</option>
-                <option value={11}>11</option>
-                <option value={12}>12</option>
-              </select>
-            </div>
-          </div>
-        </div>
       </header>
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
         {/* TAB 1: GROUNDED ASK */}
         {activeTab === 'ask' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             {/* Left: Input & Result */}
             <div className="lg:col-span-7 space-y-6">
-              {/* Question Input Card */}
-              <div className="bg-surface border border-border rounded-xl p-5 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-text-2 flex items-center gap-1.5">
-                    <GraduationCap className="w-4 h-4 text-brand" />
-                    Ask from your syllabus — {board} Class {classLevel} Physics
+              
+              {/* Question Input Card - Premium Focus Glow */}
+              <div className="bg-surface border border-border/50 rounded-2xl p-6 shadow-sm focus-within:shadow-md focus-within:ring-2 focus-within:ring-brand/20 transition-all duration-300 space-y-4 relative overflow-hidden">
+                {/* Decorative background accent */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-brand-light/30 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+
+                <div className="flex items-center justify-between relative z-10">
+                  <span className="text-xs font-bold uppercase tracking-wider text-text-2 flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-brand-mint text-brand"><GraduationCap className="w-4 h-4" /></span>
+                    Ask from your syllabus
                   </span>
-                  <span className="text-[11px] text-text-2 bg-surface-2 px-2 py-0.5 rounded">
-                    Roman Urdu & English
+                  <span className="text-[10px] text-text-2 bg-surface-2 px-2 py-1 rounded-md font-semibold tracking-wide">
+                    {board} · Class {classLevel}
                   </span>
                 </div>
 
-                <div className="relative">
+                <div className="relative z-10">
                   <textarea
                     id="question-input"
                     rows={3}
@@ -493,91 +470,93 @@ export default function SabaqApp() {
                         handleAsk();
                       }
                     }}
-                    placeholder="Ask a question (e.g. 'What is Ohm's law?', 'Ohm ka qanoon kya hai?', 'Joule's law formula')..."
-                    className="w-full bg-surface-2 border border-border rounded-lg p-3.5 text-sm text-navy placeholder:text-text-2 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition resize-none"
+                    placeholder="Ask a question (e.g. 'What is Ohm's law?', 'Joule's law formula')..."
+                    className="w-full bg-surface-2 border border-border/50 rounded-xl p-4 text-sm text-navy placeholder:text-text-3 focus:outline-none focus:border-brand/50 focus:bg-white transition-colors resize-none shadow-inner"
                   />
                   <button
                     type="button"
                     id="submit-ask-btn"
                     onClick={() => handleAsk()}
                     disabled={isAsking || !query.trim()}
-                    className="absolute right-3 bottom-3.5 px-4 py-1.5 bg-brand hover:bg-brand-dark disabled:bg-disabled disabled:text-disabled-text text-white text-xs font-medium rounded-md shadow transition flex items-center gap-1.5 cursor-pointer"
+                    className="absolute right-3 bottom-3.5 px-5 py-2 bg-gradient-to-r from-brand to-brand-dark hover:from-brand-dark hover:to-brand disabled:from-disabled disabled:to-disabled disabled:text-disabled-text text-white text-xs font-bold rounded-lg shadow-md hover:shadow-lg transition-all active:scale-[0.97] flex items-center gap-2 group cursor-pointer"
                   >
                     {isAsking ? (
                       <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Searching...</span>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Searching</span>
                       </>
                     ) : (
                       <>
                         <span>Ask Sabaq</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                       </>
                     )}
                   </button>
                 </div>
 
-                {/* Example Questions */}
-                <div className="space-y-1.5 pt-1">
-                  <div className="text-[11px] font-medium text-text-2">Quick Test Queries:</div>
-                  <div className="flex flex-wrap gap-1.5">
+                {/* Example Questions - Sleek Pills */}
+                <div className="space-y-2 pt-2 relative z-10">
+                  <div className="text-[10px] font-bold text-text-3 uppercase tracking-wide">Quick Test Queries:</div>
+                  <div className="flex flex-wrap gap-2">
                     {sampleQuestions.map((sq, idx) => (
                       <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          setQuery(sq.text);
-                          handleAsk(sq.text);
-                        }}
-                        className={`text-xs px-2.5 py-1 rounded-md border transition text-left ${
-                          sq.type === 'off_syllabus'
-                            ? 'bg-error-bg border-error/30 text-error hover:bg-error-bg'
-                            : 'bg-surface-2 border-border text-navy-2 hover:bg-surface-2 hover:border-border-strong'
-                        }`}
+                         key={idx}
+                         type="button"
+                         onClick={() => {
+                           setQuery(sq.text);
+                           handleAsk(sq.text);
+                         }}
+                         className={`text-[11px] px-3 py-1.5 rounded-full border transition-all duration-300 text-left hover:-translate-y-0.5 shadow-sm hover:shadow ${
+                           sq.type === 'off_syllabus'
+                             ? 'bg-white border-warning/30 text-warning hover:bg-warning/5'
+                             : 'bg-white border-border text-navy-2 hover:border-brand/30 hover:text-brand'
+                         }`}
                       >
-                        {sq.type === 'off_syllabus' && <span className="text-error font-bold mr-1">[Refusal Test]</span>}
-                        {sq.text.slice(0, 38)}...
+                         {sq.type === 'off_syllabus' && <span className="text-warning font-bold mr-1">⚠️ [Refusal]</span>}
+                         {sq.text.slice(0, 38)}...
                       </button>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Loading State */}
+              {/* Loading State - Premium Shimmer */}
               {isAsking && (
-                <div className="bg-surface border border-border rounded-xl p-6 text-center space-y-3">
+                <div className="bg-surface border border-border/50 rounded-2xl p-8 text-center space-y-4 shadow-sm relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-brand-light/20 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
                   <div className="flex justify-center">
-                    <div className="w-8 h-8 rounded-full border-2 border-brand/30 border-t-brand animate-spin" />
+                    <div className="w-10 h-10 rounded-full border-2 border-brand/20 border-t-brand animate-spin" />
                   </div>
-                  <div className="text-sm font-medium text-navy-2">1. Vector search filtered by {board} + Class {classLevel}...</div>
-                  <div className="text-xs text-text-2">2. Calibrating confidence gate (PASS / BORDERLINE / REFUSE)...</div>
+                  <div className="text-sm font-semibold text-navy">Vector search filtered by {board} + Class {classLevel}</div>
+                  <div className="text-xs text-text-2">Calibrating confidence gate (PASS / BORDERLINE / REFUSE)...</div>
                 </div>
               )}
 
               {/* Ask Response Display */}
               {askResult && !isAsking && (
-                <div className="space-y-4">
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   {askResult.status === 'answered' ? (
-                    <div className="bg-surface border border-border rounded-xl p-5 shadow-sm space-y-4">
+                    <div className="bg-ai-light border border-ai-border rounded-2xl p-6 shadow-sm space-y-5">
+                      
                       {/* Confidence Meter Badge */}
-                      <div className="flex items-center justify-between pb-3 border-b border-border">
-                        <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-ai-border/50">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm">
                           <CheckCircle2 className="w-4 h-4 text-brand" />
-                          <span className="text-xs font-semibold text-brand uppercase tracking-wide">
-                            Grounded in Syllabus ({askResult.confidence.band === 'high' ? 'High Confidence' : 'Borderline Supported'})
+                          <span className="text-xs font-bold text-brand uppercase tracking-wide">
+                            Grounded ({askResult.confidence.band === 'high' ? 'High' : 'Borderline'})
                           </span>
                         </div>
-                        <div className="text-xs font-mono text-text-2 bg-surface-2 px-2.5 py-1 rounded border border-border">
-                          Top-1 Score: <span className="text-brand font-semibold">{askResult.confidence.top1.toFixed(2)}</span> | Support Chunks: {askResult.confidence.support}
+                        <div className="text-[11px] font-mono font-semibold text-text-2 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border/50">
+                          Top-1: <span className="text-ai font-bold">{askResult.confidence.top1.toFixed(2)}</span> · Support: {askResult.confidence.support}
                         </div>
                       </div>
 
-                      {/* Statements with Citations */}
-                      <div className="space-y-3 text-navy-2 text-sm leading-relaxed" dir={askResult.language === 'ur' ? 'rtl' : 'ltr'}>
+                      {/* Statements with Interactive Citation Chips */}
+                      <div className="space-y-4 text-navy-2 text-sm leading-relaxed" dir={askResult.language === 'ur' ? 'rtl' : 'ltr'}>
                         {askResult.statements.map((stmt, sIdx) => (
-                          <p key={sIdx} className="bg-surface-2 p-3 rounded-lg border border-border">
+                          <div key={sIdx} className="bg-white p-4 rounded-xl shadow-sm border border-border/30 transition-all hover:shadow-md">
                             <span>{stmt.text}</span>
-                            <span className="inline-flex gap-1 ml-2">
+                            <span className="inline-flex gap-1.5 ml-2">
                               {stmt.chunkIds.map((cid, cIdx) => {
                                 const citeObj = askResult.citations.find((c) => c.chunkId === cid);
                                 return (
@@ -585,81 +564,82 @@ export default function SabaqApp() {
                                     key={cIdx}
                                     type="button"
                                     onClick={() => citeObj && setSelectedCitation(citeObj)}
-                                    className="inline-flex items-center gap-1 text-[10px] bg-brand-mint hover:bg-brand-light text-brand-dark border border-brand/30 px-2 py-0.5 rounded cursor-pointer transition font-mono font-medium"
+                                    className="inline-flex items-center gap-1 text-[11px] bg-brand-mint hover:bg-brand-light text-brand-dark border border-brand/20 px-2 py-0.5 rounded-md cursor-pointer transition-all hover:ring-1 hover:ring-brand/50 font-mono font-bold shadow-sm"
                                   >
                                     <span>[Ch {citeObj?.chapterNo ?? '?'}, p. {citeObj?.pageFrom ?? '?'}]</span>
                                   </button>
                                 );
                               })}
                             </span>
-                          </p>
+                          </div>
                         ))}
                       </div>
 
                       {/* Verified Citations Bar */}
-                      <div className="pt-2">
-                        <div className="text-xs font-medium text-text-2 mb-2">Verified Citations Found in Textbook:</div>
+                      <div className="pt-3">
+                        <div className="text-[10px] font-bold text-text-3 mb-2 uppercase tracking-wide">Verified Sources:</div>
                         <div className="flex flex-wrap gap-2">
                           {askResult.citations.map((cite, idx) => (
                             <button
                               key={idx}
                               type="button"
                               onClick={() => setSelectedCitation(cite)}
-                              className={`text-xs px-3 py-1.5 rounded-lg border flex items-center gap-2 transition ${
+                              className={`text-xs px-3 py-2 rounded-xl border flex items-center gap-2 transition-all duration-300 shadow-sm ${
                                 selectedCitation?.chunkId === cite.chunkId
-                                  ? 'bg-brand-light border-brand text-brand-dark'
-                                  : 'bg-surface-2 border-border text-navy-2 hover:bg-surface-2'
+                                  ? 'bg-brand text-white border-brand scale-105 shadow-md'
+                                  : 'bg-white border-border text-navy-2 hover:border-brand/30 hover:shadow-md'
                               }`}
                             >
-                              <BookOpen className="w-3.5 h-3.5 text-brand" />
-                              <span>Chapter {cite.chapterNo}: {cite.chapterTitle}</span>
-                              <span className="text-[11px] text-text-2">(p. {cite.pageFrom})</span>
+                              <BookOpen className={`w-3.5 h-3.5 ${selectedCitation?.chunkId === cite.chunkId ? 'text-brand-mint' : 'text-brand'}`} />
+                              <span className="font-semibold">Ch {cite.chapterNo}: {cite.chapterTitle}</span>
                             </button>
                           ))}
                         </div>
                       </div>
                     </div>
                   ) : (
-                    /* Refusal State */
-                    <div className="bg-surface border border-border rounded-xl p-5 shadow-sm space-y-4">
-                      <div className="flex items-center gap-2.5 pb-3 border-b border-border">
-                        <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0" />
+                    /* Refusal State - Calm, Neutral, Warning (Never Red) */
+                    <div className="bg-surface border border-border/50 rounded-2xl p-6 shadow-sm space-y-5">
+                      <div className="flex items-center gap-3 pb-4 border-b border-border/50">
+                        <div className="p-2 rounded-full bg-warning/10 text-warning">
+                          <AlertTriangle className="w-5 h-5" />
+                        </div>
                         <div>
-                          <h3 className="text-sm font-semibold text-navy">
-                            Confidence Guardrail Triggered: Off-Syllabus Question Refused
+                          <h3 className="text-sm font-bold text-navy">
+                            Off-Syllabus Question Refused
                           </h3>
-                          <p className="text-xs text-text-2">
-                            The generation LLM was <strong>intentionally skipped</strong> to prevent exam hallucinations.
+                          <p className="text-[11px] text-text-2 mt-0.5 font-medium">
+                            The generation LLM was <strong className="text-navy-2">intentionally skipped</strong> to prevent exam hallucinations.
                           </p>
                         </div>
                       </div>
 
-                      <div className="bg-surface-2 p-4 rounded-lg border border-border text-sm text-navy-2 leading-relaxed">
+                      <div className="bg-surface-2/50 p-4 rounded-xl border border-border/50 text-sm text-navy-2 leading-relaxed">
                         {askResult.message}
                       </div>
 
                       {/* Nearest Chapters Suggestion */}
                       {askResult.nearestChapters && askResult.nearestChapters.length > 0 && (
-                        <div className="space-y-2">
-                          <div className="text-xs font-medium text-text-2">Nearest Chapters in Matric Physics Syllabus:</div>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="space-y-3">
+                          <div className="text-[10px] font-bold text-text-3 uppercase tracking-wide">Nearest Chapters in Matric Physics:</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             {askResult.nearestChapters.map((ch, idx) => (
                               <div
                                 key={idx}
-                                className="bg-surface-2 border border-border p-2.5 rounded-lg text-xs"
+                                className="bg-white border border-border/50 p-3 rounded-xl text-xs shadow-sm hover:shadow-md transition-shadow cursor-default"
                               >
-                                <span className="font-semibold text-brand">Chapter {ch.chapterNo}</span>
-                                <p className="text-navy-2 mt-0.5 truncate">{ch.chapterTitle}</p>
+                                <span className="font-bold text-brand block mb-1">Chapter {ch.chapterNo}</span>
+                                <span className="text-navy-2 truncate block">{ch.chapterTitle}</span>
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
 
-                      <div className="text-xs bg-quiz-light border border-quiz-border text-navy-2 p-3 rounded-lg flex items-start gap-2">
+                      <div className="text-xs bg-warning/5 border border-warning/20 text-navy-2 p-3.5 rounded-xl flex items-start gap-3 shadow-inner">
                         <HelpCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-                        <div>
-                          <span className="font-semibold">Reformulation Hint: </span>
+                        <div className="leading-relaxed">
+                          <span className="font-bold">Reformulation Hint: </span>
                           <span>{askResult.suggestion}</span>
                         </div>
                       </div>
@@ -671,63 +651,69 @@ export default function SabaqApp() {
 
             {/* Right: Citation Excerpt Inspector & Guardrail Explanation */}
             <div className="lg:col-span-5 space-y-6">
-              {/* Textbook Excerpt Viewer */}
-              <div className="bg-surface border border-border rounded-xl p-5 shadow-sm space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-border">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-text-2 flex items-center gap-1.5">
+              
+              {/* Textbook Excerpt Viewer - Glassmorphism Trust Panel */}
+              <div className="bg-white/70 backdrop-blur-xl border border-white/50 rounded-2xl p-6 shadow-xl shadow-navy/5 space-y-4 sticky top-24 transition-all">
+                <div className="flex items-center justify-between pb-3 border-b border-border/50">
+                  <span className="text-xs font-bold uppercase tracking-wider text-text-2 flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-brand" />
-                    Verified Textbook Excerpt
+                    Verified Excerpt
                   </span>
                   {selectedCitation && (
-                    <span className="text-[11px] font-mono text-brand bg-brand-mint border border-brand/30 px-2 py-0.5 rounded">
+                    <span className="text-[10px] font-mono font-bold text-brand bg-brand-mint border border-brand/20 px-2 py-1 rounded-md shadow-sm">
                       p. {selectedCitation.pageFrom}-{selectedCitation.pageTo}
                     </span>
                   )}
                 </div>
 
                 {selectedCitation ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4 animate-in fade-in duration-300">
                     <div>
-                      <h4 className="text-sm font-semibold text-navy">
+                      <h4 className="text-sm font-bold text-navy leading-tight">
                         Chapter {selectedCitation.chapterNo}: {selectedCitation.chapterTitle}
                       </h4>
-                      <p className="text-xs text-brand mt-0.5">{selectedCitation.section}</p>
+                      <p className="text-[11px] font-semibold text-brand mt-1 uppercase tracking-wide">{selectedCitation.section}</p>
                     </div>
 
-                    <div className="bg-surface-2 p-3.5 rounded-lg border border-border text-xs text-navy-2 leading-relaxed font-sans max-h-72 overflow-y-auto">
-                      &quot;{selectedCitation.excerpt}&quot;
+                    <div className="relative">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand rounded-l-md"></div>
+                      <div className="bg-surface-2/80 backdrop-blur-sm pl-4 pr-3 py-4 rounded-r-xl border border-border/50 text-xs text-navy-2 leading-relaxed font-sans max-h-72 overflow-y-auto shadow-inner">
+                        &quot;{selectedCitation.excerpt}&quot;
+                      </div>
                     </div>
 
-                    <div className="text-[11px] text-text-2 flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-brand" />
+                    <div className="text-[10px] text-text-2 flex items-center gap-1.5 font-medium bg-white px-3 py-2 rounded-lg border border-border/30 shadow-sm">
+                      <ShieldCheck className="w-4 h-4 text-brand" />
                       <span>Source: Official PCTB Class 10 Textbook (Verified Ground Truth)</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-8 text-center text-text-2 text-xs">
-                    Ask a syllabus question or click a citation tag to inspect the exact textbook page and excerpt.
+                  <div className="flex flex-col items-center justify-center p-8 text-center space-y-3 opacity-60">
+                    <BookOpen className="w-10 h-10 text-text-3" />
+                    <p className="text-text-2 text-xs font-medium max-w-[200px]">
+                      Ask a syllabus question or click a citation tag to inspect the exact textbook page and excerpt.
+                    </p>
                   </div>
                 )}
               </div>
 
               {/* The Core Architecture Guardrail Card */}
-              <div className="bg-surface border border-border rounded-xl p-5 space-y-3">
-                <h4 className="text-xs font-semibold text-navy-2 uppercase tracking-wider flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-warning" />
+              <div className="bg-surface-2 border border-border/50 rounded-2xl p-5 space-y-3 shadow-inner">
+                <h4 className="text-[11px] font-bold text-navy-2 uppercase tracking-wider flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-warning" />
                   Why Sabaq AI is Different
                 </h4>
-                <p className="text-xs text-text-2 leading-relaxed">
+                <p className="text-[11px] text-text-2 leading-relaxed font-medium">
                   General AI chatbots hallucinate because they answer from open-web data. Sabaq AI
-                  scores retrieval confidence before generating, against thresholds calibrated on a
-                  hand-labelled question set. If the question is outside the syllabus, it refuses
+                  scores retrieval confidence before generating. If the question is outside the syllabus, it refuses
                   immediately without invoking the LLM.
                 </p>
-                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
-                  <div className="bg-surface-2 p-2 rounded border border-border">
-                    <span className="text-brand font-semibold">In-Syllabus:</span> Answer + Page Citation
+                <div className="grid grid-cols-2 gap-2 pt-2 text-[10px]">
+                  <div className="bg-white p-2.5 rounded-lg border border-border/50 shadow-sm">
+                    <span className="text-brand font-bold block mb-0.5">In-Syllabus:</span> Answer + Page Citation
                   </div>
-                  <div className="bg-surface-2 p-2 rounded border border-border">
-                    <span className="text-warning font-semibold">Off-Syllabus:</span> Zero LLM calls, Zero hallucinations
+                  <div className="bg-white p-2.5 rounded-lg border border-border/50 shadow-sm">
+                    <span className="text-warning font-bold block mb-0.5">Off-Syllabus:</span> Zero LLM calls, Zero hallucinations
                   </div>
                 </div>
               </div>
