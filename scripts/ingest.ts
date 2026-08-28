@@ -1,4 +1,4 @@
-// Ingestion: source documents → recursive chunks → Qwen embeddings → Supabase.
+// Ingestion: source documents → recursive chunks → embeddings → Supabase.
 //
 // Writes go through the ingest_document RPC (supabase/migrations/0003_ingest_function.sql),
 // which upserts chapter → source → sections → chunks in ONE Postgres transaction per document:

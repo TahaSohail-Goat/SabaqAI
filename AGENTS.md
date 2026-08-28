@@ -91,7 +91,7 @@ src/lib/ai/retrieval.ts    pgvector search + nearest chapters
 src/lib/ai/guardrail.ts    THE confidence gate — read before touching anything nearby
 src/lib/ai/generation.ts   grounded generation (Gemini)
 src/lib/ai/citation.ts     citation validation
-src/lib/ai/embeddings.ts   Qwen embeddings via DashScope
+src/lib/ai/embeddings.ts   Jina embeddings (provider-agnostic client)
 src/lib/ingest/chunker.ts  recursive chunking (pure, no I/O, safe to unit test)
 src/lib/evaluation/        THE labelled question set + the shared scoring run
 src/lib/quiz/answer-key.ts AES-256-GCM sealing of quiz answers
@@ -143,15 +143,18 @@ worse than none.
 ### Written but never run against real services
 
 Retrieval, ingestion, embeddings, `qa_log`, and profile creation are all implemented and
-type-check, but **nobody has supplied a DashScope key, a Supabase project, or source documents.**
-None of that code has executed against a real service even once.
+type-check. A Supabase project and a Jina key are now provisioned and connectivity-verified
+(`node scripts/verify-embeddings.mjs` passes — 1024 dims), but **no source documents have been
+ingested** — the corpus is empty, and none of the request-path code has run against real content
+even once.
 
 Do not report these as working. The first task is to run them and fix what breaks.
 
 ### The remaining work, in order
 
 1. **Provision and verify.** Supabase project + `0001_init.sql` + `0002_match_function.sql`.
-   DashScope key. Confirm `text-embedding-v3` really returns 1024 dimensions before ingesting.
+   Jina key. Run `node scripts/verify-embeddings.mjs` — it confirms the configured model really
+   returns 1024 dimensions before ingesting.
 2. **Ingest real content.** Convert chapters into the `SourceDocument` JSON shape
    (`data/source/README.md`), run `npm run ingest -- --dry-run`, tune chunk size, then ingest.
    Verify with `select count(*) from content_chunks`.
@@ -195,7 +198,7 @@ reason this is visible. Fix it by recalibrating against the real corpus (step 4)
 ## Conventions
 
 - **TypeScript throughout.** No `any` in new code unless you explain why in a comment.
-- **No new dependencies** without a clear reason. The DashScope client is plain `fetch` on purpose.
+- **No new dependencies** without a clear reason. The embeddings client is plain `fetch` on purpose.
 - **Comments explain *why*, not *what*.** The files enforcing invariants carry comments saying what
   breaks if the rule is removed — preserve those when editing nearby.
 - **Refusals are HTTP 200.** Refusing is correct behaviour, not an error. Only genuine failures are
@@ -203,7 +206,7 @@ reason this is visible. Fix it by recalibrating against the real corpus (step 4)
 - **Errors say what went wrong and how to fix it**, and point at the relevant doc. See the
   dimension-mismatch error in `embeddings.ts` for the standard.
 - **Server-only secrets never get a `NEXT_PUBLIC_` prefix.** `SUPABASE_SERVICE_ROLE_KEY` and
-  `DASHSCOPE_API_KEY` must never reach the browser.
+  `EMBEDDING_API_KEY` must never reach the browser.
 - **UI:** mobile-first for a low-end Android. The citation is a primary element, not a footnote.
   Refusal is styled calm and neutral — never red, never an error icon. Confidence is icon + label,
   never colour alone. Urdu gets `dir="rtl"` at the block level.
@@ -212,7 +215,7 @@ reason this is visible. Fix it by recalibrating against the real corpus (step 4)
 
 ## Traps that will cost you hours
 
-**Embedding dimensions.** The migration declares `vector(1024)`; Qwen `text-embedding-v3` returns
+**Embedding dimensions.** The migration declares `vector(1024)`; Jina `jina-embeddings-v3` returns
 1024. If you change `EMBEDDING_MODEL`, you must change the migration, `EMBEDDING_DIM`, **and
 re-embed everything.** A mismatch fails on insert with an error that never mentions the model.
 

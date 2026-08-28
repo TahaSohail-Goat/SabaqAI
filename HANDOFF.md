@@ -18,8 +18,8 @@ Sabaq AI is a syllabus-grounded AI tutor for Pakistani board students. It answer
 from the ingested textbook content for a student's board/class/subject, cites the exact chapter and
 page, and **refuses instead of guessing** when retrieval confidence is too low — the LLM is never
 even called on a refusal. Built for the **Bano Qabil AI Hackathon 2026** (Education category);
-Alibaba Cloud is the title sponsor, which is why embeddings run on Qwen via DashScope rather than a
-second Gemini call.
+Embeddings run on Jina AI `jina-embeddings-v3` (1024-dim) through a provider-agnostic
+client; DashScope/Qwen remains a one-line env-var alternative.
 
 One Next.js app. No monorepo, no separate backend, no Docker. `npm run dev` and it runs.
 
@@ -27,7 +27,8 @@ One Next.js app. No monorepo, no separate backend, no Docker. `npm run dev` and 
 
 Everything is now **real code that type-checks and builds** — no more `console.log` theater, no
 more hardcoded scores, no more answers fabricated on failure. But most of the backend has **never
-executed against a live Supabase or DashScope service**, because nobody has provisioned either yet.
+executed against real content** — Supabase and embeddings are provisioned and connectivity-verified,
+yet the corpus is still empty.
 Written and correct is not the same as verified. `docs/project-status.md` is the authoritative,
 row-by-row tracker of what's real, what's stubbed, and what's untested — read it before assuming
 anything works, and update it the moment you make something true.
@@ -44,8 +45,8 @@ recalibrating thresholds against the real corpus, not by softening the test.
 In order — each step unblocks the next, so don't skip ahead:
 
 1. **Provision.** Supabase project, run `supabase/migrations/0001_init.sql` then
-   `0002_match_function.sql`. DashScope API key. Confirm `text-embedding-v3` actually returns 1024
-   dimensions before ingesting anything — a mismatch fails inserts with an error that never
+   `0002_match_function.sql`. Jina API key. Run `node scripts/verify-embeddings.mjs` to confirm
+   1024 dimensions before ingesting anything — a mismatch fails inserts with an error that never
    mentions the model.
 2. **Ingest real content.** Convert chapters into the `SourceDocument` JSON shape described in
    `data/source/README.md`, dry-run the chunker (`npm run ingest -- --dry-run`), then ingest for
@@ -84,7 +85,7 @@ The full list of eight is in `AGENTS.md`. The three that matter most:
 | --- | --- |
 | `AGENTS.md` | Before writing any code. The actual rules, file map, and traps. |
 | `docs/project-status.md` | Before assuming any subsystem works. |
-| `docs/setup.md` | Setting up Supabase, DashScope, Gemini, Groq keys. |
+| `docs/setup.md` | Setting up Supabase, Jina, Gemini, Groq keys. |
 | `docs/api-spec.md` | Before touching any route's request/response shape. |
 | `docs/rag-architecture.md` | Before touching retrieval, chunking, or citation logic. |
 | `docs/confidence-guardrails.md` | Before touching the gate or thresholds. |
@@ -106,7 +107,7 @@ what you'll actually stand up and say — read them well before the deadline, no
 ```bash
 npm install
 cp .env.example .env.local   # fill in keys — see docs/setup.md
-npm run ingest                # after Supabase + DashScope are configured
+npm run ingest                # after Supabase + embeddings are configured
 npm run dev
 npm run lint                  # tsc --noEmit — run this before considering anything done
 npm run eval                  # retrieval + refusal metrics, once content is ingested

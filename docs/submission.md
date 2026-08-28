@@ -16,8 +16,8 @@ Category: **Education**. Everything a judge or organiser reads about the project
 > language model. Beyond grounded Q&A it generates chapter practice quizzes tied back to source
 > chunks, and ships with a hand-labelled evaluation set that measures retrieval accuracy and
 > refusal quality rather than asserting them. Built as a single Next.js application with Supabase
-> (Postgres + pgvector) for grounded retrieval and auth, Qwen via Alibaba Cloud DashScope for
-> embeddings, and Gemini for grounded generation. Sabaq AI targets the educational-equity gap
+> (Postgres + pgvector) for grounded retrieval and auth, Jina AI for embeddings (1024-dim, through
+> a provider-agnostic client), and Gemini for grounded generation. Sabaq AI targets the educational-equity gap
 > between students who can afford private tuition and those who can't — giving every board student
 > free, accurate, always-available exam preparation in their own language.
 
@@ -49,7 +49,7 @@ The refusal path is a tested, measured feature, not a disclaimer in the footer.
 
 ## Where AI is used
 
-- **Embeddings + vector search** (Qwen `text-embedding-v3` via Alibaba Cloud DashScope, stored in
+- **Embeddings + vector search** (Jina `jina-embeddings-v3`, stored in
   Supabase pgvector) over the textbook corpus, filtered by board, class, and subject.
 - **A confidence-threshold guardrail** that blocks generation when retrieval similarity is too low.
   This is rule-based, not model-based — it cannot be talked out of refusing.

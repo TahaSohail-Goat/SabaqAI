@@ -1,11 +1,12 @@
-// Embeddings via Qwen `text-embedding-v3` on Alibaba Cloud DashScope.
+// Embeddings through an OpenAI-compatible /embeddings endpoint over plain fetch — no extra
+// dependency. The client is provider-agnostic: the configured provider is Jina AI
+// (`jina-embeddings-v3`, via EMBEDDING_BASE_URL=https://api.jina.ai/v1); DashScope/Qwen
+// `text-embedding-v3` is the code default and a drop-in alternative (also 1024-dim).
 //
 // ONE model embeds both the ingested chunks and the incoming questions. Mixing models silently
 // destroys search quality — the vectors stop being comparable, retrieval degrades, and nothing
 // throws. If you change EMBEDDING_MODEL you must also change the migration's vector(N),
-// EMBEDDING_DIM, and re-embed every existing chunk.
-//
-// Uses DashScope's OpenAI-compatible endpoint over plain fetch — no extra dependency.
+// EMBEDDING_DIM, and re-embed every existing chunk. Run scripts/verify-embeddings.mjs first.
 
 const DEFAULT_BASE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
 const DEFAULT_MODEL = 'text-embedding-v3';
@@ -20,15 +21,15 @@ export interface EmbedOptions {
 }
 
 function config() {
-  const apiKey = process.env.DASHSCOPE_API_KEY;
+  const apiKey = process.env.EMBEDDING_API_KEY;
   if (!apiKey) {
     throw new Error(
-      'DASHSCOPE_API_KEY is not set. Embeddings cannot run. See docs/setup.md step 3.'
+      'EMBEDDING_API_KEY is not set. Embeddings cannot run. See docs/setup.md step 3.'
     );
   }
   return {
     apiKey,
-    baseUrl: (process.env.DASHSCOPE_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, ''),
+    baseUrl: (process.env.EMBEDDING_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, ''),
     model: process.env.EMBEDDING_MODEL || DEFAULT_MODEL,
     dimensions: Number(process.env.EMBEDDING_DIM ?? DEFAULT_DIM),
   };
@@ -62,7 +63,7 @@ export async function embedTexts(texts: string[], options: EmbedOptions = {}): P
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
       throw new Error(
-        `DashScope embeddings failed (${response.status} ${response.statusText}) ` +
+        `Embeddings request failed (${response.status} ${response.statusText}) ` +
         `on batch ${i / MAX_BATCH + 1}: ${detail.slice(0, 400)}`
       );
     }
@@ -73,7 +74,7 @@ export async function embedTexts(texts: string[], options: EmbedOptions = {}): P
 
     if (!payload.data || payload.data.length !== batch.length) {
       throw new Error(
-        `DashScope returned ${payload.data?.length ?? 0} embeddings for ${batch.length} inputs.`
+        `Provider returned ${payload.data?.length ?? 0} embeddings for ${batch.length} inputs.`
       );
     }
 
@@ -83,7 +84,7 @@ export async function embedTexts(texts: string[], options: EmbedOptions = {}): P
     for (const item of ordered) {
       const vector = item.embedding;
       if (!Array.isArray(vector) || vector.length === 0) {
-        throw new Error('DashScope returned an empty embedding.');
+        throw new Error('Provider returned an empty embedding.');
       }
       // Fail loudly on a dimension mismatch. This is the #1 silent failure in this project:
       // a wrong-sized vector is rejected by Postgres with an error that never mentions the model.
