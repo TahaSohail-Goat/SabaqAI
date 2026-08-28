@@ -7,6 +7,13 @@ Supabase SQL Editor:
 1. `supabase/migrations/0001_init.sql` — tables, constraints, indexes, RLS, reference data.
 2. `supabase/migrations/0002_match_function.sql` — `match_content_chunks`, the vector search RPC.
 3. `supabase/migrations/0003_ingest_function.sql` — `ingest_document`, the atomic ingestion RPC.
+4. `supabase/migrations/0004_function_grants.sql` — revokes PUBLIC's default EXECUTE on both RPCs.
+5. `supabase/migrations/0005_function_search_path.sql` — pins `search_path = public, extensions` on
+   both functions (pgvector lives in the `extensions` schema; without this, calls through PostgREST
+   as service_role cannot resolve `vector` / `<=>`).
+
+After applying, run `supabase/tests/001_schema_torture.sql` (22 assertions, self-rolling-back) via
+`node scripts/dev-db-sql.mjs` or the SQL Editor to verify everything holds.
 
 ## Tables
 
