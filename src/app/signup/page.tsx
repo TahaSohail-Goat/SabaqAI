@@ -61,14 +61,14 @@ export default function SignupPage() {
 
   return (
     <div className="relative min-h-screen bg-page text-navy">
-      {/* Full-page background artwork, shown at full strength — the card anchors left over it */}
+      {/* Full-page background artwork, shown at full strength — the card anchors right over it */}
       <img
         src="/assets/auth-illustration.png"
         alt=""
         className="absolute inset-0 h-full w-full object-cover"
       />
 
-      <div className="relative flex min-h-screen items-center justify-start px-4 py-12 sm:px-10 lg:px-20">
+      <div className="relative flex min-h-screen items-center justify-end px-4 py-12 sm:px-10 lg:px-20">
         <div className="w-full max-w-md space-y-6">
           <Link href="/" className="block text-center text-3xl font-bold tracking-tight">
             <span className="text-navy">Sabaq</span>

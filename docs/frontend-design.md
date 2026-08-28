@@ -167,7 +167,7 @@ Per colortheme §19 and the supplied illustration. **Auth pages are always light
 illustration is a light image; dark mode starts after login.
 
 **Layout:** the illustration is the full-page background (`object-cover`, full strength — no
-fade or scrim), and the white form card sits **left-aligned on top of it** (`#FFFFFF`, border
+fade or scrim), and the white form card sits **right-aligned on top of it** (`#FFFFFF`, border
 `#DCE5E1`, shadow `rgba(16,42,58,0.08)`), wordmark above the card. No split panel, no DOM text
 overlaid on the artwork — the image already carries the logo, tagline, and feature cards.
 
