@@ -286,42 +286,108 @@ export default function SabaqApp() {
   }, [activeTab]);
 
   return (
-    <div className="min-h-screen bg-page text-navy flex flex-col">
-      {/* Top Header */}
-      <header className="border-b border-border bg-surface sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-brand-light border border-brand/30 flex items-center justify-center text-brand-dark font-bold text-lg shadow-sm">
+    <div className="min-h-screen bg-page text-navy flex flex-col selection:bg-brand/20">
+      {/* Top Header - Glassmorphism */}
+      <header className="sticky top-0 z-30 bg-surface/80 backdrop-blur-lg border-b border-border/50 shadow-sm transition-all">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+          
+          {/* Logo & Brand */}
+          <div className="flex items-center gap-3 shrink-0 cursor-default">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-light to-brand-mint border border-brand/20 flex items-center justify-center text-brand font-bold text-xl shadow-inner transition-transform hover:scale-105">
               سبق
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-bold text-navy text-lg tracking-tight">Sabaq AI</h1>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-brand-light text-brand-dark border border-brand/20 font-medium">
-                  Matric MVP
+            <div className="flex flex-col justify-center">
+              <div className="flex items-center gap-1.5">
+                <h1 className="font-bold tracking-tight text-lg">
+                  <span className="text-navy">Sabaq</span> <span className="text-brand">AI</span>
+                </h1>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-light text-brand-dark font-semibold tracking-wide uppercase shadow-sm">
+                  MVP
                 </span>
               </div>
-              <p className="text-xs text-text-2">{board} Class {classLevel} • Physics Syllabus Grounded</p>
+              <p className="text-[11px] text-text-2 font-medium tracking-wide">Physics Syllabus Grounded</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Language Toggle */}
-            <div className="flex items-center bg-surface-2 rounded-lg p-0.5 border border-border text-xs">
+          {/* Center Navigation - Pill-shaped Tabs */}
+          <div className="hidden md:flex flex-1 justify-center">
+            <div className="flex bg-surface-2/80 backdrop-blur-md p-1 rounded-full border border-white/50 shadow-inner gap-1">
+              {[
+                { id: 'ask', icon: Search, label: 'Ask' },
+                { id: 'quiz', icon: Award, label: 'Quiz' },
+                { id: 'eval', icon: ShieldCheck, label: 'Evaluation' },
+                { id: 'syllabus', icon: BookOpen, label: 'Syllabus' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ease-out ${
+                    activeTab === tab.id
+                      ? 'bg-white text-brand shadow-sm scale-100 ring-1 ring-black/5'
+                      : 'text-text-2 hover:text-navy hover:bg-white/50 scale-95'
+                  }`}
+                >
+                  <tab.icon className={`w-4 h-4 transition-colors ${activeTab === tab.id ? 'text-brand' : 'text-text-3'}`} />
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right Controls - Board/Class, Lang, User */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Scope Selectors */}
+            <div className="hidden lg:flex items-center gap-2 py-1 px-3 bg-surface-2/80 rounded-full border border-white/50 shadow-inner">
+              <div className="flex items-center">
+                <span className="text-[10px] text-text-2 font-medium mr-1.5 uppercase tracking-wide">Board</span>
+                <div className="relative">
+                  <select
+                    value={board}
+                    onChange={(e) => setBoard(e.target.value)}
+                    className="appearance-none bg-transparent text-xs font-semibold text-navy pr-4 focus:outline-none cursor-pointer"
+                  >
+                    <option value="PCTB">PCTB</option>
+                    <option value="FBISE">FBISE</option>
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-text-3 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+              <div className="w-px h-3 bg-border mx-1"></div>
+              <div className="flex items-center">
+                <span className="text-[10px] text-text-2 font-medium mr-1.5 uppercase tracking-wide">Class</span>
+                <div className="relative">
+                  <select
+                    value={classLevel}
+                    onChange={(e) => setClassLevel(Number(e.target.value))}
+                    className="appearance-none bg-transparent text-xs font-semibold text-navy pr-4 focus:outline-none cursor-pointer"
+                  >
+                    <option value={9}>9</option>
+                    <option value={10}>10</option>
+                    <option value={11}>11</option>
+                    <option value={12}>12</option>
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-text-3 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            {/* Language Pill Toggle */}
+            <div className="flex bg-surface-2 p-0.5 rounded-full border border-border/50 shadow-inner">
               <button
                 type="button"
                 onClick={() => setLanguage('en')}
-                className={`px-2.5 py-1 rounded-md transition font-medium ${
-                  language === 'en' ? 'bg-surface text-navy shadow-sm' : 'text-text-2 hover:text-navy'
+                className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all duration-300 ${
+                  language === 'en' ? 'bg-white text-navy shadow-sm' : 'text-text-2 hover:text-navy'
                 }`}
               >
-                English
+                EN
               </button>
               <button
                 type="button"
                 onClick={() => setLanguage('ur')}
-                className={`px-2.5 py-1 rounded-md transition font-medium ${
-                  language === 'ur' ? 'bg-surface text-navy shadow-sm' : 'text-text-2 hover:text-navy'
+                className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all duration-300 ${
+                  language === 'ur' ? 'bg-white text-navy shadow-sm' : 'text-text-2 hover:text-navy'
                 }`}
               >
                 اردو
@@ -331,10 +397,10 @@ export default function SabaqApp() {
             {/* User Auth */}
             {authChecked && (
               currentUser ? (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-2 border border-border rounded-lg text-xs">
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2 px-3 py-1 bg-brand-mint border border-brand/20 rounded-full text-xs shadow-sm hover:shadow transition-shadow">
                     <User className="w-3.5 h-3.5 text-brand" />
-                    <span className="font-medium text-navy truncate max-w-[120px]">
+                    <span className="font-semibold text-brand-dark truncate max-w-[100px]">
                       {currentUser.metadata?.full_name || currentUser.email?.split('@')[0] || 'Student'}
                     </span>
                   </div>
@@ -342,122 +408,29 @@ export default function SabaqApp() {
                     type="button"
                     onClick={handleLogout}
                     title="Sign Out"
-                    className="p-1.5 rounded-lg bg-surface hover:bg-surface-2 text-text-2 hover:text-navy border border-border transition cursor-pointer"
+                    className="p-1.5 rounded-full bg-surface-2 hover:bg-error-bg text-text-3 hover:text-error transition-colors cursor-pointer"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
+                    <LogOut className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">
                   <Link
                     href="/login"
-                    className="px-2.5 py-1 rounded-lg text-xs font-medium text-navy-2 hover:text-navy bg-surface hover:bg-surface-2 border border-border transition flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-full text-xs font-semibold text-navy-2 hover:bg-surface-2 transition-colors flex items-center gap-1.5"
                   >
                     <LogIn className="w-3.5 h-3.5" />
                     <span>Login</span>
                   </Link>
                   <Link
                     href="/signup"
-                    className="px-2.5 py-1 rounded-lg text-xs font-medium text-white bg-brand hover:bg-brand-dark border border-brand shadow-sm transition"
+                    className="px-4 py-1.5 rounded-full text-xs font-semibold text-white bg-brand hover:bg-brand-dark shadow-sm hover:shadow transition-all active:scale-95"
                   >
                     Sign up
                   </Link>
                 </div>
               )
             )}
-          </div>
-        </div>
-
-        {/* Navigation tabs (left) + syllabus scope selectors (right) */}
-        <div className="border-t border-border">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4">
-            <div className="flex gap-1 overflow-x-auto py-1">
-              <button
-                type="button"
-                id="tab-ask"
-                onClick={() => setActiveTab('ask')}
-                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition whitespace-nowrap border-b-2 ${
-                  activeTab === 'ask'
-                    ? 'border-brand text-brand'
-                    : 'border-transparent text-text-2 hover:text-navy'
-                }`}
-              >
-                <Search className="w-4 h-4" />
-                <span>Ask</span>
-              </button>
-
-              <button
-                type="button"
-                id="tab-quiz"
-                onClick={() => setActiveTab('quiz')}
-                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition whitespace-nowrap border-b-2 ${
-                  activeTab === 'quiz'
-                    ? 'border-brand text-brand'
-                    : 'border-transparent text-text-2 hover:text-navy'
-                }`}
-              >
-                <Award className="w-4 h-4" />
-                <span>Quiz</span>
-              </button>
-
-              <button
-                type="button"
-                id="tab-eval"
-                onClick={() => setActiveTab('eval')}
-                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition whitespace-nowrap border-b-2 ${
-                  activeTab === 'eval'
-                    ? 'border-brand text-brand'
-                    : 'border-transparent text-text-2 hover:text-navy'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>Evaluation</span>
-              </button>
-
-              <button
-                type="button"
-                id="tab-syllabus"
-                onClick={() => setActiveTab('syllabus')}
-                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition whitespace-nowrap border-b-2 ${
-                  activeTab === 'syllabus'
-                    ? 'border-brand text-brand'
-                    : 'border-transparent text-text-2 hover:text-navy'
-                }`}
-              >
-                <BookOpen className="w-4 h-4" />
-                <span>Syllabus</span>
-              </button>
-            </div>
-
-            {/* Board + class picked here scope every retrieval (invariant 6) */}
-            <div className="flex items-center gap-2 py-1">
-              <label htmlFor="board-select" className="text-xs text-text-2 whitespace-nowrap">
-                Board
-              </label>
-              <select
-                id="board-select"
-                value={board}
-                onChange={(e) => setBoard(e.target.value)}
-                className="rounded-lg border border-border bg-surface px-2 py-1.5 text-xs text-navy focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              >
-                <option value="PCTB">Punjab (PCTB)</option>
-                <option value="FBISE">Federal (FBISE)</option>
-              </select>
-              <label htmlFor="class-select" className="text-xs text-text-2 whitespace-nowrap">
-                Class
-              </label>
-              <select
-                id="class-select"
-                value={classLevel}
-                onChange={(e) => setClassLevel(Number(e.target.value))}
-                className="rounded-lg border border-border bg-surface px-2 py-1.5 text-xs text-navy focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              >
-                <option value={9}>9</option>
-                <option value={10}>10 (Matric)</option>
-                <option value={11}>11</option>
-                <option value={12}>12</option>
-              </select>
-            </div>
           </div>
         </div>
       </header>
