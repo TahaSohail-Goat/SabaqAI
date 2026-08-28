@@ -59,13 +59,12 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-navy flex items-center justify-center p-6 selection:bg-brand/30 selection:text-brand-mint">
+    <div className="relative min-h-screen w-full flex items-center justify-center p-6 selection:bg-brand/30 selection:text-brand-mint">
       
       {/* PNG Background */}
       <div 
-        className="absolute inset-0 z-0 bg-[url('/bg.png')] bg-cover bg-center bg-no-repeat opacity-80"
+        className="absolute inset-0 z-0 bg-[url('/bg.png')] bg-cover bg-center bg-no-repeat"
       >
-        <div className="absolute inset-0 bg-navy/20 backdrop-blur-[2px]"></div>
       </div>
 
       {/* Centered Signup Form */}
