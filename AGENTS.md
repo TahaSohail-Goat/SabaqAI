@@ -146,7 +146,8 @@ worse than none.
 ### What is verified vs. what is not
 
 **Verified against live services:** the Supabase project exists and all five migrations have
-executed; the schema passed a 22-assertion torture suite (`supabase/tests/001_schema_torture.sql`,
+executed; both RPCs execute through PostgREST as `service_role`; the schema passed a
+22-assertion torture suite (`supabase/tests/001_schema_torture.sql`,
 self-rolling-back — run it with `node scripts/dev-db-sql.mjs supabase/tests/001_schema_torture.sql`);
 and the Jina embedding key returned a verified 1024-dim vector (`node scripts/verify-embeddings.mjs`).
 

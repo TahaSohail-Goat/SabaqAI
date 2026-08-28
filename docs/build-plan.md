@@ -8,8 +8,8 @@
 
 Everything below Part 1 was the plan for a green-field build. It's not green-field anymore: one
 person (Taha) has already written the retrieval/guardrail/generation/quiz/eval code solo, per
-`docs/project-status.md`. It type-checks and looks right, but **nothing has run against a real
-Supabase project, a real DashScope key, or real textbook content.** That's the actual state of the
+`docs/project-status.md`. It type-checks and looks right; Supabase and the Jina embedding key are
+provisioned and connectivity-verified, but **nothing has run against real textbook content.** That's the actual state of the
 repo today, and it's the entire remaining scope for the four of us.
 
 **Division is by development layer** — three people each own one build layer end-to-end so file
@@ -32,8 +32,8 @@ DevOps & QA starts only once the three build layers are actually working togethe
 Nobody can verify anything until this lands. Do it first, ideally today.
 
 1. Create the real Supabase project, enable the `vector` extension.
-2. Get a DashScope API key. Confirm `text-embedding-v3` actually returns 1024 dims before running
-   anything else — this is Trap A below, and it silently breaks every insert if wrong.
+2. Get a Jina API key. Run `node scripts/verify-embeddings.mjs` to confirm it returns 1024 dims
+   before running anything else — this is Trap A below, and it silently breaks every insert if wrong.
 3. Run `supabase/migrations/0001_init.sql` then `0002_match_function.sql` against the real project.
 4. Fill real values into `.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
    `SUPABASE_SERVICE_ROLE_KEY`, `EMBEDDING_API_KEY`.
@@ -184,10 +184,9 @@ validator, and `/api/eval`'s scoring loop — it honestly computes from live ret
 `text-embedding-004` outputs **768**. Ingest with Gemini against this schema and every insert
 fails.
 
-*Resolution (this is also your sponsor-tech answer):* use **Qwen `text-embedding-v3` via Alibaba
-DashScope for embeddings** — it is 1024-dimensional, so the migration runs unchanged. Keep Gemini
-for generation. This makes Alibaba Cloud **load-bearing infrastructure rather than a token API
-call**, which is a far stronger answer when a judge asks how you used sponsor tech. Confirm the
+*Resolution:* use **Jina `jina-embeddings-v3` for embeddings** — it is 1024-dimensional, so the
+migration runs unchanged. Keep Gemini for generation. (If the sponsor-tech answer matters on stage,
+DashScope/Qwen `text-embedding-v3` is a one-line env-var switch — also 1024-dim.) Confirm the
 model's actual dimension on Day 1 and set `EMBEDDING_DIM` to match before anyone runs the
 migration.
 
@@ -216,7 +215,7 @@ parallel.
   voice input.
 - **Dev C — Ingestion & Content.** Owns `scripts/ingest.ts` and `supabase/`. PDF → chunk → embed →
   Supabase. **This is the critical path** — nothing downstream is real until it lands.
-- **Dev D — Eval, Deploy & Pitch.** Owns `src/app/api/eval/route.ts`, DashScope wiring, Vercel
+- **Dev D — Eval, Deploy & Pitch.** Owns `src/app/api/eval/route.ts`, embeddings wiring, Vercel
   deploy, demo script, deck. Also owns deleting the hardcoded metric labels (finding #5).
 
 ### The Day-1 contract that unblocks everyone
@@ -231,14 +230,14 @@ the implementation on Day 3. Neither blocks the other.
 ## Part 4 — Day by day
 
 **Day 1 — Accounts, contract, scope lock.**
-Supabase project + vector extension enabled. Alibaba Cloud DashScope key. Gemini key. Groq key (for
-voice). Confirm Qwen embedding dimension, set it in the migration, run the migration. A+C lock the
+Supabase project + vector extension enabled. Jina key. Gemini key. Groq key (for
+voice). Confirm the embedding dimension with `scripts/verify-embeddings.mjs`, run the migration. A+C lock the
 retrieval contract. Lock scope to **PCTB, Class 10, Physics** — one board, one class, one subject,
 fully done (per submission plan §11). C starts PDF text extraction.
 *Done when:* migration is live in Supabase and `npm run dev` boots.
 
 **Day 2 — Real ingestion + kill the fakes.**
-C: real `ingest.ts` — chunk, embed via Qwen, insert with `content_hash` dedupe. A: fix
+C: real `ingest.ts` — chunk, embed, insert with `content_hash` dedupe. A: fix
 `getNearestChapters()` to return true nearest chapters from actual retrieval scores; delete the
 hardcoded `0.3`. D: delete the hardcoded metric strings in `page.tsx` — the dashboard must only
 ever render computed numbers.

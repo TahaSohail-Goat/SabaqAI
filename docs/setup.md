@@ -27,9 +27,9 @@ node --version   # must be 20 or higher
    the migration, so nothing has to change.
 
 > **Confirm the dimension before step 8.** After filling `.env.local`, run
-> `node scripts/verify-embeddings.mjs` — it embeds one probe string and fails loudly if the
-> model's real output isn't 1024. Mismatched dimensions is the #1 silent failure: every insert
-> fails, and the database error never mentions the model.
+> `node scripts/verify-embeddings.mjs` — it embeds two probe strings (English and Urdu) and fails
+> loudly if the model's real output isn't 1024. Mismatched dimensions is the #1 silent failure:
+> every insert fails, and the database error never mentions the model.
 
 The embeddings client is provider-agnostic — any OpenAI-compatible `/embeddings` endpoint works
 via `EMBEDDING_BASE_URL` / `EMBEDDING_MODEL` env vars. To use Alibaba Cloud DashScope's Qwen

@@ -25,10 +25,11 @@ question
 
 ## Embeddings
 
-**Model: Qwen `text-embedding-v3` via Alibaba Cloud DashScope (1024-dim).**
+**Model: Jina `jina-embeddings-v3` (1024-dim), through a provider-agnostic OpenAI-compatible
+client.**
 
-Chosen for two reasons: it matches `vector(1024)` in the migration as written, and it makes the
-hackathon's title sponsor load-bearing infrastructure rather than a decorative API call. Gemini
+Chosen because it matches `vector(1024)` in the migration as written and needs no paid tier.
+DashScope/Qwen `text-embedding-v3` remains a drop-in env-var alternative (also 1024-dim). Gemini
 stays for generation.
 
 - Use ONE model for both ingesting chunks and embedding questions. Mixing models silently
