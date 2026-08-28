@@ -102,7 +102,10 @@ src/prompts/               THE prompts, kept out of route files
 
 scripts/ingest.ts          ingestion pipeline
 scripts/eval.ts            evaluation CLI
-supabase/migrations/       0001 schema + RLS, 0002 match_content_chunks RPC
+scripts/dev-db-sql.mjs     direct SQL runner against the live DB (SUPABASE_DB_* env vars)
+scripts/verify-embeddings.mjs  pre-ingestion embedding dimension probe
+supabase/migrations/       0001–0003 schema + RPCs, 0004–0005 RPC hardening
+supabase/tests/            001_schema_torture.sql — 22 assertions, self-rolling-back
 data/source/               your syllabus JSON (gitignored)
 docs/                      see below
 ```
@@ -114,7 +117,7 @@ docs/                      see below
 | Eval questions | `src/lib/evaluation/questions.ts` |
 | Eval scoring | `src/lib/evaluation/run.ts` (both the route and the CLI call it) |
 | Grounded-answer prompt | `src/prompts/grounded-answer.ts` |
-| Chunk → DB row shape | `src/lib/ingest/chunker.ts` (`PreparedChunk`) |
+| Chunk → DB row shape | `src/lib/ingest/chunker.ts` (`PreparedDocument`) |
 | API response shapes | `src/lib/types.ts` |
 
 Each of these was previously duplicated, and the copies drifted — the eval set existed in three
@@ -140,26 +143,30 @@ different numbers for the same system. If you need the same data in two places, 
 When you make a stub real, **update that file in the same change.** A status file that drifts is
 worse than none.
 
-### Written but never run against real services
+### What is verified vs. what is not
 
-Retrieval, ingestion, embeddings, `qa_log`, and profile creation are all implemented and
-type-check, but **nobody has supplied a DashScope key, a Supabase project, or source documents.**
-None of that code has executed against a real service even once.
+**Verified against live services:** the Supabase project exists and all five migrations have
+executed; the schema passed a 22-assertion torture suite (`supabase/tests/001_schema_torture.sql`,
+self-rolling-back — run it with `node scripts/dev-db-sql.mjs supabase/tests/001_schema_torture.sql`);
+and the Jina embedding key returned a verified 1024-dim vector (`node scripts/verify-embeddings.mjs`).
 
-Do not report these as working. The first task is to run them and fix what breaks.
+**Still never run:** retrieval over real embedded content, the full `/api/ask` flow (no
+`GEMINI_API_KEY` yet), and `npm run eval` against a real corpus. `data/source/` is empty.
+Do not report retrieval or generation as working until `npm run ingest` has stored real rows and
+a question has come back with a real embedding score.
 
 ### The remaining work, in order
 
-1. **Provision and verify.** Supabase project + `0001_init.sql` + `0002_match_function.sql`.
-   DashScope key. Confirm `text-embedding-v3` really returns 1024 dimensions before ingesting.
-2. **Ingest real content.** Convert chapters into the `SourceDocument` JSON shape
+1. **Ingest real content.** Convert chapters into the `SourceDocument` JSON shape
    (`data/source/README.md`), run `npm run ingest -- --dry-run`, tune chunk size, then ingest.
    Verify with `select count(*) from content_chunks`.
-3. **Verify retrieval end-to-end.** With Supabase configured, `retrieve()` takes the pgvector path.
+2. **Verify retrieval end-to-end.** With Supabase configured, `retrieve()` takes the pgvector path.
    Confirm real scores come back and that the `[retrieval]` fallback warning does *not* appear.
-4. **Recalibrate thresholds** against real scores (`docs/evaluation.md`). The current values are
+3. **Recalibrate thresholds** against real scores (`docs/evaluation.md`). The current values are
    guesses made before any corpus existed.
-5. **Fix near-miss leakage.** `nm-003` currently leaks through — see below.
+4. **Re-run eval and confirm `nm-003` now refuses.** The near-miss leak below was measured on the
+   keyword fallback path; real calibrated scores are the fix — see below.
+5. **Get a Gemini key** — the only thing between the current state and the full `/api/ask` flow.
 6. **Persist quizzes** to `quizzes` / `quiz_questions` / `quiz_attempts`. Once quizzes have real
    ids, grading can look the answer key up by id and `src/lib/quiz/answer-key.ts` can be deleted.
 7. **Urdu voice input** via Groq `whisper-large-v3`. Text input must remain visible at all times.
@@ -195,7 +202,7 @@ reason this is visible. Fix it by recalibrating against the real corpus (step 4)
 ## Conventions
 
 - **TypeScript throughout.** No `any` in new code unless you explain why in a comment.
-- **No new dependencies** without a clear reason. The DashScope client is plain `fetch` on purpose.
+- **No new dependencies** without a clear reason. The embeddings client is plain `fetch` on purpose.
 - **Comments explain *why*, not *what*.** The files enforcing invariants carry comments saying what
   breaks if the rule is removed — preserve those when editing nearby.
 - **Refusals are HTTP 200.** Refusing is correct behaviour, not an error. Only genuine failures are
@@ -203,7 +210,7 @@ reason this is visible. Fix it by recalibrating against the real corpus (step 4)
 - **Errors say what went wrong and how to fix it**, and point at the relevant doc. See the
   dimension-mismatch error in `embeddings.ts` for the standard.
 - **Server-only secrets never get a `NEXT_PUBLIC_` prefix.** `SUPABASE_SERVICE_ROLE_KEY` and
-  `DASHSCOPE_API_KEY` must never reach the browser.
+  `EMBEDDING_API_KEY` must never reach the browser.
 - **UI:** mobile-first for a low-end Android. The citation is a primary element, not a footnote.
   Refusal is styled calm and neutral — never red, never an error icon. Confidence is icon + label,
   never colour alone. Urdu gets `dir="rtl"` at the block level.
@@ -212,12 +219,25 @@ reason this is visible. Fix it by recalibrating against the real corpus (step 4)
 
 ## Traps that will cost you hours
 
-**Embedding dimensions.** The migration declares `vector(1024)`; Qwen `text-embedding-v3` returns
-1024. If you change `EMBEDDING_MODEL`, you must change the migration, `EMBEDDING_DIM`, **and
-re-embed everything.** A mismatch fails on insert with an error that never mentions the model.
+**Embedding dimensions.** The migration declares `vector(1024)`; Jina `jina-embeddings-v3`
+returns 1024 (verified against the live API with `scripts/verify-embeddings.mjs`). If you change
+`EMBEDDING_MODEL`, you must change the migration, `EMBEDDING_DIM`, **and re-embed everything.**
+A mismatch fails on insert with an error that never mentions the model.
 
-**RLS silently refusing everything.** The `chunks_match_profile` policy needs a `student_profiles`
-row that nothing currently creates. Query `content_chunks` with the anon key and you get zero rows
+**Postgres functions are PUBLIC-executable by default.** Revoking EXECUTE from `anon` /
+`authenticated` is not enough — every role inherits PUBLIC's default grant, and
+`has_function_privilege` counts inherited grants. Every new function must end with
+`revoke all on function ... from public` (see `0004_function_grants.sql`).
+
+**Extension types need a pinned function search_path.** pgvector lives in the `extensions` schema.
+A function pinning `search_path = public` — or pinning nothing, when called as `service_role` via
+PostgREST — cannot resolve `vector` or `<=>` and fails with `42704: type "vector" does not exist`.
+Both RPCs pin `search_path = public, extensions` (see `0005_function_search_path.sql`). Any new
+function touching extension types must do the same.
+
+**RLS silently refusing everything.** The `chunks_match_profile` policy needs a
+`student_profiles` + `student_subjects` row; signup creates them now, but any account created
+before that shipped has none. Query `content_chunks` with the anon key and you get zero rows
 → the gate correctly refuses → the app refuses every question with no error anywhere. Retrieval
 must use the service-role client (`src/lib/supabase/admin.ts`).
 
