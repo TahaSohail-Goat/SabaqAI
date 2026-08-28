@@ -166,11 +166,10 @@ Eval       — internal/judge surface, marked "internal".    (teal, lazy)
 Per colortheme §19 and the supplied illustration. **Auth pages are always light** — the
 illustration is a light image; dark mode starts after login.
 
-**Layout:** the illustration is the full-page background (`object-cover`, softened with
-`opacity-40` plus a `bg-white/70` scrim so the form stays the focus), and the white form card
-sits centered **on top of it** (`#FFFFFF`, border `#DCE5E1`, shadow `rgba(16,42,58,0.08)`),
-wordmark above the card. No split panel, no DOM text overlaid on the artwork — the image
-already carries the logo, tagline, and feature cards.
+**Layout:** the illustration is the full-page background (`object-cover`, full strength — no
+fade or scrim), and the white form card sits **left-aligned on top of it** (`#FFFFFF`, border
+`#DCE5E1`, shadow `rgba(16,42,58,0.08)`), wordmark above the card. No split panel, no DOM text
+overlaid on the artwork — the image already carries the logo, tagline, and feature cards.
 
 **Login form:** email + password, primary button `Sign in` (`#237A57` → hover `#185C43`),
 link to signup. Error text `#C65353` on `#FBECEC`; success `#237A57`. Inputs per colortheme §8
