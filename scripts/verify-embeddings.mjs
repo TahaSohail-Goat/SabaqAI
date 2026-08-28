@@ -11,13 +11,13 @@
 // The client in src/lib/ai/embeddings.ts is provider-agnostic (OpenAI-compatible /embeddings).
 // This probe mirrors its env resolution EXACTLY so what passes here is what the app will use:
 //   EMBEDDING_API_KEY   (required — holds the Jina or DashScope key)
-//   EMBEDDING_BASE_URL  (default: DashScope compatible-mode; set to https://api.jina.ai/v1 for Jina)
-//   EMBEDDING_MODEL     (default: text-embedding-v3; Jina: jina-embeddings-v3)
+//   EMBEDDING_BASE_URL  (default: https://api.jina.ai/v1; DashScope: compatible-mode URL)
+//   EMBEDDING_MODEL     (default: jina-embeddings-v3; DashScope: text-embedding-v3)
 //   EMBEDDING_DIM       (default: 1024)
 import { readFileSync } from 'node:fs';
 
-const DEFAULT_BASE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
-const DEFAULT_MODEL = 'text-embedding-v3';
+const DEFAULT_BASE_URL = 'https://api.jina.ai/v1';
+const DEFAULT_MODEL = 'jina-embeddings-v3';
 const DEFAULT_DIM = 1024;
 const MIGRATION_FILE = 'supabase/migrations/0001_init.sql';
 
@@ -38,8 +38,7 @@ const apiKey = env.EMBEDDING_API_KEY;
 if (!apiKey) {
   console.error(
     'EMBEDDING_API_KEY is not set in .env.local.\n' +
-    'For Jina: create a key at https://jina.ai and set EMBEDDING_BASE_URL=https://api.jina.ai/v1\n' +
-    'For DashScope: create a key in the Model Studio console. See docs/setup.md step 3.'
+    'Default provider is Jina — create a key at https://jina.ai. See docs/setup.md step 3.'
   );
   process.exit(2);
 }

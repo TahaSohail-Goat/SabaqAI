@@ -1,17 +1,20 @@
-// Embeddings through an OpenAI-compatible /embeddings endpoint over plain fetch — no extra
-// dependency. The client is provider-agnostic: the configured provider is Jina AI
-// (`jina-embeddings-v3`, via EMBEDDING_BASE_URL=https://api.jina.ai/v1); DashScope/Qwen
-// `text-embedding-v3` is the code default and a drop-in alternative (also 1024-dim).
+// Embeddings via any OpenAI-compatible embeddings API. Default: Jina AI
+// `jina-embeddings-v3` (native 1024-dim, strong multilingual — matters for Urdu and
+// Roman Urdu questions). DashScope's Qwen text-embedding-v3 remains a drop-in
+// alternative: set EMBEDDING_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+// and EMBEDDING_MODEL=text-embedding-v3.
 //
 // ONE model embeds both the ingested chunks and the incoming questions. Mixing models silently
 // destroys search quality — the vectors stop being comparable, retrieval degrades, and nothing
 // throws. If you change EMBEDDING_MODEL you must also change the migration's vector(N),
-// EMBEDDING_DIM, and re-embed every existing chunk. Run scripts/verify-embeddings.mjs first.
+// EMBEDDING_DIM, and re-embed every existing chunk.
+//
+// Plain fetch on the OpenAI-compatible /embeddings shape — no extra dependency.
 
-const DEFAULT_BASE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
-const DEFAULT_MODEL = 'text-embedding-v3';
+const DEFAULT_BASE_URL = 'https://api.jina.ai/v1';
+const DEFAULT_MODEL = 'jina-embeddings-v3';
 const DEFAULT_DIM = 1024;
-/** DashScope caps batch size on the compatible endpoint; 10 is safely inside it. */
+/** Small batches stay inside every compatible provider's limits and keep retries cheap. */
 const MAX_BATCH = 10;
 
 export interface EmbedOptions {
@@ -63,7 +66,7 @@ export async function embedTexts(texts: string[], options: EmbedOptions = {}): P
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
       throw new Error(
-        `Embeddings request failed (${response.status} ${response.statusText}) ` +
+        `Embeddings failed (${response.status} ${response.statusText}) ` +
         `on batch ${i / MAX_BATCH + 1}: ${detail.slice(0, 400)}`
       );
     }
@@ -74,7 +77,7 @@ export async function embedTexts(texts: string[], options: EmbedOptions = {}): P
 
     if (!payload.data || payload.data.length !== batch.length) {
       throw new Error(
-        `Provider returned ${payload.data?.length ?? 0} embeddings for ${batch.length} inputs.`
+        `Embedding provider returned ${payload.data?.length ?? 0} embeddings for ${batch.length} inputs.`
       );
     }
 
@@ -84,7 +87,7 @@ export async function embedTexts(texts: string[], options: EmbedOptions = {}): P
     for (const item of ordered) {
       const vector = item.embedding;
       if (!Array.isArray(vector) || vector.length === 0) {
-        throw new Error('Provider returned an empty embedding.');
+        throw new Error('Embedding provider returned an empty embedding.');
       }
       // Fail loudly on a dimension mismatch. This is the #1 silent failure in this project:
       // a wrong-sized vector is rejected by Postgres with an error that never mentions the model.

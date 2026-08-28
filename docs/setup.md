@@ -21,28 +21,22 @@ node --version   # must be 20 or higher
 
 ## 3. Get a Jina AI key (embeddings)
 
-1. Go to [jina.ai](https://jina.ai), sign up, and create an API key. The free tier covers the
-   demo corpus easily.
-2. We use **`jina-embeddings-v3`**, which outputs **1024 dimensions** — matching `vector(1024)` in
+1. Go to https://jina.ai/api-dashboard and sign up (Google/GitHub/email).
+2. Copy the API key from the dashboard — new keys include **1M free tokens, no card required**.
+3. We use **`jina-embeddings-v3`**, which outputs **1024 dimensions** — matching `vector(1024)` in
    the migration, so nothing has to change.
-3. In `.env.local`, set:
-   ```
-   EMBEDDING_API_KEY=<your Jina key>
-   EMBEDDING_BASE_URL=https://api.jina.ai/v1
-   EMBEDDING_MODEL=jina-embeddings-v3
-   EMBEDDING_DIM=1024
-   ```
 
-> **Confirm the dimension before step 8.** Run `node scripts/verify-embeddings.mjs` — it embeds a
-> probe string (English and Urdu) and fails loudly if the returned size isn't 1024. If you ever
-> switch models and the result isn't 1024, change `vector(1024)` in
-> `supabase/migrations/0001_init.sql` **before running it**, and set `EMBEDDING_DIM` to match.
-> Mismatched dimensions is the #1 silent failure — every insert fails, and the error doesn't say why.
+> **Confirm the dimension before step 8.** After filling `.env.local`, run
+> `node scripts/verify-embeddings.mjs` — it embeds two probe strings (English and Urdu) and fails
+> loudly if the model's real output isn't 1024. Mismatched dimensions is the #1 silent failure:
+> every insert fails, and the database error never mentions the model.
 
-DashScope/Qwen `text-embedding-v3` remains a drop-in alternative (also 1024-dim): leave
-`EMBEDDING_BASE_URL` blank and set `EMBEDDING_MODEL=text-embedding-v3`. Whichever provider you
-pick, ONE model must embed both the corpus and every question — mixing models silently destroys
-search quality.
+The embeddings client is provider-agnostic — any OpenAI-compatible `/embeddings` endpoint works
+via `EMBEDDING_BASE_URL` / `EMBEDDING_MODEL` env vars. To use Alibaba Cloud DashScope's Qwen
+`text-embedding-v3` instead (also 1024-dim, hackathon sponsor tech), set
+`EMBEDDING_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1` and
+`EMBEDDING_MODEL=text-embedding-v3`. ONE model must embed both chunks and questions — switching
+models later means re-embedding everything.
 
 ## 4. Get a Gemini key (generation)
 
