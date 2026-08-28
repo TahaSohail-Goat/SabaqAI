@@ -3,12 +3,13 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, AlertCircle, CheckCircle2, BookOpen } from 'lucide-react';
+import { AlertCircle, CheckCircle2, BookOpen, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -49,35 +50,37 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-6 selection:bg-brand/30 selection:text-brand-mint">
+    <div className="min-h-screen w-full flex bg-[#0f1117] selection:bg-brand/30 selection:text-brand-mint text-white">
       
-      {/* PNG Background */}
-      <div 
-        className="absolute inset-0 z-0 bg-[url('/bg.png')] bg-cover bg-center bg-no-repeat"
-      >
+      {/* Left side: Image */}
+      <div className="hidden lg:block lg:w-1/2 relative bg-navy">
+        <div className="absolute inset-0 bg-[url('/bg.png')] bg-cover bg-center bg-no-repeat"></div>
+        {/* Subtle overlay to blend the edge if needed */}
+        <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-[#0f1117] to-transparent"></div>
       </div>
 
-      {/* Centered Login Form */}
-      <div className="relative z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-8 duration-700">
+      {/* Right side: Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-24 relative">
         
-        {/* Logo above the form */}
-        <Link href="/" className="flex items-center justify-center gap-3 mb-8 transition-transform hover:scale-105">
-          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-brand to-brand-dark flex items-center justify-center text-white shadow-lg border border-white/10">
-            <BookOpen className="w-6 h-6" />
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight text-navy drop-shadow-sm">
-            Sabaq<span className="text-brand">AI</span>
-          </h1>
-        </Link>
+        {/* Optional glowing orb behind logo for that "Studify" effect */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-white/5 rounded-full blur-[60px] pointer-events-none"></div>
 
-        {/* Form Card */}
-        <div className="bg-white/60 backdrop-blur-xl border border-white/50 rounded-3xl p-8 shadow-xl relative overflow-hidden">
-          {/* Subtle inner reflection */}
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white to-transparent"></div>
+        <div className="w-full max-w-[400px] animate-in fade-in slide-in-from-bottom-4 duration-700">
           
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-navy mb-2">Welcome back</h2>
-            <p className="text-sm text-navy-2">Sign in to keep studying from your board syllabus.</p>
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-3 mb-16 transition-transform hover:opacity-80">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand to-brand-dark flex items-center justify-center text-white shadow-[0_0_15px_rgba(27,181,107,0.3)] border border-brand-light/20 relative z-10">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-white drop-shadow-md font-serif relative z-10">
+              Sabaq<span className="text-brand-mint">AI</span>
+            </h1>
+          </Link>
+
+          {/* Header */}
+          <div className="mb-8">
+            <h2 className="text-[28px] font-bold text-white mb-2 tracking-tight">Welcome back</h2>
+            <p className="text-[15px] text-text-3 font-medium">Log in to continue your studies.</p>
           </div>
 
           {error && (
@@ -94,9 +97,11 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="block text-sm font-medium text-navy">Email address</label>
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            
+            {/* Email Input */}
+            <div className="relative flex items-center group">
+              <Mail className="absolute left-4 w-5 h-5 text-text-4 group-focus-within:text-brand transition-colors" />
               <input
                 id="email"
                 name="email"
@@ -105,42 +110,58 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="student@example.com"
-                className="block w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-navy placeholder:text-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition-all shadow-sm"
+                placeholder="Email"
+                className="w-full rounded-[14px] border border-white/10 bg-[#1a1c23] pl-12 pr-4 py-3.5 text-[15px] text-white placeholder:text-text-4 focus:border-brand focus:bg-[#1f222a] focus:outline-none transition-all shadow-sm"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="block text-sm font-medium text-navy">Password</label>
+            {/* Password Input */}
+            <div className="relative flex items-center group">
+              <Lock className="absolute left-4 w-5 h-5 text-text-4 group-focus-within:text-brand transition-colors" />
               <input
                 id="password"
                 name="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="block w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-navy placeholder:text-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition-all shadow-sm"
+                placeholder="Password"
+                className="w-full rounded-[14px] border border-white/10 bg-[#1a1c23] pl-12 pr-12 py-3.5 text-[15px] text-white placeholder:text-text-4 focus:border-brand focus:bg-[#1f222a] focus:outline-none transition-all shadow-sm"
               />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 text-text-4 hover:text-white transition-colors focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
 
+            {/* Forgot Password */}
+            <div className="flex justify-end pt-1 pb-4">
+              <a href="#" className="text-[13px] font-semibold text-text-3 hover:text-white transition-colors">
+                Forgot password?
+              </a>
+            </div>
+
+            {/* Submit Button */}
             <button
               type="submit"
               id="login-btn"
               disabled={loading}
-              className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3.5 text-sm font-semibold text-white transition-all hover:bg-brand-dark disabled:bg-border disabled:text-text-3 disabled:hover:shadow-none"
+              className="w-full cursor-pointer rounded-[14px] bg-gradient-to-r from-brand to-brand-light px-4 py-3.5 text-[15px] font-bold text-white transition-all shadow-[0_0_20px_rgba(27,181,107,0.2)] hover:shadow-[0_0_30px_rgba(27,181,107,0.4)] hover:brightness-110 disabled:opacity-50 disabled:shadow-none"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
-              <ArrowRight className="h-4 w-4" />
+              {loading ? 'Logging in...' : 'Log in'}
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-border/50 text-center">
-            <p className="text-sm text-navy-2">
-              Don&apos;t have an account?{' '}
-              <Link href="/signup" className="font-semibold text-brand transition-colors hover:text-brand-dark">
-                Create one
+          {/* Create Account Link */}
+          <div className="mt-8 text-center">
+            <p className="text-[14px] text-text-3">
+              New here?{' '}
+              <Link href="/signup" className="font-bold text-white hover:text-brand transition-colors">
+                Create an account
               </Link>
             </p>
           </div>
