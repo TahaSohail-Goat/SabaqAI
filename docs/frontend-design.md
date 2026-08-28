@@ -7,7 +7,7 @@ The single source of truth for what the UI looks like and where every visible va
    table/column in this schema. The UI invents nothing.
 2. `docs/SabaqAI_Colortheme.md` — every color, button, card, and status treatment.
 3. `docs/api-spec.md` — every fetch the UI makes.
-4. `docs/logins-signup-background.png` — the login/signup illustration.
+4. `public/assets/auth-illustration.png` — the login/signup illustration.
 5. `AGENTS.md` — the UI invariants (citation is primary, refusal is calm,
    confidence is icon + label, Urdu gets `dir="rtl"`).
 
@@ -164,8 +164,7 @@ Per colortheme §19 and the supplied illustration. **Auth pages are always light
 illustration is a light image; dark mode starts after login.
 
 **Layout (desktop):** two-panel split.
-- Left panel (~55%): `docs/logins-signup-background.png` moved to
-  `public/assets/auth-illustration.png`, rendered `object-cover` at low contrast, with the
+- Left panel (~55%): `public/assets/auth-illustration.png`, rendered `object-cover` at low contrast, with the
   wordmark and tagline ("Study Smarter. Learn Better.") overlaid top-left. The image already
   carries the four feature cards (Book Search, Quizzes, Practice, Board Focused) — do not
   duplicate them as HTML on this panel.
