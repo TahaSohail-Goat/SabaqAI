@@ -4,15 +4,12 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
-import AuthSidePanel from '@/components/ui/auth-side-panel';
 
 export default function SignupPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [classLevel, setClassLevel] = useState(10);
-  const [board, setBoard] = useState('PCTB');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -34,6 +31,7 @@ export default function SignupPage() {
     setSuccessMsg(null);
 
     try {
+      // Board and class are chosen inside the app (header selectors), not at signup.
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -41,8 +39,6 @@ export default function SignupPage() {
           email,
           password,
           full_name: fullName,
-          class_level: classLevel,
-          board,
         }),
       });
 
@@ -63,25 +59,31 @@ export default function SignupPage() {
     }
   };
 
-  const inputClasses =
-    'mt-1.5 block w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-navy placeholder:text-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition';
-
   return (
-    <div className="min-h-screen bg-page text-navy flex flex-col lg:flex-row">
-      {/* Narrow windows: banner stacked above the form; desktop: full-height side panel */}
-      <AuthSidePanel className="h-56 w-full lg:hidden" position="object-top" />
-      <AuthSidePanel className="hidden lg:block lg:w-[55%]" />
+    <div className="relative min-h-screen bg-page text-navy">
+      {/* Full-page background: soft, low-contrast so the form stays the focus (colortheme §19) */}
+      <img
+        src="/assets/auth-illustration.png"
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover opacity-40"
+      />
+      <div className="absolute inset-0 bg-white/70" />
 
-      <div className="flex flex-1 items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
+      <div className="relative flex min-h-screen items-center justify-center px-4 py-12">
         <div className="w-full max-w-md space-y-6">
-          <div className="space-y-1 text-center lg:text-left">
-            <h2 className="text-2xl font-bold text-navy">Create your account</h2>
-            <p className="text-sm text-text-2">
-              Answers grounded in your actual board syllabus — with page citations.
-            </p>
-          </div>
+          <Link href="/" className="block text-center text-3xl font-bold tracking-tight">
+            <span className="text-navy">Sabaq</span>
+            <span className="text-brand">AI</span>
+          </Link>
 
           <div className="space-y-5 rounded-card border border-border bg-surface px-6 py-8 shadow-[0_8px_24px_rgba(16,42,58,0.08)] sm:px-10">
+            <div className="space-y-1 text-center">
+              <h2 className="text-xl font-bold text-navy">Create your account</h2>
+              <p className="text-sm text-text-2">
+                Grounded answers from your board syllabus, with page citations.
+              </p>
+            </div>
+
             {error && (
               <div className="flex items-start gap-2.5 rounded-lg border border-error/30 bg-error-bg p-3 text-xs text-error">
                 <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
@@ -109,7 +111,7 @@ export default function SignupPage() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Ali Khan"
-                  className={inputClasses}
+                  className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-navy placeholder:text-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition"
                 />
               </div>
 
@@ -126,46 +128,8 @@ export default function SignupPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="ali.khan@example.com"
-                  className={inputClasses}
+                  className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-navy placeholder:text-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition"
                 />
-              </div>
-
-              {/* Board/class options are limited to rows that exist in the boards and
-                  class_levels tables — the UI never offers what the schema can't back. */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="board" className="block text-sm font-medium text-navy">
-                    Education Board
-                  </label>
-                  <select
-                    id="board"
-                    name="board"
-                    value={board}
-                    onChange={(e) => setBoard(e.target.value)}
-                    className={inputClasses}
-                  >
-                    <option value="PCTB">Punjab (PCTB)</option>
-                    <option value="FBISE">Federal (FBISE)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="classLevel" className="block text-sm font-medium text-navy">
-                    Class / Grade
-                  </label>
-                  <select
-                    id="classLevel"
-                    name="classLevel"
-                    value={classLevel}
-                    onChange={(e) => setClassLevel(Number(e.target.value))}
-                    className={inputClasses}
-                  >
-                    <option value={9}>Class 9 (Matric)</option>
-                    <option value={10}>Class 10 (Matric)</option>
-                    <option value={11}>Class 11 (FSc)</option>
-                    <option value={12}>Class 12 (FSc)</option>
-                  </select>
-                </div>
               </div>
 
               <div>
@@ -181,7 +145,7 @@ export default function SignupPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 6 characters"
-                  className={inputClasses}
+                  className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-navy placeholder:text-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition"
                 />
               </div>
 

@@ -143,12 +143,15 @@ History    — my questions + my quiz attempts.              (neutral) «needs A
 Eval       — internal/judge surface, marked "internal".    (teal, lazy)
 ```
 
-- **Header:** wordmark left; right side = language toggle (EN / اردو), dark-mode toggle, user
-  chip (`users.display_name`, fallback email prefix) with logout. The profile summary line under
-  the wordmark is built from `student_profiles`: `Punjab (PCTB) • Class 10 • Physics` — real
-  profile data, not a hardcoded string.
-- **Nav:** horizontal tabs in the header. Active
-  tab: `--color-brand` label + 2px underline — never a filled pill that fights the content.
+- **Header:** wordmark left, with the syllabus scope line under it (`{board} Class {classLevel}
+  • Physics Syllabus Grounded`) driven by the header selectors — frontend state today; persisting
+  it to `student_profiles` is «needs API». Right side = language toggle (EN / اردو), user chip
+  (`users.display_name`, fallback email prefix) with logout. (Dark-mode toggle lands with the
+  dark palette.)
+- **Nav row:** horizontal tabs on the left — active tab is a `--color-brand` label + 2px
+  underline, never a filled pill. **Board and class selectors sit on the right of this row**
+  (they moved out of signup); they scope every `/api/ask` request. Board options are limited to
+  rows that exist in `boards` (PCTB, FBISE).
 - **Auth guard:** unauthenticated → `/login`. Authenticated but no `student_profiles` row →
   `/onboarding` (the RLS trap in AGENTS.md: without the profile row, retrieval returns zero rows
   and the app refuses everything with no visible error).
@@ -163,34 +166,31 @@ Eval       — internal/judge surface, marked "internal".    (teal, lazy)
 Per colortheme §19 and the supplied illustration. **Auth pages are always light** — the
 illustration is a light image; dark mode starts after login.
 
-**Layout (desktop):** two-panel split.
-- Left panel (~55%): `public/assets/auth-illustration.png`, rendered `object-cover` at low contrast, with the
-  wordmark and tagline ("Study Smarter. Learn Better.") overlaid top-left. The image already
-  carries the four feature cards (Book Search, Quizzes, Practice, Board Focused) — do not
-  duplicate them as HTML on this panel.
-- Right panel (~45%): white surface card (`#FFFFFF`, border `#DCE5E1`, shadow
-  `rgba(16,42,58,0.08)`) holding the form.
-
-**Narrow browser windows:** the two panels simply stack (illustration as a short banner on
-top). That is graceful degradation, not a mobile design — no mobile-specific layout is specified.
+**Layout:** the illustration is the full-page background (`object-cover`, softened with
+`opacity-40` plus a `bg-white/70` scrim so the form stays the focus), and the white form card
+sits centered **on top of it** (`#FFFFFF`, border `#DCE5E1`, shadow `rgba(16,42,58,0.08)`),
+wordmark above the card. No split panel, no DOM text overlaid on the artwork — the image
+already carries the logo, tagline, and feature cards.
 
 **Login form:** email + password, primary button `Sign in` (`#237A57` → hover `#185C43`),
 link to signup. Error text `#C65353` on `#FBECEC`; success `#237A57`. Inputs per colortheme §8
 (white bg, `#DCE5E1` border, `#237A57` focus, `#82929B` placeholder).
 
-**Signup form:** full name (`users.display_name`), email, password, board + class selects
-(options from `boards` / `class_levels` — **PCTB and FBISE only until more rows exist**), then
-primary button. What signup cannot collect today (subjects, exam date) is deferred to onboarding
-rather than dropped.
+**Signup form:** full name (`users.display_name`), email, password — nothing else. Board and
+class are **not** collected here; they live as selectors inside the app (nav row, §3), and the
+signup route defaults the profile to PCTB / Class 10 until the student changes them. Subjects
+and exam date remain onboarding material «needs API».
 
-**Onboarding (`/onboarding`, first login):** three short steps, one card, progress dots:
-1. **Board & class** — pre-filled from signup; edits write `student_profiles`.
-2. **Subjects** — multi-select chips from `subjects`, writes one `student_subjects` row per
+**Onboarding (`/onboarding`, first login):** «needs API» — still required for subjects and exam
+date, as two short steps on one card:
+1. **Subjects** — multi-select chips from `subjects`, writes one `student_subjects` row per
    pick (it's a set, not an array column — the UI mirrors that). At least one required: the RLS
    policy needs it.
-3. **Exam date & language** — optional `student_profiles.exam_date` date picker (renders later
+2. **Exam date & language** — optional `student_profiles.exam_date` date picker (renders later
    as the countdown chip) and `users.preferred_language`.
-`«needs API»`: a `POST/PATCH /api/profile` route that upserts all of the above as the
+
+(Board & class are no longer an onboarding step — they're adjustable any time from the app
+header.) Persisting any of this needs a `POST/PATCH /api/profile` route that upserts as the
 authed user (RLS owner policies already allow it).
 
 ---

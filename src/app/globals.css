@@ -1,9 +1,7 @@
 @import "tailwindcss";
 
 /* Sabaq AI design tokens — docs/frontend-design.md §1. Components use these semantic names,
-   never raw hex. Light-first; dark mode lands later via [data-theme="dark"] (doc §1).
-   Note: <body> below stays dark until the app-shell reskin (build step 2+) — auth pages paint
-   their own light surfaces over it. */
+   never raw hex. Light theme is the default; dark mode lands later via [data-theme="dark"]. */
 @theme {
   /* Brand (Learning) */
   --color-brand: #237A57;
@@ -66,8 +64,8 @@
   }
 
   body {
-    background-color: #0b0f19;
-    color: #f1f5f9;
+    background-color: #F8FAF9;
+    color: #102A3A;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
