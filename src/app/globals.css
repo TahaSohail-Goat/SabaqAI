@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* Sabaq AI design tokens — docs/frontend-design.md §1. Components use these semantic names,
-   never raw hex. Light theme is the default; dark mode lands later via [data-theme="dark"]. */
+   never raw hex. Light theme is the default; dark mode overrides via [data-theme="dark"]. */
 @theme {
   /* Brand (Learning) */
   --color-brand: #237A57;
@@ -25,9 +25,21 @@
   --color-text-2: #536773;
   --color-text-3: #82929B;
 
-  /* Surfaces */
+  /* Surfaces — layered so each region reads as a distinct visual role, not one flat canvas.
+     Stacking order (page < elevated-chrome < card < hover < active) holds in both themes:
+       page            the app background — recedes, never competes with content
+       surface-elevated sidebar / topbar — its own "chrome" region, distinct from the workspace
+       surface         cards — the most prominent neutral surface, where content lives
+       surface-hover   interactive surfaces on hover
+       surface-active  pressed / selected surfaces
+       surface-muted   inset wells inside cards (inputs, sub-panels) — recessed, not elevated
+       surface-2       legacy alias, kept equal to surface-muted for existing call sites */
   --color-page: #F8FAF9;
+  --color-surface-elevated: #F1F6F3;
   --color-surface: #FFFFFF;
+  --color-surface-hover: #F4F9F6;
+  --color-surface-active: #EAF3EE;
+  --color-surface-muted: #F0F6F3;
   --color-surface-2: #F0F6F3;
 
   /* Borders */
@@ -55,6 +67,20 @@
   --color-subj-english: #C98345;
   --color-subj-urdu: #B86473;
 
+  /* Semantic aliases — the vocabulary design briefs reach for (background/surface/accent/
+     text-primary…). Point at the tokens above rather than duplicating values, so a theme
+     override in one place still drives both the legacy name and the semantic one. New code
+     should prefer these; existing components keep using the names on the left. */
+  --color-background: var(--color-page);
+  --color-accent: var(--color-brand);
+  --color-accent-hover: var(--color-brand-dark);
+  --color-accent-subtle: var(--color-brand-mint);
+  --color-text-primary: var(--color-navy);
+  --color-text-secondary: var(--color-navy-2);
+  --color-text-muted: var(--color-text-2);
+  --color-text-disabled: var(--color-text-3);
+  --color-danger: var(--color-error);
+
   --radius-card: 0.75rem;
 }
 
@@ -64,9 +90,117 @@
   }
 
   body {
-    background-color: #F8FAF9;
-    color: #102A3A;
+    background-color: var(--color-page);
+    color: var(--color-navy);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
+}
+
+/* Display serif for hero headlines (auth panels) — loaded via next/font in layout.tsx,
+   never the app's default body font. Falls back gracefully if the variable is absent. */
+.font-display {
+  font-family: var(--font-display), Georgia, 'Times New Roman', serif;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up {
+    animation: none;
+  }
+}
+
+/* Dark theme — overrides the @theme tokens above via CSS variable cascade.
+   Applies whenever data-theme="dark" is set on <html> (see ThemeToggle) or,
+   with no explicit choice stored, when the OS prefers dark.
+
+   Design rule (not just brightness): the app background is a near-neutral, desaturated
+   charcoal — it recedes. Structural surfaces (sidebar/topbar/cards) step up in real lightness
+   increments (~5 points of L each), not 2-3. Accent surfaces (brand-mint et al) hold a
+   materially higher saturation than the neutral surfaces at a similar lightness, so "this is
+   accented" reads from color identity, not just being a bit brighter. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-page: #0A1310;
+    --color-surface-elevated: #0F1E19;
+    --color-surface: #17281F;
+    --color-surface-hover: #1E332A;
+    --color-surface-active: #254335;
+    --color-surface-muted: #0D1916;
+    --color-surface-2: #14241D;
+
+    --color-navy: #F4F9F6;
+    --color-navy-2: #C7DAD0;
+    --color-text-2: #96AFA2;
+    --color-text-3: #66806F;
+
+    --color-border: #253F33;
+    --color-border-strong: #35604D;
+
+    /* Accent gets brighter (not just re-tinted) in dark mode — a mid-green designed for white
+       text on top reads poorly as text/icon color on a near-black surface otherwise. This is
+       what fixes badges like "Internal" (text-brand-dark on bg-brand/15) from going invisible. */
+    --color-brand: #2FAE79;
+    --color-brand-dark: #1F8C5E;
+    --color-brand-light: #1B4433;
+    --color-brand-mint: #12332A;
+    --color-ai-light: #12332E;
+    --color-ai-border: #2C5049;
+    --color-quiz-light: #2E2618;
+    --color-quiz-border: #4A3D22;
+
+    --color-error-bg: #3A1E1E;
+    --color-info-bg: #1C2C3A;
+
+    --color-disabled: #17251F;
+    --color-disabled-text: #55695E;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-page: #0A1310;
+  --color-surface-elevated: #0F1E19;
+  --color-surface: #17281F;
+  --color-surface-hover: #1E332A;
+  --color-surface-active: #254335;
+  --color-surface-muted: #0D1916;
+  --color-surface-2: #14241D;
+
+  --color-navy: #F4F9F6;
+  --color-navy-2: #C7DAD0;
+  --color-text-2: #96AFA2;
+  --color-text-3: #66806F;
+
+  --color-border: #253F33;
+  --color-border-strong: #35604D;
+
+  --color-brand: #2FAE79;
+  --color-brand-dark: #1F8C5E;
+  --color-brand-light: #1B4433;
+  --color-brand-mint: #12332A;
+  --color-ai-light: #12332E;
+  --color-ai-border: #2C5049;
+  --color-quiz-light: #2E2618;
+  --color-quiz-border: #4A3D22;
+
+  --color-error-bg: #3A1E1E;
+  --color-info-bg: #1C2C3A;
+
+  --color-disabled: #17251F;
+  --color-disabled-text: #55695E;
 }

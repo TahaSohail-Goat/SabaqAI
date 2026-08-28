@@ -1,0 +1,146 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import {
+  Search,
+  Award,
+  BookOpen,
+  MessagesSquare,
+  ListChecks,
+  CalendarClock,
+  TrendingUp,
+  History,
+} from 'lucide-react';
+import { useScope } from '@/components/app/ScopeContext';
+import ActionCard from '@/components/app/ActionCard';
+import StatCard from '@/components/app/StatCard';
+import EmptyState from '@/components/app/EmptyState';
+import SectionHeader from '@/components/app/SectionHeader';
+import Badge from '@/components/app/Badge';
+
+interface CurrentUser {
+  id: string;
+  email?: string;
+  metadata?: { full_name?: string };
+}
+
+const ACTIONS = [
+  {
+    href: '/ask',
+    icon: Search,
+    title: 'Ask a question',
+    description: 'Get a grounded, cited answer — or an honest refusal.',
+    variant: 'primary' as const,
+  },
+  {
+    href: '/quiz',
+    icon: Award,
+    title: 'Take a quiz',
+    description: 'Board-pattern questions generated from your chapters.',
+    variant: 'secondary' as const,
+  },
+  {
+    href: '/syllabus',
+    icon: BookOpen,
+    title: 'Browse syllabus',
+    description: 'See exactly what Sabaq AI has ingested so far.',
+    variant: 'secondary' as const,
+  },
+];
+
+// "—" rather than "0" deliberately: quiz history (M6) and question history (M11) aren't
+// persisted yet, so this page has no real count to show — and a static "0" would be an
+// uncomputed number asserting a fact we don't know, which AGENTS.md's invariant 7 forbids
+// regardless of how it reads visually. The hint text carries the "not broken, just empty"
+// feeling instead. See docs/modules.md §9.
+const STATS = [
+  { icon: MessagesSquare, label: 'Questions asked', value: '—', hint: 'Ask your first question to start tracking.' },
+  { icon: ListChecks, label: 'Quizzes taken', value: '—', hint: 'Scores will appear here once you submit one.' },
+  { icon: CalendarClock, label: 'Days to exam', value: '—', hint: 'Set an exam date in Settings.' },
+];
+
+export default function DashboardPage() {
+  const { board, classLevel, subject } = useScope();
+  const [user, setUser] = useState<CurrentUser | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/user')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setUser(data.user ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const firstName = user?.metadata?.full_name?.split(' ')[0];
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-10">
+      {/* Welcome */}
+      <div className="animate-fade-up">
+        <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-navy">
+          {firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'}
+        </h2>
+        <Badge variant="context" className="mt-3">
+          {board} · Class {classLevel} · {subject.charAt(0).toUpperCase() + subject.slice(1)}
+        </Badge>
+      </div>
+
+      {/* Primary actions */}
+      <div className="space-y-4">
+        <SectionHeader title="What do you want to do?" subtitle="Ask a question is the fastest way to check your work." />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {ACTIONS.map((action, i) => (
+            <ActionCard
+              key={action.href}
+              href={action.href}
+              icon={action.icon}
+              title={action.title}
+              description={action.description}
+              variant={action.variant}
+              className="animate-fade-up"
+              style={{ animationDelay: `${i * 80}ms` }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="space-y-4">
+        <SectionHeader title="Your activity" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {STATS.map((stat) => (
+            <StatCard key={stat.label} icon={stat.icon} label={stat.label} value={stat.value} hint={stat.hint} />
+          ))}
+        </div>
+      </div>
+
+      {/* Weakest chapters / recent activity */}
+      <div className="space-y-4">
+        <SectionHeader title="Insights" subtitle="Fills in automatically as you use Sabaq AI." />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <EmptyState
+            icon={TrendingUp}
+            title="No weak chapters yet"
+            message="Take a quiz and this will show which chapters need more work, ranked by your actual scores."
+            ctaLabel="Take a quiz"
+            ctaHref="/quiz"
+          />
+          <EmptyState
+            icon={History}
+            title="No recent activity"
+            message="Questions you ask and quizzes you take will show up here."
+            ctaLabel="Ask a question"
+            ctaHref="/ask"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

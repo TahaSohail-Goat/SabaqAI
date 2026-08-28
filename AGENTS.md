@@ -85,7 +85,10 @@ src/app/api/quiz/grade/    server-side grading; returns answers only after submi
 src/app/api/eval/          evaluation metrics (calls retrieval per question — slow)
 src/app/api/syllabus/      corpus browser
 src/app/api/auth/          signup / login / logout / user
-src/app/page.tsx           the whole student UI (single client component)
+src/app/page.tsx           redirects to /dashboard — no UI of its own
+src/app/(app)/             routed student UI: layout.tsx (sidebar+topbar shell) + one
+                            page per module (dashboard, ask, quiz, syllabus, eval, settings)
+src/components/app/        shell pieces: Sidebar, Topbar, ScopeContext, NavItem, EmptyState
 
 src/lib/ai/retrieval.ts    pgvector search + nearest chapters
 src/lib/ai/guardrail.ts    THE confidence gate — read before touching anything nearby
@@ -129,6 +132,7 @@ different numbers for the same system. If you need the same data in two places, 
 | Doc | When |
 | --- | --- |
 | `docs/project-status.md` | **First, always.** What is real vs. stubbed. |
+| `docs/modules.md` | Before building any feature — the module spec, phasing, and open decisions |
 | `docs/confidence-guardrails.md` | Before touching the gate or thresholds |
 | `docs/rag-architecture.md` | Before touching retrieval, chunking, or citations |
 | `docs/api-spec.md` | Before changing any route's contract |
