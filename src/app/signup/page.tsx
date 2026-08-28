@@ -75,19 +75,19 @@ export default function SignupPage() {
           <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-brand to-brand-dark flex items-center justify-center text-white shadow-lg border border-white/10">
             <BookOpen className="w-6 h-6" />
           </div>
-          <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-md">
-            Sabaq<span className="text-brand-mint">AI</span>
+          <h1 className="text-4xl font-bold tracking-tight text-navy drop-shadow-sm">
+            Sabaq<span className="text-brand">AI</span>
           </h1>
         </Link>
 
         {/* Form Card */}
-        <div className="bg-surface/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative overflow-hidden">
+        <div className="bg-white/60 backdrop-blur-xl border border-white/50 rounded-3xl p-8 shadow-xl relative overflow-hidden">
           {/* Subtle inner reflection */}
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white to-transparent"></div>
           
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-white mb-2">Create your account</h2>
-            <p className="text-sm text-text-2">
+            <h2 className="text-2xl font-bold text-navy mb-2">Create your account</h2>
+            <p className="text-sm text-navy-2">
               Grounded answers from your board syllabus, with page citations.
             </p>
           </div>
@@ -108,7 +108,7 @@ export default function SignupPage() {
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-1.5">
-              <label htmlFor="fullName" className="block text-sm font-medium text-text-2">Full Name</label>
+              <label htmlFor="fullName" className="block text-sm font-medium text-navy">Full Name</label>
               <input
                 id="fullName"
                 name="fullName"
@@ -117,12 +117,12 @@ export default function SignupPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Ali Khan"
-                className="block w-full rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm text-white placeholder:text-text-4 focus:border-brand-mint focus:outline-none focus:ring-1 focus:ring-brand-mint transition-all shadow-inner"
+                className="block w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-navy placeholder:text-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition-all shadow-sm"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="email" className="block text-sm font-medium text-text-2">Email address</label>
+              <label htmlFor="email" className="block text-sm font-medium text-navy">Email address</label>
               <input
                 id="email"
                 name="email"
@@ -132,12 +132,12 @@ export default function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="student@example.com"
-                className="block w-full rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm text-white placeholder:text-text-4 focus:border-brand-mint focus:outline-none focus:ring-1 focus:ring-brand-mint transition-all shadow-inner"
+                className="block w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-navy placeholder:text-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition-all shadow-sm"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="password" className="block text-sm font-medium text-text-2">Password</label>
+              <label htmlFor="password" className="block text-sm font-medium text-navy">Password</label>
               <input
                 id="password"
                 name="password"
@@ -147,7 +147,7 @@ export default function SignupPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="At least 6 characters"
-                className="block w-full rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm text-white placeholder:text-text-4 focus:border-brand-mint focus:outline-none focus:ring-1 focus:ring-brand-mint transition-all shadow-inner"
+                className="block w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-navy placeholder:text-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition-all shadow-sm"
               />
             </div>
 
@@ -155,17 +155,17 @@ export default function SignupPage() {
               type="submit"
               id="signup-btn"
               disabled={loading}
-              className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3.5 text-sm font-semibold text-white transition-all hover:bg-brand-light hover:shadow-[0_0_20px_rgba(27,181,107,0.4)] disabled:bg-white/10 disabled:text-text-4 disabled:hover:shadow-none"
+              className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3.5 text-sm font-semibold text-white transition-all hover:bg-brand-dark disabled:bg-border disabled:text-text-3 disabled:hover:shadow-none"
             >
               {loading ? 'Creating account...' : 'Create student account'}
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-white/10 text-center">
-            <p className="text-sm text-text-3">
+          <div className="mt-8 pt-6 border-t border-border/50 text-center">
+            <p className="text-sm text-navy-2">
               Already have an account?{' '}
-              <Link href="/login" className="font-semibold text-brand-mint transition-colors hover:text-white">
+              <Link href="/login" className="font-semibold text-brand transition-colors hover:text-brand-dark">
                 Sign in
               </Link>
             </p>
