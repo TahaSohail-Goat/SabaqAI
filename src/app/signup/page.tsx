@@ -60,20 +60,16 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-[#0f1117] selection:bg-brand/30 selection:text-brand-mint text-white">
+    <div className="min-h-screen w-full flex bg-white selection:bg-brand/30 selection:text-brand-mint text-navy">
       
       {/* Left side: Image */}
-      <div className="hidden lg:block lg:w-1/2 relative bg-navy">
-        <div className="absolute inset-0 bg-[url('/bg.png')] bg-cover bg-center bg-no-repeat"></div>
-        <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-[#0f1117] to-transparent"></div>
+      <div className="hidden lg:flex lg:w-1/2 relative bg-[#f8fafc] items-center justify-center p-12">
+        <img src="/bg.png" alt="Study illustration" className="w-full h-full object-contain" />
       </div>
 
       {/* Right side: Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-24 relative">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-24 relative bg-white">
         
-        {/* Glowing orb */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-white/5 rounded-full blur-[60px] pointer-events-none"></div>
-
         <div className="w-full max-w-[400px] animate-in fade-in slide-in-from-bottom-4 duration-700">
           
           {/* Logo */}
@@ -81,15 +77,15 @@ export default function SignupPage() {
             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand to-brand-dark flex items-center justify-center text-white shadow-[0_0_15px_rgba(27,181,107,0.3)] border border-brand-light/20 relative z-10">
               <BookOpen className="w-5 h-5" />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-white drop-shadow-md font-serif relative z-10">
-              Sabaq<span className="text-brand-mint">AI</span>
+            <h1 className="text-3xl font-bold tracking-tight text-navy drop-shadow-sm font-serif relative z-10">
+              Sabaq<span className="text-brand">AI</span>
             </h1>
           </Link>
 
           {/* Header */}
           <div className="mb-8">
-            <h2 className="text-[28px] font-bold text-white mb-2 tracking-tight">Create an account</h2>
-            <p className="text-[15px] text-text-3 font-medium">Join us to continue your studies.</p>
+            <h2 className="text-[28px] font-bold text-navy mb-2 tracking-tight">Create an account</h2>
+            <p className="text-[15px] text-navy-2 font-medium">Join us to continue your studies.</p>
           </div>
 
           {error && (
@@ -110,7 +106,7 @@ export default function SignupPage() {
             
             {/* Full Name Input */}
             <div className="relative flex items-center group">
-              <User className="absolute left-4 w-5 h-5 text-text-4 group-focus-within:text-brand transition-colors" />
+              <User className="absolute left-4 w-5 h-5 text-text-3 group-focus-within:text-brand transition-colors" />
               <input
                 id="fullName"
                 name="fullName"
@@ -119,13 +115,13 @@ export default function SignupPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Full Name"
-                className="w-full rounded-[14px] border border-white/10 bg-[#1a1c23] pl-12 pr-4 py-3.5 text-[15px] text-white placeholder:text-text-4 focus:border-brand focus:bg-[#1f222a] focus:outline-none transition-all shadow-sm"
+                className="w-full rounded-[14px] border border-border bg-white pl-12 pr-4 py-3.5 text-[15px] text-navy placeholder:text-text-4 focus:border-brand focus:ring-1 focus:ring-brand focus:outline-none transition-all shadow-sm"
               />
             </div>
 
             {/* Email Input */}
             <div className="relative flex items-center group">
-              <Mail className="absolute left-4 w-5 h-5 text-text-4 group-focus-within:text-brand transition-colors" />
+              <Mail className="absolute left-4 w-5 h-5 text-text-3 group-focus-within:text-brand transition-colors" />
               <input
                 id="email"
                 name="email"
@@ -135,13 +131,13 @@ export default function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email"
-                className="w-full rounded-[14px] border border-white/10 bg-[#1a1c23] pl-12 pr-4 py-3.5 text-[15px] text-white placeholder:text-text-4 focus:border-brand focus:bg-[#1f222a] focus:outline-none transition-all shadow-sm"
+                className="w-full rounded-[14px] border border-border bg-white pl-12 pr-4 py-3.5 text-[15px] text-navy placeholder:text-text-4 focus:border-brand focus:ring-1 focus:ring-brand focus:outline-none transition-all shadow-sm"
               />
             </div>
 
             {/* Password Input */}
             <div className="relative flex items-center group">
-              <Lock className="absolute left-4 w-5 h-5 text-text-4 group-focus-within:text-brand transition-colors" />
+              <Lock className="absolute left-4 w-5 h-5 text-text-3 group-focus-within:text-brand transition-colors" />
               <input
                 id="password"
                 name="password"
@@ -151,12 +147,12 @@ export default function SignupPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
-                className="w-full rounded-[14px] border border-white/10 bg-[#1a1c23] pl-12 pr-12 py-3.5 text-[15px] text-white placeholder:text-text-4 focus:border-brand focus:bg-[#1f222a] focus:outline-none transition-all shadow-sm"
+                className="w-full rounded-[14px] border border-border bg-white pl-12 pr-12 py-3.5 text-[15px] text-navy placeholder:text-text-4 focus:border-brand focus:ring-1 focus:ring-brand focus:outline-none transition-all shadow-sm"
               />
               <button 
                 type="button" 
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 text-text-4 hover:text-white transition-colors focus:outline-none"
+                className="absolute right-4 text-text-3 hover:text-navy transition-colors focus:outline-none"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -170,7 +166,7 @@ export default function SignupPage() {
               type="submit"
               id="signup-btn"
               disabled={loading}
-              className="w-full cursor-pointer rounded-[14px] bg-gradient-to-r from-brand to-brand-light px-4 py-3.5 text-[15px] font-bold text-white transition-all shadow-[0_0_20px_rgba(27,181,107,0.2)] hover:shadow-[0_0_30px_rgba(27,181,107,0.4)] hover:brightness-110 disabled:opacity-50 disabled:shadow-none"
+              className="w-full cursor-pointer rounded-[14px] bg-brand px-4 py-3.5 text-[15px] font-bold text-white transition-all shadow-[0_4px_14px_rgba(27,181,107,0.3)] hover:shadow-[0_6px_20px_rgba(27,181,107,0.4)] hover:-translate-y-0.5 disabled:opacity-50 disabled:shadow-none disabled:transform-none"
             >
               {loading ? 'Creating account...' : 'Create Account'}
             </button>
@@ -180,7 +176,7 @@ export default function SignupPage() {
           <div className="mt-8 text-center">
             <p className="text-[14px] text-text-3">
               Already have an account?{' '}
-              <Link href="/login" className="font-bold text-white hover:text-brand transition-colors">
+              <Link href="/login" className="font-bold text-navy hover:text-brand transition-colors">
                 Log in
               </Link>
             </p>
