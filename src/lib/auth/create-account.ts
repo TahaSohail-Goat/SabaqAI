@@ -15,6 +15,11 @@
 
 import { getServiceRoleClient } from '@/lib/supabase/admin';
 
+// Matches the subjects seeded in 0001_init.sql. Every new student is enrolled in all of
+// them by default — signup doesn't ask which ones apply, and content coverage (what's
+// actually been ingested) is what really gates usefulness, not enrollment.
+const ALL_SUBJECT_CODES = ['physics', 'chemistry', 'biology', 'mathematics', 'english', 'urdu'];
+
 export interface CreateAccountParams {
   email: string;
   password: string;
@@ -102,7 +107,7 @@ export async function createAccount(
     );
 
     const { error: subjectsError } = await admin.from('student_subjects').upsert(
-      { user_id: data.user.id, subject_code: 'physics' },
+      ALL_SUBJECT_CODES.map((subject_code) => ({ user_id: data.user.id, subject_code })),
       { onConflict: 'user_id,subject_code' }
     );
 
