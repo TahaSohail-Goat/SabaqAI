@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, ChevronDown } from 'lucide-react';
+import { Menu, Sun, Moon } from 'lucide-react';
 import { useScope } from './ScopeContext';
 
-// PCTB removed for now, coming back later.
-const BOARDS = ['FBISE'];
-const CLASS_LEVELS = [9, 10, 11, 12];
+type Theme = 'light' | 'dark';
 
 // One place that names every page in the shell — Topbar derives its title from the route so
 // no page has to remember to pass one down through the shared layout.
@@ -32,10 +30,26 @@ interface TopbarProps {
 }
 
 export default function Topbar({ onOpenSidebar }: TopbarProps) {
-  const { board, classLevel, setBoard, setClassLevel } = useScope();
-  const [scopeOpen, setScopeOpen] = useState(false);
+  // board/class used to be pickable here too, duplicating what's now captured once at
+  // signup (and shown for real accounts via ScopeContext's profile hydration) — this is
+  // just a read-out now, not another place to change it.
+  const { board, classLevel } = useScope();
   const pathname = usePathname();
   const { title, subtitle } = metaFor(pathname);
+
+  const [theme, setTheme] = useState<Theme | null>(null);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem('sabaqai-theme') as Theme | null;
+    setTheme(stored ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  }, []);
+
+  const toggleTheme = () => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    document.documentElement.setAttribute('data-theme', next);
+    window.localStorage.setItem('sabaqai-theme', next);
+  };
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-border bg-surface-elevated/95 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-4">
@@ -56,61 +70,22 @@ export default function Topbar({ onOpenSidebar }: TopbarProps) {
         </div>
       </div>
 
-      <div className="relative shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
+        <span
+          className="hidden sm:inline-flex items-center rounded-full border border-border bg-surface-muted px-3 py-1.5 text-xs font-semibold text-navy-2"
+          title="Set during sign-up"
+        >
+          {board} · Class {classLevel}
+        </span>
+
         <button
           type="button"
-          onClick={() => setScopeOpen((v) => !v)}
-          className="flex items-center gap-1.5 rounded-full border border-border-strong bg-surface-muted px-3 py-1.5 text-xs font-semibold text-navy-2 hover:border-brand/50 hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface-muted text-navy-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
         >
-          <span>{board} · Class {classLevel}</span>
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${scopeOpen ? 'rotate-180' : ''}`} />
+          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
-
-        {scopeOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setScopeOpen(false)} aria-hidden="true" />
-            <div className="absolute right-0 z-20 mt-2 w-56 rounded-2xl border border-border-strong bg-surface p-3 shadow-xl shadow-navy/20 space-y-3">
-              <div>
-                <p className="text-[10px] font-bold text-text-2 uppercase tracking-wide mb-1.5">Board</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {BOARDS.map((b) => (
-                    <button
-                      key={b}
-                      type="button"
-                      onClick={() => setBoard(b)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-                        board === b
-                          ? 'bg-brand text-white border-brand'
-                          : 'bg-surface-muted text-navy-2 border-border hover:border-brand/40'
-                      }`}
-                    >
-                      {b}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-text-2 uppercase tracking-wide mb-1.5">Class</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {CLASS_LEVELS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setClassLevel(c)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-                        classLevel === c
-                          ? 'bg-brand text-white border-brand'
-                          : 'bg-surface-muted text-navy-2 border-border hover:border-brand/40'
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </>
-        )}
       </div>
     </header>
   );

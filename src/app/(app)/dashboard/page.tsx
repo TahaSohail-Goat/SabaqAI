@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Search,
   Award,
@@ -18,11 +18,7 @@ import EmptyState from '@/components/app/EmptyState';
 import SectionHeader from '@/components/app/SectionHeader';
 import Badge from '@/components/app/Badge';
 
-interface CurrentUser {
-  id: string;
-  email?: string;
-  metadata?: { full_name?: string };
-}
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const ACTIONS = [
   {
@@ -60,25 +56,19 @@ const STATS = [
 ];
 
 export default function DashboardPage() {
-  const { board, classLevel, subject } = useScope();
-  const [user, setUser] = useState<CurrentUser | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/auth/user')
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) setUser(data.user ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setUser(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // user/profile come from ScopeContext, which the (app) layout resolves server-side before
+  // this page ever renders — so the real name/board/class/subjects are already here on
+  // first paint, no client fetch, no loading flash.
+  const { board, classLevel, subject, user, profile } = useScope();
 
   const firstName = user?.metadata?.full_name?.split(' ')[0];
+  // A signed-in student is enrolled in every seeded subject by default (create-account.ts),
+  // not just the single "active" one ScopeContext tracks for Ask/Quiz — show the real list
+  // here instead of implying they only study one subject. Falls back to the scope default
+  // for anonymous/demo sessions, which have no real profile to read from.
+  const subjectsLabel = profile?.subjects?.length
+    ? profile.subjects.map(titleCase).join(', ')
+    : titleCase(subject);
 
   return (
     <div className="max-w-6xl mx-auto space-y-10">
@@ -88,7 +78,7 @@ export default function DashboardPage() {
           {firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'}
         </h2>
         <Badge variant="context" className="mt-3">
-          {board} · Class {classLevel} · {subject.charAt(0).toUpperCase() + subject.slice(1)}
+          {board} · Class {classLevel} · {subjectsLabel}
         </Badge>
       </div>
 
