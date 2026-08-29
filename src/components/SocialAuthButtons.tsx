@@ -39,7 +39,11 @@ function FacebookMark({ className = '' }: { className?: string }) {
   );
 }
 
-export default function SocialAuthButtons() {
+export default function SocialAuthButtons({
+  providers = ['google', 'facebook'],
+}: {
+  providers?: Provider[];
+}) {
   const [error, setError] = useState<string | null>(null);
   const [loadingProvider, setLoadingProvider] = useState<Provider | null>(null);
 
@@ -74,33 +78,37 @@ export default function SocialAuthButtons() {
       </div>
 
       <div className="mt-4 flex items-center justify-center gap-4">
-        <button
-          type="button"
-          onClick={() => handleOAuth('google')}
-          disabled={loadingProvider !== null}
-          aria-label="Continue with Google"
-          className="h-12 w-12 rounded-full bg-white border border-border/60 flex items-center justify-center shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-60 disabled:pointer-events-none"
-        >
-          {loadingProvider === 'google' ? (
-            <span className="h-4 w-4 rounded-full border-2 border-border-strong border-t-brand animate-spin" />
-          ) : (
-            <GoogleMark className="w-5 h-5" />
-          )}
-        </button>
+        {providers.includes('google') && (
+          <button
+            type="button"
+            onClick={() => handleOAuth('google')}
+            disabled={loadingProvider !== null}
+            aria-label="Continue with Google"
+            className="h-12 w-12 rounded-full bg-white border border-border/60 flex items-center justify-center shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-60 disabled:pointer-events-none"
+          >
+            {loadingProvider === 'google' ? (
+              <span className="h-4 w-4 rounded-full border-2 border-border-strong border-t-brand animate-spin" />
+            ) : (
+              <GoogleMark className="w-5 h-5" />
+            )}
+          </button>
+        )}
 
-        <button
-          type="button"
-          onClick={() => handleOAuth('facebook')}
-          disabled={loadingProvider !== null}
-          aria-label="Continue with Facebook"
-          className="h-12 w-12 rounded-full bg-white border border-border/60 flex items-center justify-center shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-60 disabled:pointer-events-none"
-        >
-          {loadingProvider === 'facebook' ? (
-            <span className="h-4 w-4 rounded-full border-2 border-border-strong border-t-brand animate-spin" />
-          ) : (
-            <FacebookMark className="w-5 h-5" />
-          )}
-        </button>
+        {providers.includes('facebook') && (
+          <button
+            type="button"
+            onClick={() => handleOAuth('facebook')}
+            disabled={loadingProvider !== null}
+            aria-label="Continue with Facebook"
+            className="h-12 w-12 rounded-full bg-white border border-border/60 flex items-center justify-center shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-60 disabled:pointer-events-none"
+          >
+            {loadingProvider === 'facebook' ? (
+              <span className="h-4 w-4 rounded-full border-2 border-border-strong border-t-brand animate-spin" />
+            ) : (
+              <FacebookMark className="w-5 h-5" />
+            )}
+          </button>
+        )}
       </div>
 
       {error && (
