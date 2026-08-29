@@ -71,18 +71,19 @@ function LoginForm() {
   return (
     <div className="w-full max-w-[380px]">
 
-      {/* Logo */}
-      <Link href="/" className="flex items-center justify-center gap-4 mb-10 w-full transition-transform hover:opacity-80">
+      {/* Logo — a plain brand mark, not a link: someone mid-form shouldn't be able to
+          click it by mistake and lose what they've typed. */}
+      <div className="flex items-center justify-center gap-4 mb-10 w-full">
         <SabaqLogoBadge size={56} />
         <h1 className="font-display text-4xl font-semibold tracking-tight text-navy">
           Sabaq<span className="text-brand">AI</span>
         </h1>
-      </Link>
+      </div>
 
       {/* Header */}
       <div className="mb-8">
         <h2 className="text-[28px] font-bold text-navy mb-2 tracking-tight">Welcome back</h2>
-        <p className="text-[15px] text-text-2 font-medium">Log in to continue your studies.</p>
+        <p className="text-[15px] text-navy-2 font-medium">Log in to continue your studies.</p>
       </div>
 
       {error && (
@@ -137,7 +138,7 @@ function LoginForm() {
 
         {/* Forgot Password */}
         <div className="flex justify-end pt-1 pb-2">
-          <Link href="/forgot-password" className="text-[13px] font-semibold text-text-3 hover:text-brand transition-colors">
+          <Link href="/forgot-password" className="text-[13px] font-semibold text-text-2 hover:text-brand transition-colors">
             Forgot password?
           </Link>
         </div>
@@ -155,7 +156,7 @@ function LoginForm() {
 
       {/* Create Account Link */}
       <div className="mt-8 text-center">
-        <p className="text-[14px] text-text-3">
+        <p className="text-[14px] text-text-2">
           New here?{' '}
           <Link href="/signup" className="font-bold text-navy hover:text-brand transition-colors">
             Create an account

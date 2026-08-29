@@ -55,15 +55,17 @@ export async function sendEmail(
   return true;
 }
 
-/** Builds the branded OTP email body. */
-export function buildOtpEmail(code: string): string {
+/** Shared layout for the two OTP-style transactional emails below — signup verification
+ *  and password reset. Both are single-use 6-digit codes sent through this same pipeline;
+ *  only the heading/body copy and expiry wording differ. */
+function otpEmailShell(opts: { title: string; heading: string; body: string; code: string; expiryText: string; footer: string }): string {
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Verify your SabaqAI account</title>
+  <title>${opts.title}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
@@ -87,23 +89,21 @@ export function buildOtpEmail(code: string): string {
           <tr>
             <td style="padding:40px;">
               <h2 style="margin:0 0 12px;color:#1a2e22;font-size:22px;font-weight:700;">
-                Verify your email
+                ${opts.heading}
               </h2>
               <p style="margin:0 0 28px;color:#4b5563;font-size:15px;line-height:1.6;">
-                Use the 6-digit code below to complete your registration.
-                The code expires in <strong>10 minutes</strong>.
+                ${opts.body} The code expires in <strong>${opts.expiryText}</strong>.
               </p>
 
               <!-- OTP Code Box -->
               <div style="background:#f0fdf4;border:2px solid #a7f3d0;border-radius:12px;padding:24px;text-align:center;margin-bottom:28px;">
                 <span style="font-size:42px;font-weight:800;letter-spacing:12px;color:#185C43;font-family:'Courier New',monospace;">
-                  ${code}
+                  ${opts.code}
                 </span>
               </div>
 
               <p style="margin:0 0 8px;color:#6b7280;font-size:13px;line-height:1.5;">
-                If you did not request this code, you can safely ignore this email.
-                Someone may have entered your address by mistake.
+                ${opts.footer}
               </p>
             </td>
           </tr>
@@ -124,4 +124,33 @@ export function buildOtpEmail(code: string): string {
 </body>
 </html>
 `;
+}
+
+/** Builds the branded signup-verification OTP email body. */
+export function buildOtpEmail(code: string): string {
+  return otpEmailShell({
+    title: 'Verify your SabaqAI account',
+    heading: 'Verify your email',
+    body: 'Use the 6-digit code below to complete your registration.',
+    code,
+    expiryText: '2 minutes',
+    footer:
+      'If you did not request this code, you can safely ignore this email. Someone may have entered your address by mistake.',
+  });
+}
+
+/** Builds the branded password-reset OTP email body. Deliberately sent through our own
+ *  Nodemailer pipeline, not supabase.auth.resetPasswordForEmail() — Supabase's built-in
+ *  mailer has its own separate, low rate limit ("email rate limit exceeded") that has
+ *  nothing to do with this SMTP account and can't be raised from application code. */
+export function buildPasswordResetEmail(code: string): string {
+  return otpEmailShell({
+    title: 'Reset your SabaqAI password',
+    heading: 'Reset your password',
+    body: 'Use the 6-digit code below to choose a new password.',
+    code,
+    expiryText: '2 minutes',
+    footer:
+      'If you did not request a password reset, you can safely ignore this email — your password will not change.',
+  });
 }

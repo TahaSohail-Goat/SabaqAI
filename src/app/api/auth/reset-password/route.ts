@@ -1,20 +1,27 @@
 // POST /api/auth/reset-password
+// Step 2 of OTP-based password reset. Receives { email, otp, password }, validates the
+// OTP our own /api/auth/forgot-password sent (see resetOtpKey there), and — only on
+// success — updates the password directly via the admin API.
 //
-// Updates the authenticated user's password. Only works when the user has a
-// valid recovery session (set by /auth/callback after they clicked the reset link).
-// Calling this without a recovery session returns a 401.
+// No Supabase recovery session is involved anymore: the OTP itself is the proof of
+// ownership, exactly like verify-otp is for signup. This replaces the old flow that
+// depended on the user clicking a magic link Supabase emailed via its own mailer.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { verifyOtp, resetOtpKey } from '@/lib/email/otp-store';
+import { getServiceRoleClient } from '@/lib/supabase/admin';
+import { findUserByEmail } from '@/lib/auth/find-user';
 
 export async function POST(req: NextRequest) {
   try {
-    const { password } = await req.json();
+    const { email, otp, password } = await req.json();
 
-    if (!password || typeof password !== 'string') {
-      return NextResponse.json({ error: 'Password is required.' }, { status: 400 });
+    if (!email || !otp || !password) {
+      return NextResponse.json(
+        { error: 'Email, code and new password are required.' },
+        { status: 400 }
+      );
     }
-
     if (password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters.' },
@@ -22,27 +29,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = await createServerSupabaseClient();
+    const key = String(email).trim().toLowerCase();
+    const result = verifyOtp(resetOtpKey(key), String(otp).trim());
 
-    if (!supabase) {
+    switch (result) {
+      case 'expired':
+        return NextResponse.json(
+          { error: 'This code has expired. Please request a new one.' },
+          { status: 400 }
+        );
+      case 'too_many_attempts':
+        return NextResponse.json(
+          { error: 'Too many incorrect attempts. Please request a new code.' },
+          { status: 429 }
+        );
+      case 'invalid':
+        return NextResponse.json(
+          { error: 'Incorrect code. Please check your email and try again.' },
+          { status: 400 }
+        );
+      case 'valid':
+        break; // proceed to the password update
+    }
+
+    const admin = getServiceRoleClient();
+    if (!admin) {
       return NextResponse.json({ error: 'Supabase is not configured.' }, { status: 503 });
     }
 
-    // Verify the user has an active recovery session before updating
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return NextResponse.json(
-        { error: 'Your reset link has expired. Please request a new one.' },
-        { status: 401 }
-      );
+    // The OTP proved they own the inbox; look the account up again (not trusted from the
+    // client) to get the real user id to update.
+    const { user } = await findUserByEmail(admin, key);
+    if (!user) {
+      return NextResponse.json({ error: 'No account found with that email address.' }, { status: 404 });
     }
 
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await admin.auth.admin.updateUserById(user.id, { password });
 
     if (error) {
       console.error('reset-password error:', error.message);
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ error: 'Could not update your password. Please try again.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

@@ -21,6 +21,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    if (![9, 10, 11, 12].includes(class_level)) {
+      return NextResponse.json({ error: 'Please select a valid class (9-12).' }, { status: 400 });
+    }
 
     const key = email.toLowerCase().trim();
     const result = verifyOtp(key, otp.trim());

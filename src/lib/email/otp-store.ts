@@ -8,7 +8,7 @@
 // The store never persists to disk — a server restart clears all pending OTPs,
 // which is a safe failure: the user just needs to request a new code.
 
-const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
 interface OtpEntry {
   code: string;
@@ -21,11 +21,14 @@ const store = new Map<string, OtpEntry>();
 
 /** Generate a cryptographically random 6-digit OTP string. */
 export function generateOtp(): string {
-  // crypto.getRandomValues is not available in Node server context; use Math.random
-  // seeded by process hrtime for sufficient entropy in a short-lived code.
-  // For truly cryptographic randomness, swap in: crypto.randomInt(100000, 999999).toString()
   const { randomInt } = require('crypto') as typeof import('crypto');
   return randomInt(100000, 999999).toString();
+}
+
+/** Namespaces a password-reset code separately from a signup code for the same email —
+ *  same underlying store, two independent single-use codes that can't collide. */
+export function resetOtpKey(email: string): string {
+  return `reset:${email}`;
 }
 
 /** Store an OTP for the given email, overwriting any existing entry. */
@@ -65,5 +68,35 @@ export function verifyOtp(
 
   // Success — delete so the same code can't be reused.
   store.delete(key);
+  return 'valid';
+}
+
+/** Same checks as verifyOtp but doesn't delete the entry on success — lets a caller
+ *  confirm a code is right (e.g. to unlock a later step in a UI) without spending its
+ *  one-time use. A wrong code still counts against the attempt limit, same as verifyOtp. */
+export function peekOtp(
+  email: string,
+  code: string
+): 'valid' | 'expired' | 'invalid' | 'too_many_attempts' {
+  const key = email.toLowerCase();
+  const entry = store.get(key);
+
+  if (!entry) return 'invalid';
+
+  if (Date.now() > entry.expiry) {
+    store.delete(key);
+    return 'expired';
+  }
+
+  if (entry.attempts >= 5) {
+    store.delete(key);
+    return 'too_many_attempts';
+  }
+
+  if (entry.code !== code) {
+    entry.attempts += 1;
+    return 'invalid';
+  }
+
   return 'valid';
 }
