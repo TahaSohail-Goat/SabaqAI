@@ -9,8 +9,14 @@ data/source/*
 *.log
 .DS_Store
 
+# Next.js auto-generated; re-created on every build or dev run
+next-env.d.ts
+
 # Local Supabase CA bundle for scripts/dev-db-sql.mjs (public cert, but machine-local)
 *.crt
 
 # Crawler: per-run state (checksums, timestamps). Machine-local, not for VCS.
 data/.crawl-state.json
+
+# Tesseract language data — downloaded at runtime by tesseract.js, not for VCS
+*.traineddata
