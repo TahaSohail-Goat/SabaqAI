@@ -11,3 +11,6 @@ data/source/*
 
 # Local Supabase CA bundle for scripts/dev-db-sql.mjs (public cert, but machine-local)
 *.crt
+
+# Crawler: per-run state (checksums, timestamps). Machine-local, not for VCS.
+data/.crawl-state.json
