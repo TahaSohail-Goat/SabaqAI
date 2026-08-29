@@ -3,6 +3,11 @@
 Put your syllabus documents here as `.json` files (e.g. `pctb-10-physics-ch14.json`).
 **Not committed** — see `.gitignore`.
 
+> **Auto-generated files:** Files named `fbise-*.json` in this directory are
+> produced by `npm run crawl` (the weekly FBISE crawler). Do not hand-edit them —
+> they will be overwritten on the next crawl run. Add new sources to
+> `data/crawl-sources.json` instead.
+
 **Before ingesting:** make sure you have the right to use the material. For the demo, past papers
 or openly available notes are the safe choice if the textbook licence isn't cleared. This is the
 one issue you can't fix after a public demo.

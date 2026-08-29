@@ -1,0 +1,93 @@
+name: Weekly FBISE Syllabus Crawl
+
+on:
+  # Runs every Monday at 02:00 UTC.
+  # GitHub will email the repo owner on any job failure automatically.
+  schedule:
+    - cron: '0 2 * * 1'
+
+  # Also allow manual triggering from the Actions tab (useful for testing).
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (download + parse only, no ingest)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      force:
+        description: 'Force re-process all sources (ignore checksums)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      limit:
+        description: 'Max sources to process (blank = all)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  crawl-and-ingest:
+    name: Crawl FBISE PDFs and ingest into Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 120  # OCR can be slow; 2 hours is a safe ceiling
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Install system Tesseract for faster OCR (Tesseract.js falls back to
+      # its bundled WASM binary if this is absent, but the native binary is ~5x faster).
+      - name: Install system Tesseract OCR
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-urd
+
+      - name: Build crawl flags
+        id: flags
+        run: |
+          FLAGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            FLAGS="$FLAGS --dry-run"
+          fi
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            FLAGS="$FLAGS --force"
+          fi
+          if [ -n "${{ github.event.inputs.limit }}" ]; then
+            FLAGS="$FLAGS --limit ${{ github.event.inputs.limit }}"
+          fi
+          echo "flags=$FLAGS" >> "$GITHUB_OUTPUT"
+
+      - name: Run FBISE crawler
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          EMBEDDING_API_KEY: ${{ secrets.EMBEDDING_API_KEY }}
+          # NODE_ENV is not set to production so tsx can resolve devDependencies.
+        run: |
+          npm run crawl -- ${{ steps.flags.outputs.flags }}
+
+      # Upload the crawl state file as an artifact so you can inspect it
+      # in the Actions UI to see which URLs were processed and their checksums.
+      - name: Upload crawl state artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crawl-state-${{ github.run_id }}
+          path: data/.crawl-state.json
+          if-no-files-found: ignore
+          retention-days: 30

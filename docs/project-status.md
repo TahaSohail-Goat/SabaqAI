@@ -41,6 +41,7 @@ Legend: **Real** = works against live data · **Stub** = returns hardcoded or fa
 | Onboarding (real board/class/subjects) | **Real** ✅ new, **unverified** — no live Supabase session tested against yet | Dev D | `src/app/onboarding/`, `src/app/api/auth/onboarding/` |
 | Syllabus browser | **Real** ✅ new, **unverified** | Dev C | `src/app/api/syllabus/` |
 | Syllabus corpus | **Stub** (10 hardcoded, dev only) | Dev C | `src/lib/syllabus-data.ts` |
+| FBISE Syllabus Crawler | **Real** ✅ new, **unverified against live URLs** | — | `scripts/crawl.ts`, `data/crawl-sources.json`, `.github/workflows/weekly-crawl.yml` |
 | Quiz persistence | **Missing** | Dev B | tables exist, unused |
 | Auth (signup/login) | **Real**, with demo bypass | Dev B | `src/app/api/auth/*` |
 | Urdu voice input (STT) | **Missing** | Dev B | planned Day 5 |

@@ -49,9 +49,15 @@ Supabase. No monorepo, no Docker, no separate backend.
 ```bash
 npm install
 cp .env.example .env.local     # fill in your keys — see docs/setup.md
-npm run ingest                 # load chapters into the database
+npm run crawl                  # download + OCR FBISE PDFs → data/source/ → Supabase
 npm run dev                    # http://localhost:3000
 npm run eval                   # retrieval + refusal metrics
+```
+
+To populate the database manually with your own content:
+
+```bash
+npm run ingest                 # ingest data/source/*.json → embed → Supabase
 ```
 
 Requires Node 20+. `npm run lint` type-checks; CI runs install → lint → build on every push and PR
@@ -65,6 +71,64 @@ at all.** That single property is why the product is trustworthy. See
 
 The corollary: nothing a student sees as fact may come from model output. Citations are rebuilt
 from the stored database row — the model picks *which* chunk, never *what the citation says*.
+
+## Syllabus Crawler
+
+FBISE model papers, past papers, and (where available) textbooks are automatically downloaded,
+parsed, and ingested on a **weekly schedule via GitHub Actions**.
+
+### How it works
+
+```
+crawl-sources.json → download PDFs → pdf-parse (text) or Tesseract OCR (scanned)
+  → SourceDocument JSON → data/source/ → npm run ingest → Supabase
+```
+
+- **Checksum dedup** — only re-processes PDFs whose SHA-256 has changed since the last run.
+  Unchanged papers cost zero API calls.
+- **Dual extraction** — tries direct text extraction first; falls back to OCR automatically for
+  scanned image PDFs.
+- **Manifest-driven** — add a new URL to `data/crawl-sources.json` and it's picked up on the
+  next run.
+
+### Commands
+
+```bash
+npm run crawl              # full crawl + ingest (production)
+npm run crawl:dry          # download + parse only; inspect data/source/ before spending API quota
+npm run crawl -- --force   # reprocess all PDFs even if checksums match
+npm run crawl -- --limit 2 # process at most 2 sources (for quick testing)
+```
+
+### Adding a new source
+
+Append an entry to [`data/crawl-sources.json`](data/crawl-sources.json):
+
+```json
+{
+  "url": "https://www.fbise.edu.pk/model-paper/SSC-I/Economics.pdf",
+  "board": "FBISE",
+  "classLevel": 9,
+  "subject": "economics",
+  "sourceType": "model_paper",
+  "language": "en",
+  "year": null,
+  "checksum": null
+}
+```
+
+### Manual trigger
+
+Go to **Actions → Weekly FBISE Syllabus Crawl → Run workflow** in the GitHub UI.
+You can pass `dry_run=true` to test without spending embedding quota.
+
+### Required GitHub Secrets
+
+| Secret | Purpose |
+|---|---|
+| `SUPABASE_URL` | Same as `.env.local` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Same as `.env.local` |
+| `EMBEDDING_API_KEY` | Same as `.env.local` |
 
 ## Folder map
 
