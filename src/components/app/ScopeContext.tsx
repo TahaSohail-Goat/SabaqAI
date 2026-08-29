@@ -10,11 +10,30 @@ interface Scope {
   language: Language;
 }
 
+export interface CurrentUser {
+  id: string;
+  email?: string;
+  metadata?: { full_name?: string };
+}
+
+export interface Profile {
+  board: string;
+  classLevel: number;
+  examDate: string | null;
+  subjects: string[];
+}
+
 interface ScopeContextValue extends Scope {
   setBoard: (v: string) => void;
   setClassLevel: (v: number) => void;
   setSubject: (v: string) => void;
   setLanguage: (v: Language) => void;
+  // Resolved server-side by (app)/layout.tsx before this ever renders (see initialUser/
+  // initialProfile below) — Sidebar/Topbar/Dashboard read identity from here instead of each
+  // firing their own client-side fetch after the page has already painted a loading state.
+  user: CurrentUser | null;
+  profile: Profile | null;
+  ready: boolean;
 }
 
 const DEFAULT_SCOPE: Scope = {
@@ -29,45 +48,43 @@ const STORAGE_KEY = 'sabaqai-scope';
 
 const ScopeCtx = createContext<ScopeContextValue | null>(null);
 
+interface ScopeProviderProps {
+  children: React.ReactNode;
+  // A signed-in student's real board/class/subjects, already fetched server-side (this is
+  // what makes "Welcome back, {name}" and the scope badge correct on first paint instead of
+  // a skeleton-then-pop-in) — null for anonymous/demo sessions, which fall back to whatever
+  // was previously saved to localStorage on this device.
+  initialUser?: CurrentUser | null;
+  initialProfile?: Profile | null;
+}
+
 // Board/class/subject/language used to be five useState calls at the top of the old
 // single-page app, closed over by every tab. Routed pages can't share a closure, so this
 // takes their place — same defaults, now persisted per-device via localStorage.
-export function ScopeProvider({ children }: { children: React.ReactNode }) {
-  const [scope, setScope] = useState<Scope>(DEFAULT_SCOPE);
+export function ScopeProvider({ children, initialUser = null, initialProfile = null }: ScopeProviderProps) {
+  const [scope, setScope] = useState<Scope>(() => {
+    const next = { ...DEFAULT_SCOPE };
+    if (initialProfile) {
+      next.board = initialProfile.board;
+      next.classLevel = initialProfile.classLevel;
+      if (initialProfile.subjects?.[0]) next.subject = initialProfile.subjects[0];
+    }
+    return next;
+  });
 
+  // localStorage isn't reachable during the server render that produces initialUser/
+  // initialProfile, so the anonymous/demo override still has to be merged in client-side —
+  // but only for that case: a real profile from the server already wins over it (matches
+  // the previous fetch-based behavior's "profile wins" rule).
   useEffect(() => {
-    let cancelled = false;
-    let localOverrides: Partial<Scope> = {};
+    if (initialProfile) return;
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) localOverrides = JSON.parse(stored);
+      if (stored) setScope((prev) => ({ ...prev, ...JSON.parse(stored) }));
     } catch {
       // corrupt or inaccessible storage — fall back to defaults silently
     }
-
-    // A signed-in student's real board/class/subjects (set during /onboarding) is the source of
-    // truth and wins over whatever's in localStorage — otherwise onboarding could write a real
-    // profile that Ask/Quiz never actually use. Anonymous/demo sessions just get the local value.
-    fetch('/api/auth/user')
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        const next: Scope = { ...DEFAULT_SCOPE, ...localOverrides };
-        if (data?.profile) {
-          next.board = data.profile.board;
-          next.classLevel = data.profile.classLevel;
-          if (data.profile.subjects?.[0]) next.subject = data.profile.subjects[0];
-        }
-        setScope(next);
-      })
-      .catch(() => {
-        if (!cancelled) setScope((prev) => ({ ...prev, ...localOverrides }));
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [initialProfile]);
 
   const persist = (next: Scope) => {
     setScope(next);
@@ -84,6 +101,11 @@ export function ScopeProvider({ children }: { children: React.ReactNode }) {
     setClassLevel: (classLevel) => persist({ ...scope, classLevel }),
     setSubject: (subject) => persist({ ...scope, subject }),
     setLanguage: (language) => persist({ ...scope, language }),
+    user: initialUser,
+    profile: initialProfile,
+    // Always true: the server already resolved identity before this component ever
+    // rendered, so there's no async gap to gate on anymore.
+    ready: true,
   };
 
   return <ScopeCtx.Provider value={value}>{children}</ScopeCtx.Provider>;

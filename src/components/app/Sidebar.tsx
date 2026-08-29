@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Search,
@@ -15,61 +16,27 @@ import {
   LogIn,
   UserPlus,
   X,
-  Sun,
-  Moon,
+  Check,
 } from 'lucide-react';
 import NavItem from './NavItem';
 import SabaqLogoBadge from '@/components/SabaqLogoBadge';
-
-type Theme = 'light' | 'dark';
-
-interface CurrentUser {
-  id: string;
-  email?: string;
-  metadata?: { full_name?: string };
-}
+import { useScope } from './ScopeContext';
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [user, setUser] = useState<CurrentUser | null>(null);
-  const [checked, setChecked] = useState(false);
-  const [theme, setTheme] = useState<Theme | null>(null);
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem('sabaqai-theme') as Theme | null;
-    setTheme(stored ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
-  }, []);
-
-  const toggleTheme = () => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    document.documentElement.setAttribute('data-theme', next);
-    window.localStorage.setItem('sabaqai-theme', next);
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/auth/user')
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) setUser(data.user ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setUser(null);
-      })
-      .finally(() => {
-        if (!cancelled) setChecked(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const router = useRouter();
+  // user comes from ScopeContext, resolved server-side by (app)/layout.tsx before this ever
+  // renders — no client fetch, no "shows the old thing for a moment" gap on this footer.
+  const { user } = useScope();
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
 
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      setUser(null);
+      router.push('/login');
     } catch (e) {
       console.error(e);
+    } finally {
+      setConfirmingLogout(false);
     }
   };
 
@@ -118,56 +85,63 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       <div className="mt-auto border-t border-border p-3 space-y-2">
         <NavItem href="/settings" icon={Settings} label="Settings" onNavigate={onClose} />
 
-        {checked && (
-          user ? (
-            <div className="flex items-center gap-2.5 px-3 py-2 mt-1 rounded-xl bg-surface-muted">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-brand-dark text-xs font-bold">
-                {initial}
+        {user ? (
+          <div className="flex items-center gap-2.5 px-3 py-2 mt-1 rounded-xl bg-surface-muted">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-brand-dark text-xs font-bold">
+              {initial}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-navy truncate">{displayName}</p>
+              <p className="text-[10px] text-text-2 truncate">{user.email}</p>
+            </div>
+            {confirmingLogout ? (
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  title="Confirm sign out"
+                  className="p-1.5 rounded-lg text-error hover:bg-error-bg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error/50"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingLogout(false)}
+                  title="Cancel"
+                  className="p-1.5 rounded-lg text-text-2 hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-navy truncate">{displayName}</p>
-                <p className="text-[10px] text-text-2 truncate">{user.email}</p>
-              </div>
+            ) : (
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={() => setConfirmingLogout(true)}
                 title="Sign out"
                 className="p-1.5 rounded-lg text-text-2 hover:bg-error-bg hover:text-error transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error/50"
               >
                 <LogOut className="w-4 h-4" />
               </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 px-1 pt-1">
-              <Link
-                href="/login"
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-navy-2 border border-border-strong hover:bg-surface-hover hover:border-border-strong transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                Log in
-              </Link>
-              <Link
-                href="/signup"
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white bg-brand hover:bg-brand-dark shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                Sign up
-              </Link>
-            </div>
-          )
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 px-1 pt-1">
+            <Link
+              href="/login"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-navy-2 border border-border-strong hover:bg-surface-hover hover:border-border-strong transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              Log in
+            </Link>
+            <Link
+              href="/signup"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white bg-brand hover:bg-brand-dark shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              Sign up
+            </Link>
+          </div>
         )}
-
-        <div className="flex items-center justify-between px-3 pt-1">
-          <span className="text-[10px] font-semibold text-text-2 uppercase tracking-wider">Theme</span>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-muted text-navy-2 hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
-        </div>
       </div>
     </div>
   );
