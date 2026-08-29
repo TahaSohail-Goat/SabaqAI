@@ -4,8 +4,15 @@
 //
 // Returns a plain object (not a NextResponse) so each route can shape its own
 // HTTP response.
+//
+// IMPORTANT: creates the user via the admin API with email_confirm: true, not the
+// public auth.signUp() call. Our own OTP (src/lib/email/otp-store.ts) already proved
+// the student owns this address before this function is ever called — using signUp()
+// here would ALSO trigger Supabase's own built-in "Confirm your signup" email and
+// leave the account unconfirmed until that separate link is clicked, meaning the
+// student gets two different verification emails for one signup and can't log in
+// until they act on both. This was a real bug, not a hypothetical one.
 
-import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
 
 export interface CreateAccountParams {
@@ -35,9 +42,9 @@ export async function createAccount(
 ): Promise<CreateAccountResult | CreateAccountError> {
   const { email, password, full_name, class_level = 10, board = 'FBISE' } = params;
 
-  const supabase = await createServerSupabaseClient();
+  const admin = getServiceRoleClient();
 
-  if (!supabase) {
+  if (!admin) {
     return {
       success: true,
       user: {
@@ -52,12 +59,14 @@ export async function createAccount(
     };
   }
 
-  const { data, error } = await supabase.auth.signUp({
+  // email_confirm: true — the OTP the caller already verified IS the email confirmation.
+  // No session comes back from an admin-created user (expected: verify-otp sends the
+  // student to /login afterward regardless, so this doesn't change the user-facing flow).
+  const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
-    options: {
-      data: { full_name, class_level, board },
-    },
+    email_confirm: true,
+    user_metadata: { full_name, class_level, board },
   });
 
   if (error) {
@@ -65,47 +74,56 @@ export async function createAccount(
   }
 
   if (data.user) {
-    const admin = getServiceRoleClient();
-    if (admin) {
-      const { error: profileError } = await admin.from('users').upsert(
-        {
-          id: data.user.id,
-          role_code: 'student',
-          display_name: full_name || '',
-          preferred_language: 'en',
-        },
-        { onConflict: 'id' }
-      );
+    const { error: profileError } = await admin.from('users').upsert(
+      {
+        id: data.user.id,
+        role_code: 'student',
+        display_name: full_name || '',
+        preferred_language: 'en',
+      },
+      { onConflict: 'id' }
+    );
 
-      const { error: studentError } = await admin.from('student_profiles').upsert(
-        { user_id: data.user.id, board_code: board, class_level },
-        { onConflict: 'user_id' }
-      );
+    // Postgres unique_violation on the username's case-insensitive index
+    // (0006_username_unique.sql). send-otp already checks this before a code is ever
+    // sent — this only fires on the race where two signups for the same username land
+    // within the same window. Known limitation: the auth user above already exists at
+    // this point (confirmed, no password reset needed) with no matching profile row;
+    // not auto-deleted here rather than risk destroying a real account on a flaky
+    // network error being mistaken for this one.
+    if (profileError?.code === '23505') {
+      console.error('Signup: username collision at insert time:', profileError.message);
+      return { success: false, error: 'That username is already taken. Please choose another.' };
+    }
 
-      const { error: subjectsError } = await admin.from('student_subjects').upsert(
-        { user_id: data.user.id, subject_code: 'physics' },
-        { onConflict: 'user_id,subject_code' }
-      );
+    const { error: studentError } = await admin.from('student_profiles').upsert(
+      { user_id: data.user.id, board_code: board, class_level },
+      { onConflict: 'user_id' }
+    );
 
-      if (profileError || studentError || subjectsError) {
-        console.error(
-          'Signup succeeded but profile creation failed:',
-          profileError?.message ?? studentError?.message ?? subjectsError?.message
-        );
-        return {
-          success: true,
-          user: data.user,
-          session: data.session,
-          profileCreated: false,
-        };
-      }
+    const { error: subjectsError } = await admin.from('student_subjects').upsert(
+      { user_id: data.user.id, subject_code: 'physics' },
+      { onConflict: 'user_id,subject_code' }
+    );
+
+    if (profileError || studentError || subjectsError) {
+      console.error(
+        'Signup succeeded but profile creation failed:',
+        profileError?.message ?? studentError?.message ?? subjectsError?.message
+      );
+      return {
+        success: true,
+        user: data.user,
+        session: null,
+        profileCreated: false,
+      };
     }
   }
 
   return {
     success: true,
     user: data.user!,
-    session: data.session,
+    session: null,
     profileCreated: true,
   };
 }

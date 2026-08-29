@@ -125,6 +125,58 @@
   }
 }
 
+/* OTP screen: entrance for the step swap, a per-digit "pop" on entry, and a shake +
+   auto-clear cue when a code is rejected — see the verification step in signup/page.tsx. */
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-step-in {
+  animation: step-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes digit-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-digit-pop {
+  animation: digit-pop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes shake-x {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake-x 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-step-in,
+  .animate-digit-pop,
+  .animate-shake {
+    animation: none;
+  }
+}
+
 /* Dark theme — overrides the @theme tokens above via CSS variable cascade.
    Applies whenever data-theme="dark" is set on <html> (see ThemeToggle) or,
    with no explicit choice stored, when the OS prefers dark.

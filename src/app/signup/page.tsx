@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
   CheckCircle2,
-  User,
+  AtSign,
   Mail,
   Lock,
   Eye,
@@ -14,23 +14,51 @@ import {
   ArrowLeft,
   ShieldCheck,
   RefreshCw,
+  Check,
 } from 'lucide-react';
 import AuthField from '@/components/AuthField';
 import SabaqLogoBadge from '@/components/SabaqLogoBadge';
+import PasswordStrengthMeter from '@/components/PasswordStrengthMeter';
+import SocialAuthButtons from '@/components/SocialAuthButtons';
 
 type Step = 'form' | 'otp';
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN_S = 60;
 
+// Matches the seeded class_levels the product actually targets (Matric + Intermediate) —
+// same set Topbar/Settings/onboarding already offer. class_levels itself is seeded 1-12
+// in the schema, but nothing above this range is in scope for the app today.
+const CLASS_LEVELS = [9, 10, 11, 12];
+
+// Mirrors the server-side checks in /api/auth/send-otp — client-side copies exist only
+// to give immediate feedback; the server never trusts these and re-validates itself.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
+
 export default function SignupPage() {
   const router = useRouter();
 
   // ── Form fields ─────────────────────────────────────────────────────────────
-  const [fullName, setFullName] = useState('');
+  // "username", not "full name" — usernames are unique handles (see the migration
+  // adding a case-insensitive unique index on users.display_name), so the field asks
+  // for exactly that rather than a freely-repeatable display name.
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [classLevel, setClassLevel] = useState<number | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [usernameTouched, setUsernameTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+
+  const usernameError = usernameTouched && username.trim() && !USERNAME_RE.test(username.trim())
+    ? 'Username must be 3-20 characters — letters, numbers and underscores only.'
+    : null;
+  const emailError = emailTouched && email.trim() && !EMAIL_RE.test(email.trim())
+    ? 'Please enter a valid email address.'
+    : null;
 
   // ── OTP state ────────────────────────────────────────────────────────────────
   const [step, setStep] = useState<Step>('form');
@@ -38,6 +66,9 @@ export default function SignupPage() {
   const otpRefs = useRef<Array<HTMLInputElement | null>>(Array(OTP_LENGTH).fill(null));
   const [resendCooldown, setResendCooldown] = useState(0);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Bumped on a rejected code — used as a React `key` so the shake animation replays
+  // every time (a className toggle alone won't restart an already-applied CSS animation).
+  const [shakeToken, setShakeToken] = useState(0);
 
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
@@ -64,14 +95,34 @@ export default function SignupPage() {
     if (e) e.preventDefault();
 
     const trimmedEmail = email.trim();
-    const trimmedName = fullName.trim();
+    const trimmedUsername = username.trim();
 
-    if (!trimmedEmail || !password || !trimmedName) {
+    if (!trimmedEmail || !password || !trimmedUsername) {
+      setUsernameTouched(true);
+      setEmailTouched(true);
       setError('Please fill in all required fields.');
+      return;
+    }
+    if (!USERNAME_RE.test(trimmedUsername)) {
+      setUsernameTouched(true);
+      setError('Username must be 3-20 characters — letters, numbers and underscores only.');
+      return;
+    }
+    if (!EMAIL_RE.test(trimmedEmail)) {
+      setEmailTouched(true);
+      setError('Please enter a valid email address.');
       return;
     }
     if (password.length < 6) {
       setError('Password should be at least 6 characters long.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    if (!classLevel) {
+      setError('Please select your class.');
       return;
     }
 
@@ -83,7 +134,7 @@ export default function SignupPage() {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail, password, full_name: trimmedName }),
+        body: JSON.stringify({ email: trimmedEmail, password, full_name: trimmedUsername, class_level: classLevel }),
       });
 
       const data = await res.json();
@@ -132,7 +183,8 @@ export default function SignupPage() {
           email: email.trim(),
           otp: code,
           password,
-          full_name: fullName.trim(),
+          full_name: username.trim(),
+          class_level: classLevel,
         }),
       });
 
@@ -146,6 +198,11 @@ export default function SignupPage() {
       }, 1000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred.');
+      // Wrong/expired code — clear the boxes and cue a shake rather than leaving the
+      // rejected digits sitting there with only the banner above explaining why.
+      setOtp(Array(OTP_LENGTH).fill(''));
+      setShakeToken((t) => t + 1);
+      setTimeout(() => otpRefs.current[0]?.focus(), 50);
     } finally {
       setLoading(false);
     }
@@ -191,7 +248,11 @@ export default function SignupPage() {
     // Focus last filled box
     const lastIdx = Math.min(pasted.length, OTP_LENGTH - 1);
     otpRefs.current[lastIdx]?.focus();
-    if (pasted.length === OTP_LENGTH) handleVerifyOtp();
+    // Pass the freshly-built code directly — same stale-closure reason handleOtpChange
+    // does this above: setOtp(next) hasn't re-rendered yet, so `otp` here is still the
+    // pre-paste (empty) array. Calling handleVerifyOtp() with no args used exactly that
+    // stale value and always failed with "enter the full 6-digit code" on a real paste.
+    if (pasted.length === OTP_LENGTH) handleVerifyOtp(undefined, pasted);
   };
 
   // ── Shared layout wrapper ─────────────────────────────────────────────────────
@@ -201,24 +262,26 @@ export default function SignupPage() {
       {/* Floating split card */}
       <div className="relative z-10 w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 bg-surface rounded-[2rem] shadow-2xl shadow-black/40 border border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-500">
 
-        {/* Left: form */}
-        <div className="w-full order-2 lg:order-1 flex items-center justify-center p-8 sm:p-12 lg:p-16 bg-surface">
+        {/* Left: form — capped at lg: so a long step (e.g. the full registration form)
+            scrolls internally instead of growing the whole card past the viewport. */}
+        <div className="w-full order-2 lg:order-1 flex items-center lg:items-start justify-center p-8 sm:p-12 lg:p-16 bg-surface lg:max-h-[90vh] lg:overflow-y-auto">
           <div className="w-full max-w-[380px]">
 
-            {/* Logo */}
-            <Link href="/" className="flex items-center justify-center gap-4 mb-10 w-full transition-transform hover:opacity-80">
+            {/* Logo — a plain brand mark, not a link: someone mid-form shouldn't be able to
+                click it by mistake and lose what they've typed. */}
+            <div className="flex items-center justify-center gap-4 mb-10 w-full">
               <SabaqLogoBadge size={56} />
               <h1 className="font-display text-4xl font-semibold tracking-tight text-navy">
                 Sabaq<span className="text-brand">AI</span>
               </h1>
-            </Link>
+            </div>
 
             {/* ── STEP 1: Registration form ─────────────────────────────────── */}
             {step === 'form' && (
-              <>
+              <div className="animate-step-in">
                 <div className="mb-8">
                   <h2 className="text-[28px] font-bold text-navy mb-2 tracking-tight">Create an account</h2>
-                  <p className="text-[15px] text-text-2 font-medium">Join us to continue your studies.</p>
+                  <p className="text-[15px] text-navy-2 font-medium">Join us to continue your studies.</p>
                 </div>
 
                 {error && (
@@ -236,30 +299,42 @@ export default function SignupPage() {
                 )}
 
                 <form className="space-y-4" onSubmit={handleSendOtp}>
-                  <AuthField
-                    icon={User}
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    autoComplete="name"
-                    autoFocus
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Full Name"
-                  />
+                  <div>
+                    <AuthField
+                      icon={AtSign}
+                      id="username"
+                      name="username"
+                      type="text"
+                      autoComplete="username"
+                      autoFocus
+                      required
+                      error={!!usernameError}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      onBlur={() => setUsernameTouched(true)}
+                      placeholder="Username"
+                    />
+                    {usernameError && (
+                      <p className="mt-1.5 pl-1 text-[12px] text-error">{usernameError}</p>
+                    )}
+                  </div>
 
-                  <AuthField
-                    icon={Mail}
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email"
-                  />
+                  <div>
+                    <AuthField
+                      icon={Mail}
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      error={!!emailError}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onBlur={() => setEmailTouched(true)}
+                      placeholder="Email"
+                    />
+                    {emailError && <p className="mt-1.5 pl-1 text-[12px] text-error">{emailError}</p>}
+                  </div>
 
                   <div>
                     <AuthField
@@ -283,7 +358,62 @@ export default function SignupPage() {
                         </button>
                       }
                     />
-                    <p className="mt-1.5 pl-1 text-[12px] text-text-3">Must be at least 6 characters.</p>
+                    <PasswordStrengthMeter password={password} />
+                  </div>
+
+                  <div>
+                    <AuthField
+                      icon={Lock}
+                      id="confirm-password"
+                      name="confirm-password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      required
+                      error={confirmPassword.length > 0 && confirmPassword !== password}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm password"
+                      trailing={
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="text-text-3 hover:text-navy transition-colors focus:outline-none"
+                          aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      }
+                    />
+                    {confirmPassword.length > 0 && confirmPassword !== password && (
+                      <p className="mt-1.5 pl-1 text-[12px] text-error">Passwords do not match.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="mb-2 text-[13px] font-semibold text-navy-2">Which class are you in?</p>
+                    <div className="grid grid-cols-4 gap-2">
+                      {CLASS_LEVELS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setClassLevel(c)}
+                          aria-pressed={classLevel === c}
+                          className={`relative flex items-center justify-center rounded-xl border py-3 text-[15px] font-bold transition-colors duration-150 ${
+                            classLevel === c
+                              ? 'border-brand bg-accent-subtle text-brand-dark'
+                              : 'border-border text-navy-2 hover:border-border-strong hover:bg-surface-hover'
+                          }`}
+                        >
+                          {c}
+                          {classLevel === c && (
+                            <Check className="absolute top-1 right-1 w-3 h-3 text-brand" strokeWidth={3} />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 pl-1 text-[12px] text-text-2">
+                      We'll only show you content ingested for your class.
+                    </p>
                   </div>
 
                   <button
@@ -292,29 +422,33 @@ export default function SignupPage() {
                     disabled={loading}
                     className="w-full cursor-pointer rounded-2xl bg-[linear-gradient(135deg,#185C43_0%,#237A57_55%,#2A8C82_100%)] px-4 py-3.5 text-[15px] font-bold text-white transition-all duration-300 shadow-[0_4px_14px_rgba(27,181,107,0.3)] hover:shadow-[0_8px_24px_rgba(27,181,107,0.4)] hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:shadow-none disabled:transform-none"
                   >
-                    {loading ? 'Sending code...' : 'Continue with Email'}
+                    {loading ? 'Sending code...' : 'Create Account'}
                   </button>
                 </form>
 
+                <div className="mt-6">
+                  <SocialAuthButtons providers={['google']} />
+                </div>
+
                 <div className="mt-8 text-center">
-                  <p className="text-[14px] text-text-3">
+                  <p className="text-[14px] text-text-2">
                     Already have an account?{' '}
                     <Link href="/login" className="font-bold text-navy hover:text-brand transition-colors">
                       Log in
                     </Link>
                   </p>
                 </div>
-              </>
+              </div>
             )}
 
             {/* ── STEP 2: OTP verification ──────────────────────────────────── */}
             {step === 'otp' && (
-              <>
+              <div className="animate-step-in">
                 {/* Back button */}
                 <button
                   type="button"
                   onClick={() => { setStep('form'); setError(null); setSuccessMsg(null); }}
-                  className="mb-6 flex items-center gap-1.5 text-[13px] text-text-3 hover:text-brand transition-colors"
+                  className="mb-6 flex items-center gap-1.5 text-[13px] text-text-2 hover:text-brand transition-colors"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   Back
@@ -327,7 +461,7 @@ export default function SignupPage() {
                     </span>
                     <h2 className="text-[24px] font-bold text-navy tracking-tight">Check your email</h2>
                   </div>
-                  <p className="text-[14px] text-text-2 leading-relaxed">
+                  <p className="text-[14px] text-navy-2 leading-relaxed">
                     We sent a 6-digit verification code to{' '}
                     <span className="font-semibold text-navy">{email}</span>
                   </p>
@@ -348,9 +482,11 @@ export default function SignupPage() {
                 )}
 
                 <form onSubmit={handleVerifyOtp}>
-                  {/* 6-box OTP input */}
+                  {/* 6-box OTP input — remounted on each rejected code (key={shakeToken})
+                      so the shake animation genuinely replays rather than only firing once. */}
                   <div
-                    className="flex gap-2.5 mb-6"
+                    key={shakeToken}
+                    className={`flex gap-2.5 mb-6 ${shakeToken > 0 ? 'animate-shake' : ''}`}
                     onPaste={handleOtpPaste}
                     role="group"
                     aria-label="Verification code"
@@ -367,22 +503,11 @@ export default function SignupPage() {
                         onChange={(e) => handleOtpChange(i, e.target.value)}
                         onKeyDown={(e) => handleOtpKeyDown(i, e)}
                         aria-label={`Digit ${i + 1} of ${OTP_LENGTH}`}
-                        className="w-full aspect-square text-center font-bold rounded-xl transition-all duration-150 focus:outline-none caret-transparent"
-                        style={{
-                          fontSize: '1.375rem',
-                          background: digit ? '#f0fdf4' : '#ffffff',
-                          border: `2px solid ${digit ? '#237A57' : '#c5d3cd'}`,
-                          color: '#102A3A',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                        }}
-                        onFocus={(e) => {
-                          e.currentTarget.style.border = '2px solid #237A57';
-                          e.currentTarget.style.boxShadow = '0 0 0 3px rgba(35,122,87,0.15)';
-                        }}
-                        onBlur={(e) => {
-                          e.currentTarget.style.border = `2px solid ${e.currentTarget.value ? '#237A57' : '#c5d3cd'}`;
-                          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
-                        }}
+                        className={`w-full aspect-square text-center text-[1.375rem] font-bold rounded-xl border-2 transition-all duration-150 focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 caret-transparent ${
+                          digit
+                            ? 'bg-accent-subtle border-brand text-navy animate-digit-pop'
+                            : 'bg-surface border-border-strong text-navy'
+                        }`}
                         disabled={loading}
                       />
                     ))}
@@ -401,7 +526,7 @@ export default function SignupPage() {
                 {/* Resend */}
                 <div className="mt-5 text-center">
                   {resendCooldown > 0 ? (
-                    <p className="text-[13px] text-text-3">
+                    <p className="text-[13px] text-text-2">
                       Resend code in <span className="font-semibold text-navy">{resendCooldown}s</span>
                     </p>
                   ) : (
@@ -417,10 +542,10 @@ export default function SignupPage() {
                   )}
                 </div>
 
-                <p className="mt-6 text-center text-[12px] text-text-3">
-                  Code expires in 10 minutes
+                <p className="mt-6 text-center text-[12px] text-text-2">
+                  Code expires in 2 minutes
                 </p>
-              </>
+              </div>
             )}
 
           </div>

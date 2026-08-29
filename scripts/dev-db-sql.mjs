@@ -35,9 +35,17 @@ if (!sqlFile) {
   process.exit(2);
 }
 
-// Minimal .env.local parser (dotenv is not a dependency either).
+// Minimal .env parser (dotenv is not a dependency either). Next.js itself reads both
+// .env and .env.local, so this checks .env.local first, then falls back to .env —
+// whichever the project is actually using.
 const env = {};
-for (const line of readFileSync('.env.local', 'utf8').split(/\r?\n/)) {
+let envFile = '.env.local';
+try {
+  readFileSync(envFile, 'utf8');
+} catch {
+  envFile = '.env';
+}
+for (const line of readFileSync(envFile, 'utf8').split(/\r?\n/)) {
   if (!line || line.startsWith('#')) continue;
   const i = line.indexOf('=');
   if (i > 0) env[line.slice(0, i).trim()] = line.slice(i + 1).trim();
@@ -45,7 +53,7 @@ for (const line of readFileSync('.env.local', 'utf8').split(/\r?\n/)) {
 
 for (const key of ['SUPABASE_DB_HOST', 'SUPABASE_DB_USER', 'SUPABASE_DB_PASSWORD']) {
   if (!env[key]) {
-    console.error(`missing ${key} in .env.local — Project Settings → Database → Connection string (session pooler)`);
+    console.error(`missing ${key} in ${envFile} — Project Settings → Database → Connection string (session pooler)`);
     process.exit(2);
   }
 }
