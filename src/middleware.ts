@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 // Routes that require authentication
-const PROTECTED_PREFIXES = ['/dashboard', '/ask', '/quiz', '/syllabus', '/eval', '/settings'];
+const PROTECTED_PREFIXES = ['/dashboard', '/ask', '/chat', '/quiz', '/syllabus', '/eval', '/settings'];
 
 // Routes only for guests (redirect to dashboard if already logged in)
 const AUTH_ONLY_ROUTES = ['/login', '/signup'];

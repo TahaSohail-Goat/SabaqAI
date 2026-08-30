@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import AuthField from '@/components/AuthField';
 import SabaqLogoBadge from '@/components/SabaqLogoBadge';
+import SocialAuthButtons from '@/components/SocialAuthButtons';
 
 function LoginForm() {
   const router = useRouter();
@@ -26,6 +27,15 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // /auth/callback redirects here with ?error= when Google/Supabase OAuth fails (e.g. two
+  // overlapping login attempts leaving a stale/mismatched state) — show it instead of the
+  // silent bounce this used to be.
+  useEffect(() => {
+    const oauthError = searchParams.get('error');
+    if (oauthError) setError(oauthError);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,6 +163,10 @@ function LoginForm() {
           {loading ? 'Logging in...' : 'Log in'}
         </button>
       </form>
+
+      <div className="mt-6">
+        <SocialAuthButtons providers={['google']} />
+      </div>
 
       {/* Create Account Link */}
       <div className="mt-8 text-center">
