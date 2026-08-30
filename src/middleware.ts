@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { ACTIVITY_COOKIE_NAME, activityCookieOptions, isActivityFresh } from '@/lib/auth/session-activity';
 
 // Routes that require authentication
 const PROTECTED_PREFIXES = ['/dashboard', '/ask', '/chat', '/quiz', '/syllabus', '/eval', '/settings'];
@@ -62,12 +63,41 @@ export async function middleware(req: NextRequest) {
   // which means an attacker can forge a cookie and appear logged in. getUser()
   // hits the Auth server and is the only secure check.
   const {
-    data: { user },
+    data: { user: authUser },
   } = await supabase.auth.getUser();
+
+  let user = authUser;
+  let loggedOutReason: 'inactivity' | 'session_ended' | null = null;
+
+  if (user) {
+    const activityCookie = req.cookies.get(ACTIVITY_COOKIE_NAME)?.value;
+    if (isActivityFresh(activityCookie)) {
+      response.cookies.set(ACTIVITY_COOKIE_NAME, Date.now().toString(), activityCookieOptions());
+    } else {
+      // Stale (idle too long) or missing entirely. Missing is the expected shape of "the
+      // browser was fully closed and reopened" — this marker cookie carries no Max-Age,
+      // so unlike Supabase's own 400-day cookie it doesn't survive that (see
+      // src/lib/auth/session-activity.ts for why Supabase's cookie can't just be
+      // shortened directly). Either way, the session ends here.
+      loggedOutReason = activityCookie ? 'inactivity' : 'session_ended';
+      await supabase.auth.signOut();
+      response.cookies.set(ACTIVITY_COOKIE_NAME, '', { ...activityCookieOptions(), maxAge: 0 });
+      user = null;
+    }
+  }
 
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   const isAuthOnly = AUTH_ONLY_ROUTES.some((p) => pathname.startsWith(p));
   const isPublic = PUBLIC_ROUTES.some((p) => pathname.startsWith(p));
+
+  // Redirects below build a fresh NextResponse — carry over any cookie mutations already
+  // staged on `response` (a refreshed Supabase token, the forced signOut above) so they
+  // still reach the browser instead of being silently dropped with the discarded response.
+  const redirectTo = (url: URL) => {
+    const redirect = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
+  };
 
   // Public routes bypass all auth guards
   if (isPublic) return response;
@@ -77,7 +107,8 @@ export async function middleware(req: NextRequest) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = '/login';
     loginUrl.searchParams.set('next', pathname);
-    return NextResponse.redirect(loginUrl);
+    if (loggedOutReason) loginUrl.searchParams.set('reason', loggedOutReason);
+    return redirectTo(loginUrl);
   }
 
   // Already logged in → redirect away from auth pages
@@ -85,7 +116,7 @@ export async function middleware(req: NextRequest) {
     const dashboardUrl = req.nextUrl.clone();
     dashboardUrl.pathname = '/dashboard';
     dashboardUrl.search = '';
-    return NextResponse.redirect(dashboardUrl);
+    return redirectTo(dashboardUrl);
   }
 
   return response;

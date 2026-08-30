@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { ACTIVITY_COOKIE_NAME, activityCookieOptions } from '@/lib/auth/session-activity';
 
 // Handles the OAuth redirect (Google/Facebook) — exchanges ?code for a session cookie,
 // then honours ?next if the caller set one.
@@ -39,6 +41,8 @@ export async function GET(req: NextRequest) {
         loginUrl.searchParams.set('error', error.message);
         return NextResponse.redirect(loginUrl);
       }
+      // Same reasoning as /api/auth/login — see src/lib/auth/session-activity.ts.
+      (await cookies()).set(ACTIVITY_COOKIE_NAME, Date.now().toString(), activityCookieOptions());
     }
   }
 

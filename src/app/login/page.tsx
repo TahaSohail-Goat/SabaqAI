@@ -31,9 +31,22 @@ function LoginForm() {
   // /auth/callback redirects here with ?error= when Google/Supabase OAuth fails (e.g. two
   // overlapping login attempts leaving a stale/mismatched state) — show it instead of the
   // silent bounce this used to be.
+  //
+  // middleware redirects here with ?reason= when it force-ends a session — see
+  // src/lib/auth/session-activity.ts: either the browser was fully closed and reopened, or
+  // the session sat idle past the timeout.
   useEffect(() => {
     const oauthError = searchParams.get('error');
-    if (oauthError) setError(oauthError);
+    if (oauthError) {
+      setError(oauthError);
+      return;
+    }
+    const reason = searchParams.get('reason');
+    if (reason === 'inactivity') {
+      setError("You were signed out after a period of inactivity. Please log in again.");
+    } else if (reason === 'session_ended') {
+      setError('Your session ended. Please log in again.');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
