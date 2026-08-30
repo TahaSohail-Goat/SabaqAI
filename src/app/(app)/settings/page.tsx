@@ -428,7 +428,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={changePassword}
-                  disabled={passwordSaving || !currentPassword || newPassword.length < 6 || newPassword !== confirmNewPassword}
+                  disabled={passwordSaving || !currentPassword || newPassword.length < 8 || newPassword !== confirmNewPassword}
                   className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-dark disabled:bg-disabled disabled:text-disabled-text transition-colors"
                 >
                   {passwordSaving ? 'Saving...' : 'Update password'}

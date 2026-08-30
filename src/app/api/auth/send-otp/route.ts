@@ -58,9 +58,9 @@ export async function POST(req: NextRequest) {
     if (![9, 10, 11, 12].includes(classLevel)) {
       return NextResponse.json({ error: 'Please select a valid class (9-12).' }, { status: 400 });
     }
-    if (password.length < 6) {
+    if (password.length < 8) {
       return NextResponse.json(
-        { error: 'Password should be at least 6 characters long.' },
+        { error: 'Password should be at least 8 characters long.' },
         { status: 400 }
       );
     }

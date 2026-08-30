@@ -4,8 +4,10 @@
 // name/board/class/subjects already baked in instead of fetching it client-side after the
 // page has already painted a "Welcome back." / skeleton state).
 
+import { cookies } from 'next/headers';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
+import { ACTIVITY_COOKIE_NAME, activityCookieOptions, isActivityFresh } from '@/lib/auth/session-activity';
 
 export interface CurrentUser {
   id: string;
@@ -36,6 +38,23 @@ export async function getCurrentUserAndProfile(): Promise<CurrentUserResult> {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) {
     return { user: null, profile: null, configured: true };
+  }
+
+  // Same idle/closed-browser enforcement as middleware.ts, for requests middleware never
+  // sees (every /api/ route) — see src/lib/auth/session-activity.ts. Most real activity in
+  // this app (chat, quiz grading) happens here, via API calls, not page navigation, so this
+  // is also what keeps the activity timestamp from going stale during a long chat session.
+  const cookieStore = await cookies();
+  const activityCookie = cookieStore.get(ACTIVITY_COOKIE_NAME)?.value;
+  if (!isActivityFresh(activityCookie)) {
+    return { user: null, profile: null, configured: true };
+  }
+  try {
+    cookieStore.set(ACTIVITY_COOKIE_NAME, Date.now().toString(), activityCookieOptions());
+  } catch {
+    // Called from a Server Component (e.g. (app)/layout.tsx) — can't write cookies there.
+    // Fine: middleware refreshes the same cookie for page navigations, and Route Handlers
+    // (every API call) can write it themselves.
   }
 
   // Real board/class/subjects, read with the service-role client — a student's own session

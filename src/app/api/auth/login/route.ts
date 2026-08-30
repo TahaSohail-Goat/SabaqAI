@@ -9,7 +9,9 @@
 // server failures are 4xx/5xx — matching the project convention.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { ACTIVITY_COOKIE_NAME, activityCookieOptions } from '@/lib/auth/session-activity';
 
 // Human-readable overrides for common Supabase Auth error codes so the UI
 // doesn't show raw backend messages to students.
@@ -73,7 +75,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Session is set in cookies by the @supabase/ssr client automatically.
+    // Session is set in cookies by the @supabase/ssr client automatically. The activity
+    // marker is ours — see src/lib/auth/session-activity.ts — and has to be set here too,
+    // at the moment the session starts, or middleware would see a valid Supabase session
+    // with no activity cookie yet on the very next request and treat that as "closed
+    // browser", logging the user straight back out.
+    (await cookies()).set(ACTIVITY_COOKIE_NAME, Date.now().toString(), activityCookieOptions());
+
     // Return the user so the UI can display a personalised greeting.
     return NextResponse.json({
       success: true,
