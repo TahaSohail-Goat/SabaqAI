@@ -87,3 +87,51 @@ export interface Citation {
   sourceType: string;
   excerpt: string;
 }
+
+// /api/ask/options — what a student can actually pick from before asking a question. Always
+// returns all four source types, even with an empty units array, so the UI can show an
+// honest "nothing ingested yet" state instead of hiding a category outright.
+export type AskSourceType = 'textbook' | 'past_paper' | 'model_paper' | 'marking_scheme';
+
+export interface AskUnit {
+  chapterNo: number;
+  chapterTitle: string | null;
+  /** Public URL to the real source PDF in Storage, or null if it hasn't been uploaded (e.g.
+   *  not yet backfilled — see scripts/backfill-pdf-storage.ts). Display-only. */
+  pdfUrl: string | null;
+}
+
+export interface AskSourceOption {
+  sourceType: AskSourceType;
+  units: AskUnit[];
+}
+
+export interface AskOptionsResponse {
+  board: string;
+  classLevel: number;
+  subject: string;
+  sources: AskSourceOption[];
+}
+
+// /api/ask/document — the full ingested content of one selected chapter/paper, for the
+// immersive reader on /ask's other half. Real chunk ids (matching Citation.chunkId) so a
+// clicked citation can scroll to and highlight its exact origin in place, instead of showing
+// a disconnected excerpt card.
+export interface AskDocumentChunk {
+  id: string;
+  content: string;
+}
+
+export interface AskDocumentSection {
+  sectionLabel: string | null;
+  pageFrom: number | null;
+  pageTo: number | null;
+  chunks: AskDocumentChunk[];
+}
+
+export interface AskDocumentResponse {
+  chapterNo: number;
+  chapterTitle: string | null;
+  sourceType: AskSourceType;
+  sections: AskDocumentSection[];
+}
