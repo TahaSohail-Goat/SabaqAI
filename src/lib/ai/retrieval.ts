@@ -17,6 +17,11 @@ export interface RetrievalInput {
   board: string;
   classLevel: number;
   subject: string;
+  /** Narrows to one source (a book, past papers, model papers, marking schemes) and/or one
+   *  specific chapter/paper within it. Board+class+subject stay mandatory regardless — this
+   *  only ever narrows further, never replaces that filter (AGENTS.md invariant 6). */
+  sourceType?: string;
+  chapterNo?: number;
 }
 
 // Roman Urdu transliteration & normalisation dictionary for Pakistani matric physics
@@ -66,6 +71,8 @@ export async function retrieve(input: RetrievalInput): Promise<RetrievedChunk[]>
       filter_class: input.classLevel,
       filter_subject: input.subject,
       match_count: topK,
+      filter_source_type: input.sourceType ?? null,
+      filter_chapter_no: input.chapterNo ?? null,
     });
 
     if (error) {
@@ -130,7 +137,9 @@ function retrieveFromLocalCorpus(
     (c) =>
       c.board.toLowerCase() === input.board.toLowerCase() &&
       c.classLevel === input.classLevel &&
-      c.subject.toLowerCase() === input.subject.toLowerCase()
+      c.subject.toLowerCase() === input.subject.toLowerCase() &&
+      (!input.sourceType || c.sourceType === input.sourceType) &&
+      (input.chapterNo === undefined || c.chapterNo === input.chapterNo)
   );
 
   return filtered

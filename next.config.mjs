@@ -29,7 +29,10 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  `connect-src 'self' ${supabaseUrl}`,
+  // Turbopack's dev-mode hot-reload client connects over its own ws:// socket — not covered
+  // by 'self' in every browser's CSP implementation, dev-only, harmless (no HMR socket exists
+  // in a production build at all).
+  `connect-src 'self' ${supabaseUrl}${isDev ? ' ws://localhost:* ws://127.0.0.1:*' : ''}`,
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",

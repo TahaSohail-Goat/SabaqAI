@@ -19,6 +19,11 @@ export async function POST(req: NextRequest) {
       classLevel = 10,
       subject = 'physics',
       language = 'en',
+      // Which book/paper the student picked on /ask — see /api/ask/options. Both optional so
+      // this route still works unscoped for any other caller; the /ask page itself always
+      // sends both once a student has made a selection.
+      sourceType,
+      chapterNo,
     } = body;
 
     // Best-effort attribution for qa_log, so "Questions asked" can actually be counted per
@@ -42,6 +47,8 @@ export async function POST(req: NextRequest) {
       board,
       classLevel: Number(classLevel),
       subject,
+      sourceType: typeof sourceType === 'string' && sourceType ? sourceType : undefined,
+      chapterNo: typeof chapterNo === 'number' ? chapterNo : undefined,
     });
 
     // 2. Confidence Gate
