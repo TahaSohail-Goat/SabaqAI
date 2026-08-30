@@ -118,6 +118,7 @@ export async function POST(req: NextRequest) {
               name: profile?.username || undefined,
               subjects: profile?.subjects,
               examDate: profile?.examDate,
+              preferredLanguage: profile?.language,
             },
           })) {
             fullReply += piece;

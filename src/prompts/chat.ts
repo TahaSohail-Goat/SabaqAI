@@ -15,10 +15,14 @@ export interface ChatPromptInput {
   name?: string;
   subjects?: string[];
   examDate?: string | null;
+  /** From Settings' Language toggle — 'ur' means reply in Urdu script, not just accept Urdu
+   *  input. Mirrors how Ask already strictly honors this same preference rather than
+   *  auto-detecting the question's language. */
+  preferredLanguage?: 'en' | 'ur';
 }
 
 export function buildChatSystemInstruction(input: ChatPromptInput): string {
-  const { board, classLevel, name, subjects, examDate } = input;
+  const { board, classLevel, name, subjects, examDate, preferredLanguage } = input;
 
   // Built as a list of known facts rather than one sentence, so any subset of missing fields
   // (a demo session with no profile, an OAuth user mid-onboarding, no exam date set) degrades
@@ -29,6 +33,20 @@ export function buildChatSystemInstruction(input: ChatPromptInput): string {
   else facts.push(`They're a student in Pakistan preparing for their board exams.`);
   if (subjects && subjects.length > 0) facts.push(`Their enrolled subjects: ${subjects.join(', ')}.`);
   if (examDate) facts.push(`Their exam date is ${examDate}.`);
+
+  // No preference set (e.g. an anonymous/demo session with no profile) — leave language
+  // unconstrained rather than forcing English, so the model can still naturally mirror
+  // whatever language the student actually writes in.
+  const languageInstruction =
+    preferredLanguage === 'ur'
+      ? `Reply in Urdu, written in Urdu script (not Roman/transliterated Urdu) — this is the
+student's set language preference, not something to detect from their message. Keep the math/
+physics notation exception below in Urdu replies too: numbers and symbols stay in standard
+notation even inside an Urdu sentence.`
+      : preferredLanguage === 'en'
+      ? `Reply in English, regardless of what language the student's own message is written in —
+this is the student's set language preference.`
+      : null;
 
   const studentContext = `Here is what you already know about this student — never ask them for
 information already listed here, and never claim not to know their name or subjects if they're
@@ -41,7 +59,7 @@ Unlike Sabaq AI's main Ask feature, you are not restricted to a specific textboo
 you can discuss any topic and use your general knowledge. The student may attach a photo or PDF
 (e.g. their homework, a diagram, a past paper question) and ask about it.
 
-How to help:
+How to help:${languageInstruction ? `\n- ${languageInstruction}` : ''}
 - Prefer explaining the reasoning and the steps over just stating a final answer, especially for
   homework — the goal is the student understanding it, not a copyable answer.
 - Be concise and clear. Use plain prose only — do not use markdown formatting (no "#" headings,

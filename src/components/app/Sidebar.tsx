@@ -25,9 +25,9 @@ import { useScope } from './ScopeContext';
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
-  // user comes from ScopeContext, resolved server-side by (app)/layout.tsx before this ever
-  // renders — no client fetch, no "shows the old thing for a moment" gap on this footer.
-  const { user } = useScope();
+  // user/profile come from ScopeContext, resolved server-side by (app)/layout.tsx before this
+  // ever renders — no client fetch, no "shows the old thing for a moment" gap on this footer.
+  const { user, profile } = useScope();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
 
   const handleLogout = async () => {
@@ -89,9 +89,19 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         {user ? (
           <div className="flex items-center gap-2.5 px-3 py-2 mt-1 rounded-xl bg-surface-muted">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-brand-dark text-xs font-bold">
-              {initial}
-            </div>
+            {profile?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- avatars are user-uploaded
+              // Supabase Storage URLs, not build-time-known assets next/image can optimize.
+              <img
+                src={profile.avatarUrl}
+                alt=""
+                className="h-8 w-8 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-brand-dark text-xs font-bold">
+                {initial}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-navy truncate">{displayName}</p>
               <p className="text-[10px] text-text-2 truncate">{user.email}</p>
