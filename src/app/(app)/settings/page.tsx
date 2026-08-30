@@ -12,11 +12,12 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Camera,
 } from 'lucide-react';
+import { useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useScope } from '@/components/app/ScopeContext';
 import PasswordStrengthMeter from '@/components/PasswordStrengthMeter';
-import { SUBJECTS } from '@/lib/subjects';
 
 interface CurrentUser {
   id: string;
@@ -67,7 +68,7 @@ function InlineBanner({ kind, children }: { kind: 'error' | 'success'; children:
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { subject, language, setSubject, setLanguage } = useScope();
+  const { language, setLanguage } = useScope();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [theme, setTheme] = useState<Theme | null>(null);
 
@@ -80,16 +81,23 @@ export default function SettingsPage() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState(false);
 
+  // Avatar
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     fetch('/api/auth/user')
       .then((res) => res.json())
       .then((data) => {
         setUser(data.user ?? null);
-        const profile: (ProfileData & { subjects?: string[] }) | null = data.profile ?? null;
+        const profile: (ProfileData & { subjects?: string[]; avatarUrl?: string | null }) | null = data.profile ?? null;
         if (profile) {
           setUsername(profile.username || '');
           setClassLevel(profile.classLevel ?? null);
           setExamDate(profile.examDate || '');
+          setAvatarUrl(profile.avatarUrl ?? null);
         }
       })
       .catch(() => setUser(null));
@@ -101,6 +109,23 @@ export default function SettingsPage() {
   const usernameError = usernameTouched && username.trim() && !USERNAME_RE.test(username.trim())
     ? 'Username must be 3-20 characters — letters, numbers and underscores only.'
     : null;
+
+  const uploadAvatar = async (file: File) => {
+    setAvatarUploading(true);
+    setAvatarError(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/auth/avatar', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed.');
+      setAvatarUrl(data.avatarUrl);
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Could not upload image.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
 
   const saveProfile = async () => {
     setProfileSaving(true);
@@ -217,12 +242,53 @@ export default function SettingsPage() {
       <SectionCard title="Profile" description="Your username, class, and exam date.">
         {user ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-full bg-brand-mint text-brand-dark flex items-center justify-center text-sm font-bold flex-shrink-0">
-                {(username || user.email || '?').charAt(0).toUpperCase()}
+            <div className="flex items-center gap-4">
+              {/* Clickable avatar — triggers hidden file input */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={avatarUploading}
+                aria-label="Change profile picture"
+                className="relative h-14 w-14 rounded-full flex-shrink-0 group focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2"
+              >
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl}
+                    alt="Profile picture"
+                    className="h-14 w-14 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="h-14 w-14 rounded-full bg-brand-mint text-brand-dark flex items-center justify-center text-base font-bold">
+                    {(username || user.email || '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                {/* Hover overlay */}
+                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity">
+                  {avatarUploading ? (
+                    <div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4 text-white" />
+                  )}
+                </div>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadAvatar(file);
+                  e.target.value = ''; // allow re-selecting same file
+                }}
+              />
+              <div className="min-w-0">
+                <p className="text-xs text-text-2 truncate">{user.email}</p>
+                <p className="text-[11px] text-text-3 mt-0.5">Click photo to change</p>
               </div>
-              <p className="text-xs text-text-2 truncate">{user.email}</p>
             </div>
+            {avatarError && <InlineBanner kind="error">{avatarError}</InlineBanner>}
 
             {profileError && <InlineBanner kind="error">{profileError}</InlineBanner>}
             {profileSuccess && <InlineBanner kind="success">Profile saved.</InlineBanner>}
@@ -286,25 +352,6 @@ export default function SettingsPage() {
         )}
       </SectionCard>
 
-      {/* Active subject */}
-      <SectionCard title="Active subject" description="Which subject Ask and Quiz focus on right now — you're enrolled in all your subjects, this just picks which one is active.">
-        <div className="flex flex-wrap gap-2">
-          {SUBJECTS.map((s) => (
-            <button
-              key={s.code}
-              type="button"
-              onClick={() => setSubject(s.code)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                subject === s.code
-                  ? 'bg-brand text-white border-brand'
-                  : 'bg-surface-2 text-navy-2 border-border hover:border-brand/40'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </SectionCard>
 
       {/* Appearance */}
       <SectionCard title="Appearance">
@@ -313,7 +360,7 @@ export default function SettingsPage() {
             type="button"
             onClick={() => applyTheme('light')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              theme === 'light' ? 'bg-surface text-navy shadow-sm' : 'text-text-2 hover:text-navy'
+              theme === 'light' ? 'bg-brand text-white' : 'text-text-2 hover:text-navy'
             }`}
           >
             <Sun className="w-3.5 h-3.5" /> Light
@@ -322,7 +369,7 @@ export default function SettingsPage() {
             type="button"
             onClick={() => applyTheme('dark')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              theme === 'dark' ? 'bg-surface text-navy shadow-sm' : 'text-text-2 hover:text-navy'
+              theme === 'dark' ? 'bg-brand text-white' : 'text-text-2 hover:text-navy'
             }`}
           >
             <Moon className="w-3.5 h-3.5" /> Dark
@@ -337,7 +384,7 @@ export default function SettingsPage() {
             type="button"
             onClick={() => setLanguage('en')}
             className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              language === 'en' ? 'bg-surface text-navy shadow-sm' : 'text-text-2 hover:text-navy'
+              language === 'en' ? 'bg-brand text-white' : 'text-text-2 hover:text-navy'
             }`}
           >
             English
@@ -346,7 +393,7 @@ export default function SettingsPage() {
             type="button"
             onClick={() => setLanguage('ur')}
             className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              language === 'ur' ? 'bg-surface text-navy shadow-sm' : 'text-text-2 hover:text-navy'
+              language === 'ur' ? 'bg-brand text-white' : 'text-text-2 hover:text-navy'
             }`}
           >
             اردو

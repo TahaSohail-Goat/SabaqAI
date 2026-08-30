@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useScope } from '@/components/app/ScopeContext';
-import { SUBJECT_LABELS } from '@/lib/subjects';
+import { SUBJECTS, SUBJECT_LABELS } from '@/lib/subjects';
 
 interface SyllabusChunk {
   id: string;
@@ -24,7 +24,7 @@ interface SyllabusData {
 }
 
 export default function SyllabusPage() {
-  const { board, classLevel, subject } = useScope();
+  const { board, classLevel, subject, setSubject } = useScope();
   const [syllabusData, setSyllabusData] = useState<SyllabusData | null>(null);
   const [syllabusLoading, setSyllabusLoading] = useState(false);
 
@@ -50,6 +50,30 @@ export default function SyllabusPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Subject filter */}
+      <div className="bg-surface border border-border/60 rounded-2xl p-5 space-y-3">
+        <div>
+          <p className="text-sm font-bold text-navy">Subject</p>
+          <p className="text-xs text-text-2 mt-0.5">Browsing chunks for this subject.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {SUBJECTS.map((s) => (
+            <button
+              key={s.code}
+              type="button"
+              onClick={() => setSubject(s.code)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                subject === s.code
+                  ? 'bg-brand text-white border-brand'
+                  : 'bg-surface-2 text-navy-2 border-border hover:border-brand/40'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="bg-surface border border-border rounded-xl p-5 flex items-center justify-between">
         <div>
           <h3 className="text-base font-bold text-navy">Ingested Syllabus Corpus</h3>

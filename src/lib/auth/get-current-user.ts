@@ -21,6 +21,7 @@ export interface Profile {
   classLevel: number;
   examDate: string | null;
   subjects: string[];
+  avatarUrl: string | null;
 }
 
 export interface CurrentUserResult {
@@ -66,7 +67,7 @@ export async function getCurrentUserAndProfile(): Promise<CurrentUserResult> {
     const [{ data: userRow }, { data: profileRow }, { data: subjectRows }] = await Promise.all([
       admin
         .from('users')
-        .select('display_name')
+        .select('display_name, avatar_url')
         .eq('id', user.id)
         .maybeSingle(),
       admin
@@ -87,6 +88,7 @@ export async function getCurrentUserAndProfile(): Promise<CurrentUserResult> {
         classLevel: profileRow.class_level,
         examDate: profileRow.exam_date,
         subjects: (subjectRows ?? []).map((r) => r.subject_code),
+        avatarUrl: (userRow as { avatar_url?: string | null } | null)?.avatar_url ?? null,
       };
     }
   }
