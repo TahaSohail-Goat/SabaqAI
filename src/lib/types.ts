@@ -96,6 +96,9 @@ export type AskSourceType = 'textbook' | 'past_paper' | 'model_paper' | 'marking
 export interface AskUnit {
   chapterNo: number;
   chapterTitle: string | null;
+  /** Public URL to the real source PDF in Storage, or null if it hasn't been uploaded (e.g.
+   *  not yet backfilled — see scripts/backfill-pdf-storage.ts). Display-only. */
+  pdfUrl: string | null;
 }
 
 export interface AskSourceOption {

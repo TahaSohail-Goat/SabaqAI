@@ -33,6 +33,9 @@ const csp = [
   // by 'self' in every browser's CSP implementation, dev-only, harmless (no HMR socket exists
   // in a production build at all).
   `connect-src 'self' ${supabaseUrl}${isDev ? ' ws://localhost:* ws://127.0.0.1:*' : ''}`,
+  // /ask's document reader embeds the real source PDF straight from Supabase Storage —
+  // default-src's 'self' doesn't cover that cross-origin frame on its own.
+  `frame-src 'self' ${supabaseUrl}`,
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
