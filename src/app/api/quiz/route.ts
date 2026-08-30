@@ -1,7 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { INITIAL_SYLLABUS_CHUNKS } from '@/lib/syllabus-data';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { INITIAL_SYLLABUS_CHUNKS, CHAPTER_DIRECTORY } from '@/lib/syllabus-data';
 import { getGeminiClient } from '@/lib/gemini';
+import { getServiceRoleClient } from '@/lib/supabase/admin';
+import { getCurrentUserAndProfile } from '@/lib/auth/get-current-user';
 import { sealAnswerKey, type AnswerKeyEntry } from '@/lib/quiz/answer-key';
+import { persistQuiz, type PersistableQuestion } from '@/lib/quiz/persist';
+
+interface SourceChunk {
+  id: string;
+  content: string;
+  pageFrom: number | null;
+  section: string | null;
+  chapterNo: number;
+  chapterTitle: string | null;
+}
+
+/** Real ingested content — the same content_chunks_expanded view /api/syllabus already reads.
+ *  Returns null when Supabase isn't configured at all (caller falls back to the local dev
+ *  corpus), or an array (possibly empty) when it is — an empty array here means "genuinely
+ *  nothing ingested for this chapter yet," which the caller must treat as a real 404, not fall
+ *  through to unrelated hardcoded content pretending to be this chapter's. */
+async function fetchChunksFromDb(
+  admin: SupabaseClient | null,
+  board: string,
+  classLevel: number,
+  subject: string,
+  chapterNo: number
+): Promise<SourceChunk[] | null> {
+  if (!admin) return null;
+
+  const { data, error } = await admin
+    .from('content_chunks_expanded')
+    .select('id, content, page_from, section, chapter_no, chapter_title')
+    .eq('board', board)
+    .eq('class_level', classLevel)
+    .eq('subject', subject)
+    .eq('chapter_no', chapterNo);
+
+  if (error) {
+    console.error('Quiz: content_chunks_expanded query failed:', error.message);
+    return [];
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    content: r.content,
+    pageFrom: r.page_from,
+    section: r.section,
+    chapterNo: r.chapter_no,
+    chapterTitle: r.chapter_title,
+  }));
+}
+
+/** Real content_chunks rows are gen_random_uuid() — the hand-written fallback bank and local
+ *  dev corpus use synthetic ids like "pctb-10-phy-ch14-01" that don't exist as real rows.
+ *  Persisting one of those as quiz_questions.chunk_id would violate its foreign key. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isRealChunkId = (id: string) => UUID_RE.test(id);
 
 /** Internal shape, including the answer. Never returned to the browser as-is. */
 export interface QuizQuestionData {
@@ -20,11 +75,10 @@ export interface QuizQuestionData {
 /** What the browser actually receives: no correctIndex, no explanation. */
 export type PublicQuizQuestion = Omit<QuizQuestionData, 'correctIndex' | 'explanation'>;
 
-/**
- * Strip the answer key out of the questions and seal it into a signed token.
- * docs/database.md: the correct answer must never reach the browser before the student submits.
- */
-function toPublicQuiz(questions: QuizQuestionData[]) {
+/** Strip the answer key out of the questions and seal it into a signed token. Used only as a
+ *  fallback when real persistence isn't possible (no Supabase, no signed-in user, or a genuine
+ *  DB error) — see respondWithQuiz below, which tries persistQuiz() first. */
+function toPublicQuizWithToken(questions: QuizQuestionData[]) {
   const answerKey: AnswerKeyEntry[] = questions.map((q) => ({
     questionId: q.id,
     correctIndex: q.correctIndex,
@@ -36,6 +90,58 @@ function toPublicQuiz(questions: QuizQuestionData[]) {
   );
 
   return { questions: publicQuestions, answerToken: sealAnswerKey(answerKey) };
+}
+
+/** Persists the quiz for real when a logged-in user + Supabase are both available, returning a
+ *  quizId the browser can grade against later (src/lib/quiz/persist.ts — this is what the
+ *  quiz_answer_keys migration comment meant by "lets answer-key.ts be retired once quiz
+ *  persistence ships"). Falls back to the signed-token approach on any failure, same resilience
+ *  pattern the rest of this app uses rather than hard-failing when persistence isn't possible. */
+async function respondWithQuiz(
+  questions: QuizQuestionData[],
+  ctx: {
+    userId: string | null;
+    admin: SupabaseClient | null;
+    board: string;
+    classLevel: number;
+    subject: string;
+    chapterNo: number;
+    chapterTitle: string;
+  },
+  extra: Record<string, unknown>
+) {
+  if (ctx.userId && ctx.admin) {
+    const persistable: PersistableQuestion[] = questions.map((q) => ({
+      position: q.position,
+      stem: q.stem,
+      options: q.options,
+      correctIndex: q.correctIndex,
+      explanation: q.explanation,
+      chunkId: isRealChunkId(q.chunkId) ? q.chunkId : null,
+    }));
+
+    const persisted = await persistQuiz(
+      ctx.admin,
+      ctx.userId,
+      ctx.board,
+      ctx.classLevel,
+      ctx.subject,
+      ctx.chapterNo,
+      ctx.chapterTitle,
+      persistable
+    );
+
+    if (persisted) {
+      const publicQuestions: PublicQuizQuestion[] = questions.map((q, idx) => {
+        const { correctIndex: _c, explanation: _e, ...rest } = q;
+        return { ...rest, id: persisted.questionIds[idx] };
+      });
+      return NextResponse.json({ questions: publicQuestions, quizId: persisted.quizId, ...extra });
+    }
+    console.warn('Quiz: persistence failed, falling back to signed-token grading for this request.');
+  }
+
+  return NextResponse.json({ ...toPublicQuizWithToken(questions), ...extra });
 }
 
 const PRECOMPUTED_QUIZZES: Record<number, QuizQuestionData[]> = {
@@ -145,27 +251,52 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const chapterNo = Number(body.chapterNo || 14);
-    const subject = body.subject || 'physics';
+    const subject = String(body.subject || 'physics').toLowerCase();
+    // FBISE is the only board this app actually offers (Settings, signup, the crawler all
+    // agree on this) — PCTB was hardcoded here before, which meant nothing the crawler ingests
+    // could ever be found by this route even once ingestion itself was working.
+    const board = body.board || 'FBISE';
+    const classLevel = Number(body.classLevel || 10);
 
-    const matchingChunks = INITIAL_SYLLABUS_CHUNKS.filter(
-      (c) => c.chapterNo === chapterNo && c.subject.toLowerCase() === subject.toLowerCase()
-    );
+    const { user } = await getCurrentUserAndProfile();
+    const admin = getServiceRoleClient();
+
+    // Real ingested content first; the hardcoded local corpus is a dev-only fallback for when
+    // Supabase isn't configured at all (same pattern /api/syllabus already uses) — never a
+    // silent substitute for content that's simply missing for this specific chapter.
+    const dbChunks = await fetchChunksFromDb(admin, board, classLevel, subject, chapterNo);
+    const matchingChunks: SourceChunk[] =
+      dbChunks ??
+      INITIAL_SYLLABUS_CHUNKS.filter((c) => c.chapterNo === chapterNo && c.subject.toLowerCase() === subject).map((c) => ({
+        id: c.id,
+        content: c.content,
+        pageFrom: c.pageFrom,
+        section: c.section,
+        chapterNo: c.chapterNo,
+        chapterTitle: c.chapterTitle,
+      }));
 
     if (matchingChunks.length === 0) {
       return NextResponse.json(
-        { error: 'Chapter not found in syllabus database.' },
+        { error: `No ingested content for ${board} Class ${classLevel} ${subject} Chapter ${chapterNo} yet.` },
         { status: 404 }
       );
     }
+
+    const chapterTitle =
+      matchingChunks[0].chapterTitle ||
+      CHAPTER_DIRECTORY.find((c) => c.chapterNo === chapterNo)?.chapterTitle ||
+      `Chapter ${chapterNo}`;
+    const persistCtx = { userId: user?.id ?? null, admin, board, classLevel, subject, chapterNo, chapterTitle };
 
     const ai = getGeminiClient();
     if (ai) {
       try {
         const chunkText = matchingChunks
-          .map((c) => `[CHUNK id="${c.id}" page="${c.pageFrom}" section="${c.section}"]\n${c.content}\n[/CHUNK]`)
+          .map((c) => `[CHUNK id="${c.id}" page="${c.pageFrom ?? ''}" section="${c.section ?? ''}"]\n${c.content}\n[/CHUNK]`)
           .join('\n\n');
 
-        const prompt = `Based ONLY on the syllabus chunks below, generate 5 multiple choice questions (MCQs) for Pakistani Board Class 10 Physics Chapter ${chapterNo}.
+        const prompt = `Based ONLY on the syllabus chunks below, generate 5 multiple choice questions (MCQs) for ${board} Class ${classLevel} ${subject} Chapter ${chapterNo}.
 Each MCQ must have exactly 4 options, a 0-indexed correct answer, a brief explanation citing the textbook fact, and the chunkId it was derived from.
 
 CONTEXT:
@@ -185,7 +316,7 @@ Return strictly a JSON array of objects in this shape:
 ]`;
 
         const res = await ai.models.generateContent({
-          model: process.env.CHAT_MODEL || 'gemini-2.5-flash',
+          model: process.env.CHAT_MODEL || 'gemini-3.5-flash-lite',
           contents: prompt,
           config: {
             responseMimeType: 'application/json',
@@ -224,16 +355,15 @@ Return strictly a JSON array of objects in this shape:
                   explanation: q.explanation,
                   chunkId: matchedChunk.id,
                   chapterNo: matchedChunk.chapterNo,
-                  page: matchedChunk.pageFrom,
-                  section: matchedChunk.section,
+                  page: matchedChunk.pageFrom ?? 0,
+                  section: matchedChunk.section ?? '',
                 };
               })
               .filter((q): q is QuizQuestionData => q !== null)
               .map((q, idx) => ({ ...q, position: idx + 1 }));
 
             if (mappedQuestions.length > 0) {
-              return NextResponse.json({
-                ...toPublicQuiz(mappedQuestions),
+              return await respondWithQuiz(mappedQuestions, persistCtx, {
                 chapterNo,
                 subject,
                 discarded: parsed.length - mappedQuestions.length,
@@ -248,16 +378,24 @@ Return strictly a JSON array of objects in this shape:
     }
 
     // Hand-written fallback bank, used only when generation is unavailable or produced nothing
-    // that validated. Flagged honestly: these were not generated from the live corpus for this
-    // request, and the UI should say so rather than implying they were.
-    const fallbackQuestions = PRECOMPUTED_QUIZZES[chapterNo] || PRECOMPUTED_QUIZZES[14];
-    return NextResponse.json({
-      ...toPublicQuiz(fallbackQuestions),
-      chapterNo,
-      subject,
-      isFallback: true,
-      note: 'Fallback question bank — live generation unavailable for this request.',
-    });
+    // that validated — and ONLY for a chapter it actually covers (14/15 today). Substituting a
+    // different chapter's questions here (the old "|| PRECOMPUTED_QUIZZES[14]" behavior) would
+    // silently show a student the wrong chapter's content while the response still claimed the
+    // chapter they asked for — a real, honest "unavailable" beats a mislabeled quiz.
+    const fallbackQuestions = PRECOMPUTED_QUIZZES[chapterNo];
+    if (fallbackQuestions) {
+      return await respondWithQuiz(fallbackQuestions, persistCtx, {
+        chapterNo,
+        subject,
+        isFallback: true,
+        note: 'Fallback question bank — live generation unavailable for this request.',
+      });
+    }
+
+    return NextResponse.json(
+      { error: 'Quiz generation is temporarily unavailable for this chapter. Please try again shortly.' },
+      { status: 503 }
+    );
   } catch (error) {
     console.error('Quiz API error:', error);
     return NextResponse.json({ error: 'Failed to generate quiz' }, { status: 500 });

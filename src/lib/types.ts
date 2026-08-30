@@ -11,7 +11,7 @@ export interface RetrievedChunk {
   section: string | null;
   pageFrom: number | null;
   pageTo: number | null;
-  sourceType: 'textbook' | 'past_paper' | 'marking_scheme';
+  sourceType: 'textbook' | 'past_paper' | 'marking_scheme' | 'model_paper';
   content: string;
   score: number; // 1 - cosine distance
 }
@@ -68,8 +68,13 @@ export interface ChatTurn {
   attachmentMimeType?: string;
 }
 
-export type ChatResponse =
-  | { status: 'ok'; reply: string }
+// /api/chat's success path is now a raw streamed text body (with the conversation id in an
+// X-Conversation-Id header) rather than a JSON envelope — this only covers the pre-stream
+// failure cases (auth, validation, missing AI config), which are still plain JSON.
+export type ChatResponse = { status: 'error'; message: string };
+
+export type TranscribeResponse =
+  | { status: 'ok'; text: string }
   | { status: 'error'; message: string };
 
 export interface Citation {

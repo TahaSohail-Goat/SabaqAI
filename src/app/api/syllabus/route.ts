@@ -1,16 +1,25 @@
 // Corpus browser. Reads the ingested chunks from the database when Supabase is configured,
 // falling back to the local hardcoded corpus for offline frontend work.
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { INITIAL_SYLLABUS_CHUNKS, CHAPTER_DIRECTORY } from '@/lib/syllabus-data';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
 
-const BOARD = 'PCTB';
-const CLASS_LEVEL = 10;
-const SUBJECT = 'physics';
+// FBISE is the only board this app actually offers (Settings, signup, the crawler all agree) —
+// PCTB was hardcoded here before, which meant nothing the crawler ingests under FBISE could
+// ever show up in this endpoint. classLevel/subject stay overridable via query params so this
+// can serve whatever the caller's actual scope is, not just one fixed combination.
+const DEFAULT_BOARD = 'FBISE';
+const DEFAULT_CLASS_LEVEL = 10;
+const DEFAULT_SUBJECT = 'physics';
 const EXCERPT_CHARS = 200;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const board = searchParams.get('board') || DEFAULT_BOARD;
+  const classLevel = Number(searchParams.get('classLevel') || DEFAULT_CLASS_LEVEL);
+  const subject = (searchParams.get('subject') || DEFAULT_SUBJECT).toLowerCase();
+
   const supabase = getServiceRoleClient();
 
   if (supabase) {
@@ -19,9 +28,9 @@ export async function GET() {
     const { data, error } = await supabase
       .from('content_chunks_expanded')
       .select('id, chapter_no, chapter_title, section, page_from, page_to, source_type, language, content')
-      .eq('board', BOARD)
-      .eq('class_level', CLASS_LEVEL)
-      .eq('subject', SUBJECT)
+      .eq('board', board)
+      .eq('class_level', classLevel)
+      .eq('subject', subject)
       .order('chapter_no', { ascending: true })
       .order('page_from', { ascending: true });
 
@@ -35,13 +44,13 @@ export async function GET() {
     // Chapter list derived from what is actually ingested, not a fixed directory — so this can
     // never claim coverage the corpus doesn't have.
     const chapters = [...new Map(
-      rows.map((r) => [r.chapter_no, { chapterNo: r.chapter_no, chapterTitle: r.chapter_title, subject: SUBJECT }])
+      rows.map((r) => [r.chapter_no, { chapterNo: r.chapter_no, chapterTitle: r.chapter_title, subject }])
     ).values()].sort((a, b) => a.chapterNo - b.chapterNo);
 
     return NextResponse.json({
-      board: BOARD,
-      classLevel: CLASS_LEVEL,
-      subject: 'Physics',
+      board,
+      classLevel,
+      subject,
       source: 'database',
       totalChunks: rows.length,
       chapters,
@@ -60,10 +69,12 @@ export async function GET() {
     });
   }
 
+  // Local dev fallback (no Supabase configured) — always PCTB Class 10 Physics, since that's
+  // the only board/class this hand-written stub corpus covers, regardless of what was asked for.
   return NextResponse.json({
-    board: BOARD,
-    classLevel: CLASS_LEVEL,
-    subject: 'Physics',
+    board: 'PCTB',
+    classLevel: 10,
+    subject: 'physics',
     source: 'local-fallback',
     totalChunks: INITIAL_SYLLABUS_CHUNKS.length,
     chapters: CHAPTER_DIRECTORY,
