@@ -22,6 +22,19 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { execSync, spawnSync } from 'node:child_process';
+import { requireServiceRoleClient } from '../src/lib/supabase/admin';
+import { ensureSourcePdfBucket, sourcePdfPath, uploadSourcePdf } from '../src/lib/storage/source-pdfs';
+
+// This repo's actual env file is .env.local, not .env (see scripts/backfill-pdf-storage.ts
+// for the same fix and why it matters — only .env.local exists here).
+for (const envFile of ['.env.local', '.env']) {
+  try {
+    process.loadEnvFile(path.join(process.cwd(), envFile));
+    break;
+  } catch {
+    // try the next candidate
+  }
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -354,6 +367,15 @@ async function main(): Promise<void> {
     return;
   }
 
+  const admin = DRY_RUN ? null : requireServiceRoleClient();
+  if (admin) await ensureSourcePdfBucket(admin);
+
+  // chapter_sources rows don't exist until the ingest subprocess below runs, so the PDF
+  // upload (which happens per-source, further down) and the DB write pointing at it (which
+  // can only happen after ingest) are two separate steps — tracked here and reconciled once
+  // ingest completes.
+  const uploadedPdfs: { board: string; classLevel: number; subject: string; sourceType: string; language: string; chapterNo: number; storagePath: string }[] = [];
+
   let produced = 0;
   let skippedChecksumMatch = 0;
   let failed = 0;
@@ -434,6 +456,32 @@ async function main(): Promise<void> {
       fs.writeFileSync(outPath, JSON.stringify(doc, null, 2), 'utf8');
       console.log(`  Written → data/source/${filename}`);
 
+      // Keep the real PDF too — /ask's document reader shows this instead of reconstructed
+      // text when it's present. Non-fatal: the text pipeline above is this script's real
+      // job, so an upload hiccup here shouldn't fail an otherwise-good source.
+      try {
+        const storagePath = sourcePdfPath({
+          board: source.board,
+          classLevel: source.classLevel,
+          subject: source.subject,
+          sourceType: source.sourceType,
+          chapterNo,
+        });
+        await uploadSourcePdf(admin!, storagePath, pdfBuf);
+        console.log(`  PDF stored → ${storagePath}`);
+        uploadedPdfs.push({
+          board: source.board,
+          classLevel: source.classLevel,
+          subject: source.subject,
+          sourceType: source.sourceType,
+          language: source.language,
+          chapterNo,
+          storagePath,
+        });
+      } catch (err) {
+        console.error(`  ⚠ Could not store the source PDF: ${(err as Error).message}`);
+      }
+
       // Update state.
       state[source.url] = {
         checksum,
@@ -475,6 +523,27 @@ async function main(): Promise<void> {
         cwd: ROOT,
         stdio: 'inherit',
       });
+
+      // Now that ingest has created this run's chapter_sources rows, point each one at the
+      // PDF already uploaded for it.
+      for (const p of uploadedPdfs) {
+        const { data: chapter } = await admin!
+          .from('chapters')
+          .select('id')
+          .eq('board_code', p.board)
+          .eq('class_level', p.classLevel)
+          .eq('subject_code', p.subject)
+          .eq('chapter_no', p.chapterNo)
+          .maybeSingle();
+        if (!chapter) continue;
+
+        await admin!
+          .from('chapter_sources')
+          .update({ storage_path: p.storagePath })
+          .eq('chapter_id', chapter.id)
+          .eq('source_type', p.sourceType)
+          .eq('language_code', p.language);
+      }
     } catch (err) {
       // execSync throws on non-zero exit. Report but don't re-throw —
       // the crawler succeeded; ingest failure is a separate problem.

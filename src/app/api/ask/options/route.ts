@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
+import { getSourcePdfUrl } from '@/lib/storage/source-pdfs';
 import type { AskOptionsResponse, AskSourceOption, AskSourceType } from '@/lib/types';
 
 const DEFAULT_BOARD = 'FBISE';
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from('chapters')
-    .select('chapter_no, chapter_title, chapter_sources(source_type)')
+    .select('chapter_no, chapter_title, chapter_sources(source_type, storage_path)')
     .eq('board_code', board)
     .eq('class_level', classLevel)
     .eq('subject_code', subject)
@@ -61,7 +62,11 @@ export async function GET(req: NextRequest) {
       // chapter_sources unique constraint) — one entry per chapter is enough for this picker.
       if (!units || seenForRow.has(sourceType)) continue;
       seenForRow.add(sourceType);
-      units.push({ chapterNo: row.chapter_no, chapterTitle: row.chapter_title });
+      units.push({
+        chapterNo: row.chapter_no,
+        chapterTitle: row.chapter_title,
+        pdfUrl: source.storage_path ? getSourcePdfUrl(admin, source.storage_path) : null,
+      });
     }
   }
 

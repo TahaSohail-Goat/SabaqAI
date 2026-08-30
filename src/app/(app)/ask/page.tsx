@@ -274,7 +274,7 @@ export default function AskPage() {
             subject={subject}
             sourceType={sourceType}
             unit={unit}
-            activeChunkId={selectedCitation?.chunkId ?? null}
+            activeCitation={selectedCitation}
           />
         </div>
       </div>
