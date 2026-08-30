@@ -7,7 +7,6 @@ import {
   BookOpen,
   MessagesSquare,
   ListChecks,
-  CalendarClock,
   TrendingUp,
   History,
 } from 'lucide-react';
@@ -68,10 +67,6 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const daysToExam = profile?.examDate
-    ? Math.max(0, Math.ceil((new Date(profile.examDate).getTime() - Date.now()) / 86_400_000))
-    : null;
-
   const STATS = [
     {
       icon: MessagesSquare,
@@ -84,12 +79,6 @@ export default function DashboardPage() {
       label: 'Quizzes taken',
       value: activityStats ? String(activityStats.quizzesTaken) : '—',
       hint: activityStats?.quizzesTaken === 0 ? 'Scores will appear here once you submit one.' : undefined,
-    },
-    {
-      icon: CalendarClock,
-      label: 'Days to exam',
-      value: daysToExam !== null ? String(daysToExam) : '—',
-      hint: daysToExam === null ? 'Set an exam date in Settings.' : undefined,
     },
   ];
 

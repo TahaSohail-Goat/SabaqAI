@@ -27,7 +27,10 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  // Supabase-hosted origin needed here too, not just connect-src — user avatars are plain
+  // <img src> tags pointing at the public avatars bucket (see settings/page.tsx, Sidebar.tsx),
+  // which the browser's own img-src check blocks independently of connect-src.
+  `img-src 'self' data: blob: ${supabaseUrl}`,
   "font-src 'self'",
   // Turbopack's dev-mode hot-reload client connects over its own ws:// socket — not covered
   // by 'self' in every browser's CSP implementation, dev-only, harmless (no HMR socket exists

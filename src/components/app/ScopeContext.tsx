@@ -2,6 +2,12 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { Language } from '@/lib/types';
+// Reuse the canonical Profile shape from the server-side lookup instead of redeclaring it here.
+// A second, separate Profile interface used to live in this file — it drifted from this one
+// (missing avatarUrl, then missing language too) because nothing forced the two to match. Every
+// field an (app) page needs from a signed-in user's profile belongs on this one type now.
+import type { Profile } from '@/lib/auth/get-current-user';
+export type { Profile } from '@/lib/auth/get-current-user';
 
 interface Scope {
   board: string;
@@ -16,13 +22,6 @@ export interface CurrentUser {
   metadata?: { full_name?: string };
 }
 
-export interface Profile {
-  board: string;
-  classLevel: number;
-  examDate: string | null;
-  subjects: string[];
-}
-
 interface ScopeContextValue extends Scope {
   setBoard: (v: string) => void;
   setClassLevel: (v: number) => void;
@@ -34,6 +33,13 @@ interface ScopeContextValue extends Scope {
   user: CurrentUser | null;
   profile: Profile | null;
   ready: boolean;
+  // Lets a page that just saved something (Settings, after an avatar/username/class/subjects
+  // save) push the change into the shared profile immediately, so Sidebar/Dashboard/anywhere
+  // else reading useScope().profile reflect it right away — without this, those only pick up
+  // the change on the next full page load, since `profile` otherwise only ever comes from the
+  // one-time server render that mounted this provider. Settings' own local state doesn't count
+  // as "the app knows" — this is what actually closes that gap.
+  updateProfile: (partial: Partial<Profile>) => void;
 }
 
 const DEFAULT_SCOPE: Scope = {
@@ -62,12 +68,17 @@ interface ScopeProviderProps {
 // single-page app, closed over by every tab. Routed pages can't share a closure, so this
 // takes their place — same defaults, now persisted per-device via localStorage.
 export function ScopeProvider({ children, initialUser = null, initialProfile = null }: ScopeProviderProps) {
+  // A real piece of state now (not just a passthrough of the prop) so it can be updated after
+  // the initial server render — see updateProfile below.
+  const [profile, setProfile] = useState<Profile | null>(initialProfile);
+
   const [scope, setScope] = useState<Scope>(() => {
     const next = { ...DEFAULT_SCOPE };
     if (initialProfile) {
       next.board = initialProfile.board;
       next.classLevel = initialProfile.classLevel;
       if (initialProfile.subjects?.[0]) next.subject = initialProfile.subjects[0];
+      next.language = initialProfile.language;
     }
     return next;
   });
@@ -100,12 +111,29 @@ export function ScopeProvider({ children, initialUser = null, initialProfile = n
     setBoard: (board) => persist({ ...scope, board }),
     setClassLevel: (classLevel) => persist({ ...scope, classLevel }),
     setSubject: (subject) => persist({ ...scope, subject }),
-    setLanguage: (language) => persist({ ...scope, language }),
+    setLanguage: (language) => {
+      persist({ ...scope, language });
+      // Signed-in students get this from the server on every load (see the seeding above) —
+      // without persisting it there too, the reload would just overwrite this back to whatever
+      // was last saved, silently undoing the change. Anonymous/demo sessions have no server
+      // profile to write to, so this is a harmless no-op 401 for them.
+      if (initialUser) {
+        fetch('/api/auth/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ language }),
+        }).catch(() => {
+          // Best-effort — the local toggle already applied; a failed background save isn't
+          // worth interrupting the student over, it'll just re-attempt next time they switch.
+        });
+      }
+    },
     user: initialUser,
-    profile: initialProfile,
+    profile,
     // Always true: the server already resolved identity before this component ever
     // rendered, so there's no async gap to gate on anymore.
     ready: true,
+    updateProfile: (partial) => setProfile((prev) => (prev ? { ...prev, ...partial } : prev)),
   };
 
   return <ScopeCtx.Provider value={value}>{children}</ScopeCtx.Provider>;
