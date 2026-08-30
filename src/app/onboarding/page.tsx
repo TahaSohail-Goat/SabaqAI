@@ -1,9 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, ArrowRight, ArrowLeft, Check } from 'lucide-react';
+import { AlertCircle, ArrowRight, ArrowLeft, AtSign, Check } from 'lucide-react';
 import SabaqLogoBadge from '@/components/SabaqLogoBadge';
+import AuthField from '@/components/AuthField';
+import { SUBJECTS } from '@/lib/subjects';
+
+// Mirrors the server-side check in /api/auth/onboarding — client-side copy exists only for
+// immediate feedback.
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 // PCTB removed for now, coming back later — FBISE only until then.
 const BOARDS = [
@@ -12,20 +18,13 @@ const BOARDS = [
 
 const CLASS_LEVELS = [9, 10, 11, 12];
 
-const SUBJECTS = [
-  { code: 'physics', label: 'Physics' },
-  { code: 'chemistry', label: 'Chemistry' },
-  { code: 'biology', label: 'Biology' },
-  { code: 'mathematics', label: 'Mathematics' },
-  { code: 'english', label: 'English' },
-  { code: 'urdu', label: 'Urdu' },
-];
-
-const STEPS = ['Board', 'Class', 'Subjects', 'Exam date'] as const;
+const STEPS = ['Username', 'Board', 'Class', 'Subjects', 'Exam date'] as const;
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [username, setUsername] = useState('');
+  const [usernameTouched, setUsernameTouched] = useState(false);
   // Only one board exists right now, so it's pre-selected — nothing to choose yet, but the
   // picker UI stays in place so adding PCTB back later is a one-line array change.
   const [board, setBoard] = useState<string | null>('FBISE');
@@ -35,11 +34,42 @@ export default function OnboardingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Anyone reaching this page signed in through Google/OAuth and was never asked for a
+  // username — suggest one from their email so the field isn't just blank, but they can
+  // still change it (it has to be unique, and "taha.sohail123" from an email isn't guaranteed
+  // to be either valid or free).
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/user')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !data?.user?.email) return;
+        const suggestion = String(data.user.email)
+          .split('@')[0]
+          .replace(/[^a-zA-Z0-9_]/g, '')
+          .slice(0, 20);
+        if (suggestion.length >= 3) setUsername(suggestion);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const toggleSubject = (code: string) => {
     setSubjects((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
   };
 
-  const canAdvance = step === 0 ? !!board : step === 1 ? !!classLevel : step === 2 ? subjects.length > 0 : true;
+  const usernameError = usernameTouched && username.trim() && !USERNAME_RE.test(username.trim())
+    ? 'Username must be 3-20 characters — letters, numbers and underscores only.'
+    : null;
+
+  const canAdvance =
+    step === 0 ? USERNAME_RE.test(username.trim())
+    : step === 1 ? !!board
+    : step === 2 ? !!classLevel
+    : step === 3 ? subjects.length > 0
+    : true;
 
   const finish = async () => {
     setSubmitting(true);
@@ -48,7 +78,7 @@ export default function OnboardingPage() {
       const res = await fetch('/api/auth/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ board, classLevel, subjects, examDate: examDate || undefined }),
+        body: JSON.stringify({ username: username.trim(), board, classLevel, subjects, examDate: examDate || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -93,6 +123,28 @@ export default function OnboardingPage() {
 
           {step === 0 && (
             <div className="space-y-1.5">
+              <h2 className="font-display text-2xl font-semibold text-navy">Pick a username</h2>
+              <p className="text-sm text-text-2 mb-5">This is how you'll be identified — 3-20 characters, unique to you.</p>
+              <AuthField
+                icon={AtSign}
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
+                autoFocus
+                required
+                error={!!usernameError}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                onBlur={() => setUsernameTouched(true)}
+                placeholder="Username"
+              />
+              {usernameError && <p className="mt-1.5 pl-1 text-[12px] text-error">{usernameError}</p>}
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="space-y-1.5">
               <h2 className="font-display text-2xl font-semibold text-navy">Which board are you on?</h2>
               <p className="text-sm text-text-2 mb-5">This decides which textbooks and past papers we search.</p>
               <div className="space-y-2.5">
@@ -118,7 +170,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {step === 1 && (
+          {step === 2 && (
             <div className="space-y-1.5">
               <h2 className="font-display text-2xl font-semibold text-navy">What class are you in?</h2>
               <p className="text-sm text-text-2 mb-5">We'll only show you content for your class.</p>
@@ -141,7 +193,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div className="space-y-1.5">
               <h2 className="font-display text-2xl font-semibold text-navy">Your subjects</h2>
               <p className="text-sm text-text-2 mb-5">Pick everything you study — you can change this later in Settings.</p>
@@ -168,7 +220,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="space-y-1.5">
               <h2 className="font-display text-2xl font-semibold text-navy">When's your exam?</h2>
               <p className="text-sm text-text-2 mb-5">Optional — lets us tell you how many days you have left. You can set this later in Settings.</p>

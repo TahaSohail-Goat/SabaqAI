@@ -11,7 +11,7 @@ export interface RetrievedChunk {
   section: string | null;
   pageFrom: number | null;
   pageTo: number | null;
-  sourceType: 'textbook' | 'past_paper' | 'marking_scheme';
+  sourceType: 'textbook' | 'past_paper' | 'marking_scheme' | 'model_paper';
   content: string;
   score: number; // 1 - cosine distance
 }
@@ -48,6 +48,34 @@ export type AskResponse =
       nearestChapters: { chapterNo: number; chapterTitle: string | null; score: number }[];
       suggestion: string;
     };
+
+// Open general-purpose chat (/chat) — a separate, ungrounded feature from /ask. No confidence
+// gate, no citation validation; a student's own file (photo, PDF) may be attached per turn.
+export interface ChatAttachment {
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf';
+  name: string;
+  dataBase64: string;
+}
+
+// One turn of the conversation, as replayed back to the server on every request (there is no
+// server-side session). Attachment BYTES are never resent past the turn they were sent in —
+// only the name/mimeType survive in history, so a long conversation with several attached
+// files doesn't compound into megabytes resent on every later request.
+export interface ChatTurn {
+  role: 'user' | 'model';
+  text: string;
+  attachmentName?: string;
+  attachmentMimeType?: string;
+}
+
+// /api/chat's success path is now a raw streamed text body (with the conversation id in an
+// X-Conversation-Id header) rather than a JSON envelope — this only covers the pre-stream
+// failure cases (auth, validation, missing AI config), which are still plain JSON.
+export type ChatResponse = { status: 'error'; message: string };
+
+export type TranscribeResponse =
+  | { status: 'ok'; text: string }
+  | { status: 'error'; message: string };
 
 export interface Citation {
   chunkId: string;

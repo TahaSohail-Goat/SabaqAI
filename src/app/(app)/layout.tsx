@@ -1,4 +1,5 @@
 import React from 'react';
+import { redirect } from 'next/navigation';
 import { getCurrentUserAndProfile } from '@/lib/auth/get-current-user';
 import AppShell from '@/components/app/AppShell';
 
@@ -10,6 +11,16 @@ import AppShell from '@/components/app/AppShell';
 // popping in the real content once a client-side fetch to /api/auth/user resolves.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, profile } = await getCurrentUserAndProfile();
+
+  // A signed-in user with no student_profiles row has never actually chosen a username,
+  // board, class or subjects — normal email/password signup always creates one, but Google/
+  // OAuth sign-in creates the Supabase auth user directly and skips that form entirely. This
+  // is checked here (not just once right after OAuth) so it also catches someone who closes
+  // the tab mid-onboarding and comes straight back to /dashboard later, matching the "cannot
+  // be dismissed without a profile" rule this page's brief was originally written for.
+  if (user && !profile) {
+    redirect('/onboarding');
+  }
 
   return (
     <AppShell initialUser={user} initialProfile={profile}>

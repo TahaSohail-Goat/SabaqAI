@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Search,
+  MessagesSquare,
   Award,
   BookOpen,
   ShieldCheck,
@@ -69,6 +70,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           <p className="px-3.5 mb-1.5 text-[10px] font-bold text-text-2 uppercase tracking-wider">Workspace</p>
           <NavItem href="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onClose} />
           <NavItem href="/ask" icon={Search} label="Ask" onNavigate={onClose} />
+          <NavItem href="/chat" icon={MessagesSquare} label="Chat" onNavigate={onClose} />
           <NavItem href="/quiz" icon={Award} label="Quiz" onNavigate={onClose} />
           <NavItem href="/syllabus" icon={BookOpen} label="Syllabus" onNavigate={onClose} />
         </div>

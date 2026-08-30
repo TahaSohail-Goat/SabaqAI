@@ -14,11 +14,11 @@
 // until they act on both. This was a real bug, not a hypothetical one.
 
 import { getServiceRoleClient } from '@/lib/supabase/admin';
+import { ALL_SUBJECT_CODES } from '@/lib/subjects';
 
-// Matches the subjects seeded in 0001_init.sql. Every new student is enrolled in all of
-// them by default — signup doesn't ask which ones apply, and content coverage (what's
-// actually been ingested) is what really gates usefulness, not enrollment.
-const ALL_SUBJECT_CODES = ['physics', 'chemistry', 'biology', 'mathematics', 'english', 'urdu'];
+// Every new student is enrolled in all seeded subjects by default — signup doesn't ask which
+// ones apply, and content coverage (what's actually been ingested) is what really gates
+// usefulness, not enrollment.
 
 export interface CreateAccountParams {
   email: string;

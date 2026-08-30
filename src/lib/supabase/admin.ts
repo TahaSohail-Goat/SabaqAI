@@ -35,7 +35,7 @@ export function requireServiceRoleClient(): SupabaseClient {
   if (!client) {
     throw new Error(
       'Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY ' +
-      'in .env.local. See docs/setup.md step 2.'
+      'in .env. See docs/setup.md step 2.'
     );
   }
   return client;

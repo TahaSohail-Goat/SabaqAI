@@ -4,6 +4,7 @@ import { evaluateConfidence } from '@/lib/ai/guardrail';
 import { generateGroundedAnswer } from '@/lib/ai/generation';
 import { validateCitations } from '@/lib/ai/citation';
 import { logQuestion } from '@/lib/qa-log';
+import { getCurrentUserAndProfile } from '@/lib/auth/get-current-user';
 import type { AskResponse, Language } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
@@ -12,11 +13,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       question,
-      board = 'PCTB',
+      // FBISE is the only board this app actually offers (Settings, signup, the crawler all
+      // agree) — PCTB was hardcoded here before, same mismatch bug Quiz/Syllabus also had.
+      board = 'FBISE',
       classLevel = 10,
       subject = 'physics',
       language = 'en',
     } = body;
+
+    // Best-effort attribution for qa_log, so "Questions asked" can actually be counted per
+    // student on the Dashboard — Ask itself still works fully for anonymous/demo sessions,
+    // this just doesn't get attributed to anyone in that case.
+    const { user } = await getCurrentUserAndProfile();
+    const userId = user?.id ?? null;
 
     if (!question || typeof question !== 'string' || question.trim().length === 0) {
       return NextResponse.json(
@@ -56,6 +65,7 @@ export async function POST(req: NextRequest) {
       };
 
       await logQuestion({
+        userId,
         subject,
         questionLanguage: language,
         top1Score: guardrail.top1,
@@ -91,6 +101,7 @@ export async function POST(req: NextRequest) {
       };
 
       await logQuestion({
+        userId,
         subject,
         questionLanguage: language,
         top1Score: guardrail.top1,
@@ -118,6 +129,7 @@ export async function POST(req: NextRequest) {
     };
 
     await logQuestion({
+      userId,
       subject,
       questionLanguage: language,
       top1Score: guardrail.top1,

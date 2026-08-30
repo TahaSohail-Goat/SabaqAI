@@ -5,6 +5,7 @@ import { ScopeProvider } from '@/components/app/ScopeContext';
 import type { CurrentUser, Profile } from '@/lib/auth/get-current-user';
 import Sidebar from '@/components/app/Sidebar';
 import Topbar from '@/components/app/Topbar';
+import IdleLogoutWatcher from '@/components/app/IdleLogoutWatcher';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -17,6 +18,7 @@ export default function AppShell({ children, initialUser, initialProfile }: AppS
 
   return (
     <ScopeProvider initialUser={initialUser} initialProfile={initialProfile}>
+      <IdleLogoutWatcher />
       <div className="min-h-screen bg-page flex">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 min-w-0 flex flex-col">

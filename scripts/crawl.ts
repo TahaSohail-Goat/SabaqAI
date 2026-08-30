@@ -468,7 +468,10 @@ async function main(): Promise<void> {
   if (!DRY_RUN && produced > 0) {
     console.log('\nRunning ingest pipeline…');
     try {
-      execSync('cmd /c npm run ingest', {
+      // execSync already runs through a shell (cmd.exe on Windows, /bin/sh elsewhere), so a
+      // bare "npm run ingest" resolves npm.cmd/npm correctly on both — the earlier "cmd /c"
+      // prefix only worked on Windows and broke this on the GitHub Actions ubuntu-latest runner.
+      execSync('npm run ingest', {
         cwd: ROOT,
         stdio: 'inherit',
       });
