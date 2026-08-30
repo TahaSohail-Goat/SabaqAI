@@ -49,6 +49,29 @@ export type AskResponse =
       suggestion: string;
     };
 
+// Open general-purpose chat (/chat) — a separate, ungrounded feature from /ask. No confidence
+// gate, no citation validation; a student's own file (photo, PDF) may be attached per turn.
+export interface ChatAttachment {
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf';
+  name: string;
+  dataBase64: string;
+}
+
+// One turn of the conversation, as replayed back to the server on every request (there is no
+// server-side session). Attachment BYTES are never resent past the turn they were sent in —
+// only the name/mimeType survive in history, so a long conversation with several attached
+// files doesn't compound into megabytes resent on every later request.
+export interface ChatTurn {
+  role: 'user' | 'model';
+  text: string;
+  attachmentName?: string;
+  attachmentMimeType?: string;
+}
+
+export type ChatResponse =
+  | { status: 'ok'; reply: string }
+  | { status: 'error'; message: string };
+
 export interface Citation {
   chunkId: string;
   chapterNo: number;
