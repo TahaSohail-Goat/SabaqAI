@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AlertCircle, ArrowRight, ArrowLeft, AtSign, Check } from 'lucide-react';
 import SabaqLogoBadge from '@/components/SabaqLogoBadge';
 import AuthField from '@/components/AuthField';
+import { SUBJECTS } from '@/lib/subjects';
 
 // Mirrors the server-side check in /api/auth/onboarding — client-side copy exists only for
 // immediate feedback.
@@ -16,15 +17,6 @@ const BOARDS = [
 ];
 
 const CLASS_LEVELS = [9, 10, 11, 12];
-
-const SUBJECTS = [
-  { code: 'physics', label: 'Physics' },
-  { code: 'chemistry', label: 'Chemistry' },
-  { code: 'biology', label: 'Biology' },
-  { code: 'mathematics', label: 'Mathematics' },
-  { code: 'english', label: 'English' },
-  { code: 'urdu', label: 'Urdu' },
-];
 
 const STEPS = ['Username', 'Board', 'Class', 'Subjects', 'Exam date'] as const;
 

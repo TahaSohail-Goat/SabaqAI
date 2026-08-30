@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useScope } from '@/components/app/ScopeContext';
+import { SUBJECT_LABELS } from '@/lib/subjects';
 
 interface SyllabusChunk {
   id: string;
@@ -14,30 +16,37 @@ interface SyllabusChunk {
 }
 
 interface SyllabusData {
+  board: string;
+  classLevel: number;
+  subject: string;
   totalChunks: number;
   chunks: SyllabusChunk[];
 }
 
 export default function SyllabusPage() {
+  const { board, classLevel, subject } = useScope();
   const [syllabusData, setSyllabusData] = useState<SyllabusData | null>(null);
   const [syllabusLoading, setSyllabusLoading] = useState(false);
 
-  const loadSyllabus = async () => {
-    setSyllabusLoading(true);
-    try {
-      const res = await fetch('/api/syllabus');
-      const data = await res.json();
-      setSyllabusData(data);
-    } catch (err) {
-      console.error('Syllabus load error:', err);
-    } finally {
-      setSyllabusLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadSyllabus();
-  }, []);
+    let cancelled = false;
+    setSyllabusLoading(true);
+    const params = new URLSearchParams({ board, classLevel: String(classLevel), subject });
+    fetch(`/api/syllabus?${params}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setSyllabusData(data);
+      })
+      .catch((err) => console.error('Syllabus load error:', err))
+      .finally(() => {
+        if (!cancelled) setSyllabusLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [board, classLevel, subject]);
+
+  const subjectLabel = SUBJECT_LABELS[subject] || subject;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -45,7 +54,7 @@ export default function SyllabusPage() {
         <div>
           <h3 className="text-base font-bold text-navy">Ingested Syllabus Corpus</h3>
           <p className="text-xs text-text-2 mt-0.5">
-            Verified textbook chunks for PCTB Matriculation Class 10 (Physics)
+            Verified textbook chunks for {syllabusData?.board ?? board} Class {syllabusData?.classLevel ?? classLevel} ({SUBJECT_LABELS[syllabusData?.subject ?? subject] || syllabusData?.subject || subjectLabel})
           </p>
         </div>
         <div className="text-xs font-mono bg-surface-2 px-3 py-1.5 rounded-lg border border-border text-brand">
@@ -56,6 +65,10 @@ export default function SyllabusPage() {
       {syllabusLoading ? (
         <div className="bg-surface border border-border rounded-xl p-12 text-center">
           <div className="w-8 h-8 rounded-full border-2 border-brand/20 border-t-brand animate-spin mx-auto" />
+        </div>
+      ) : (syllabusData?.chunks.length ?? 0) === 0 ? (
+        <div className="bg-surface-muted border border-border rounded-2xl p-8 text-center text-sm text-text-2">
+          No content has been ingested for {syllabusData?.board ?? board} Class {syllabusData?.classLevel ?? classLevel} {subjectLabel} yet.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

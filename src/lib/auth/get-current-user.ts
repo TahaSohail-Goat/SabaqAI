@@ -14,6 +14,7 @@ export interface CurrentUser {
 }
 
 export interface Profile {
+  username: string;
   board: string;
   classLevel: number;
   examDate: string | null;
@@ -43,7 +44,12 @@ export async function getCurrentUserAndProfile(): Promise<CurrentUserResult> {
   let profile: Profile | null = null;
   const admin = getServiceRoleClient();
   if (admin) {
-    const [{ data: profileRow }, { data: subjectRows }] = await Promise.all([
+    const [{ data: userRow }, { data: profileRow }, { data: subjectRows }] = await Promise.all([
+      admin
+        .from('users')
+        .select('display_name')
+        .eq('id', user.id)
+        .maybeSingle(),
       admin
         .from('student_profiles')
         .select('board_code, class_level, exam_date')
@@ -57,6 +63,7 @@ export async function getCurrentUserAndProfile(): Promise<CurrentUserResult> {
 
     if (profileRow) {
       profile = {
+        username: userRow?.display_name ?? '',
         board: profileRow.board_code,
         classLevel: profileRow.class_level,
         examDate: profileRow.exam_date,

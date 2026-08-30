@@ -23,6 +23,21 @@ import {
 import { embedTexts } from '../src/lib/ai/embeddings';
 import { requireServiceRoleClient } from '../src/lib/supabase/admin';
 
+// Standalone scripts run via `tsx` don't get Next.js's automatic .env loading — that only
+// happens inside the Next.js runtime itself (next dev/build). Without this, every env var
+// (Supabase keys, embedding API key, etc.) is simply undefined here, which is exactly what
+// broke `npm run ingest` when the crawler auto-triggered it: it failed claiming Supabase
+// "is not configured" even though .env has real, working credentials. loadEnvFile is a Node
+// 20.6+ builtin — no dotenv dependency needed, matching this project's existing "no dotenv"
+// approach in scripts/dev-db-sql.mjs. Safe to run before anything below reads process.env —
+// chunker/embeddings/admin all read their env vars lazily inside functions, never at their
+// own module top-level, so import order here doesn't matter.
+try {
+  process.loadEnvFile(path.join(process.cwd(), '.env'));
+} catch {
+  // No .env file — fine if real env vars are already set some other way (CI, shell export).
+}
+
 const SOURCE_DIR = path.join(process.cwd(), 'data/source');
 
 const args = new Set(process.argv.slice(2));

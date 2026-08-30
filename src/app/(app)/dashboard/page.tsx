@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Search,
   Award,
@@ -44,22 +44,54 @@ const ACTIONS = [
   },
 ];
 
-// "—" rather than "0" deliberately: quiz history (M6) and question history (M11) aren't
-// persisted yet, so this page has no real count to show — and a static "0" would be an
-// uncomputed number asserting a fact we don't know, which AGENTS.md's invariant 7 forbids
-// regardless of how it reads visually. The hint text carries the "not broken, just empty"
-// feeling instead. See docs/modules.md §9.
-const STATS = [
-  { icon: MessagesSquare, label: 'Questions asked', value: '—', hint: 'Ask your first question to start tracking.' },
-  { icon: ListChecks, label: 'Quizzes taken', value: '—', hint: 'Scores will appear here once you submit one.' },
-  { icon: CalendarClock, label: 'Days to exam', value: '—', hint: 'Set an exam date in Settings.' },
-];
-
 export default function DashboardPage() {
   // user/profile come from ScopeContext, which the (app) layout resolves server-side before
   // this page ever renders — so the real name/board/class/subjects are already here on
   // first paint, no client fetch, no loading flash.
   const { board, classLevel, subject, user, profile } = useScope();
+
+  // "—" while loading/unknown, a real number once fetched — even 0 is a genuine count now
+  // (qa_log/quiz_attempts are both actually written to, see /api/ask and /api/quiz), not a
+  // guess. Asserting "0" before this resolves would still be the invariant-7 violation the
+  // original placeholder comment here was written to avoid.
+  const [activityStats, setActivityStats] = useState<{ questionsAsked: number; quizzesTaken: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/dashboard/stats')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setActivityStats(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const daysToExam = profile?.examDate
+    ? Math.max(0, Math.ceil((new Date(profile.examDate).getTime() - Date.now()) / 86_400_000))
+    : null;
+
+  const STATS = [
+    {
+      icon: MessagesSquare,
+      label: 'Questions asked',
+      value: activityStats ? String(activityStats.questionsAsked) : '—',
+      hint: activityStats?.questionsAsked === 0 ? 'Ask your first question to start tracking.' : undefined,
+    },
+    {
+      icon: ListChecks,
+      label: 'Quizzes taken',
+      value: activityStats ? String(activityStats.quizzesTaken) : '—',
+      hint: activityStats?.quizzesTaken === 0 ? 'Scores will appear here once you submit one.' : undefined,
+    },
+    {
+      icon: CalendarClock,
+      label: 'Days to exam',
+      value: daysToExam !== null ? String(daysToExam) : '—',
+      hint: daysToExam === null ? 'Set an exam date in Settings.' : undefined,
+    },
+  ];
 
   const firstName = user?.metadata?.full_name?.split(' ')[0];
   // A signed-in student is enrolled in every seeded subject by default (create-account.ts),

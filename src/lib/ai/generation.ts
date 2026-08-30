@@ -23,7 +23,7 @@ export async function generateGroundedAnswer(args: {
   }
 
   const ai = getGeminiClient();
-  const chatModel = process.env.CHAT_MODEL || 'gemini-2.5-flash';
+  const chatModel = process.env.CHAT_MODEL || 'gemini-3.5-flash-lite';
   const promptInput = { question, language, chunks };
 
   if (ai) {
