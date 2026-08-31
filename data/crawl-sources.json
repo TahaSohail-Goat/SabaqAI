@@ -1,5 +1,38 @@
 [
   {
+    "url": "https://www.taleem360.com/download/9th-class-physics-federal-board-text-book-pdf",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "physics",
+    "sourceType": "textbook",
+    "language": "en",
+    "year": null,
+    "checksum": null,
+    "comment": "Real FBISE Class 9 Physics textbook (National Book Foundation, National Curriculum 2022-23). Scanned/image-only PDF, ~75MB, 222 pages, no usable text layer — requires OCR (poppler + tesseract), not the direct pdftotext path used for model papers. This is the pilot textbook for the multi-chapter, page-tracked ingestion path in scripts/crawl.ts."
+  },
+  {
+    "url": "https://www.taleem360.com/download/federal-board-9th-class-chemistry-text-book-2025-pdf",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "chemistry",
+    "sourceType": "textbook",
+    "language": "en",
+    "year": null,
+    "checksum": null,
+    "comment": "Real FBISE Class 9 Chemistry textbook (National Book Foundation, National Curriculum 2025-26). Verified working link, ~74MB. Second textbook in the sciences 9-12 rollout, after Physics 9."
+  },
+  {
+    "url": "https://www.taleem360.com/download/9th-class-biology-new-snc-federal-text-book-pdf",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "biology",
+    "sourceType": "textbook",
+    "language": "en",
+    "year": null,
+    "checksum": null,
+    "comment": "Real FBISE Class 9 Biology textbook (National Book Foundation, New SNC/National Curriculum, sessions 2024-25 to 2026-27). Verified working link (HTTP 200, Content-Length 50,255,894 bytes ~= 47.9MB) before adding. Third textbook in the sciences 9-12 rollout, after Physics 9 and Chemistry 9."
+  },
+  {
     "url": "https://www.fbise.edu.pk/ModelPaper/2025/Assessment%20Frameworks/SSC-I/Final%20Assessment%20Framework%20Model%20Question%20Paper%20Biology%20SSC-I.pdf",
     "board": "FBISE",
     "classLevel": 9,

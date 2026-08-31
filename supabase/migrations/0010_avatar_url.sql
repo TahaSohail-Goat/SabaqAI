@@ -11,22 +11,18 @@ on conflict (id) do nothing;
 
 -- Allow any authenticated user to upload/replace only their own avatar.
 -- Path convention enforced by the API route: avatars/<user_id>/<filename>
--- CREATE POLICY does not support IF NOT EXISTS; drop-then-create is the safe pattern.
-drop policy if exists "Users can upload their own avatar" on storage.objects;
-create policy "Users can upload their own avatar"
+create policy if not exists "Users can upload their own avatar"
   on storage.objects for insert
   to authenticated
   with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 
-drop policy if exists "Users can update their own avatar" on storage.objects;
-create policy "Users can update their own avatar"
+create policy if not exists "Users can update their own avatar"
   on storage.objects for update
   to authenticated
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- Public read — the bucket is public so this is belt-and-suspenders.
-drop policy if exists "Avatars are publicly readable" on storage.objects;
-create policy "Avatars are publicly readable"
+create policy if not exists "Avatars are publicly readable"
   on storage.objects for select
   to public
   using (bucket_id = 'avatars');

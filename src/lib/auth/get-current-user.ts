@@ -8,6 +8,7 @@ import { cookies } from 'next/headers';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
 import { ACTIVITY_COOKIE_NAME, activityCookieOptions, isActivityFresh } from '@/lib/auth/session-activity';
+import type { Language } from '@/lib/types';
 
 export interface CurrentUser {
   id: string;
@@ -22,6 +23,7 @@ export interface Profile {
   examDate: string | null;
   subjects: string[];
   avatarUrl: string | null;
+  language: Language;
 }
 
 export interface CurrentUserResult {
@@ -67,7 +69,7 @@ export async function getCurrentUserAndProfile(): Promise<CurrentUserResult> {
     const [{ data: userRow }, { data: profileRow }, { data: subjectRows }] = await Promise.all([
       admin
         .from('users')
-        .select('display_name, avatar_url')
+        .select('display_name, avatar_url, preferred_language')
         .eq('id', user.id)
         .maybeSingle(),
       admin
@@ -82,13 +84,15 @@ export async function getCurrentUserAndProfile(): Promise<CurrentUserResult> {
     ]);
 
     if (profileRow) {
+      const row = userRow as { avatar_url?: string | null; preferred_language?: string | null } | null;
       profile = {
         username: userRow?.display_name ?? '',
         board: profileRow.board_code,
         classLevel: profileRow.class_level,
         examDate: profileRow.exam_date,
         subjects: (subjectRows ?? []).map((r) => r.subject_code),
-        avatarUrl: (userRow as { avatar_url?: string | null } | null)?.avatar_url ?? null,
+        avatarUrl: row?.avatar_url ?? null,
+        language: row?.preferred_language === 'ur' ? 'ur' : 'en',
       };
     }
   }

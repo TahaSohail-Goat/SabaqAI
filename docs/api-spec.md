@@ -17,15 +17,24 @@ The core route. Everything else is supporting cast.
 ```json
 {
   "question": "What is Ohm's law?",
-  "board": "PCTB",
+  "board": "FBISE",
   "classLevel": 10,
   "subject": "physics",
-  "language": "en"
+  "language": "en",
+  "sourceType": "textbook",
+  "chapterNo": 14
 }
 ```
 
 `question` is required and must be non-empty. The rest default to
-`PCTB / 10 / physics / en`. `language` is `"en"` or `"ur"` and controls the response language.
+`FBISE / 10 / physics / en`. `language` is `"en"` or `"ur"` and controls the response language.
+
+`sourceType` (`"textbook" | "past_paper" | "model_paper" | "marking_scheme"`) and `chapterNo`
+are both optional but always sent together by the `/ask` page once a student has picked a
+source and a specific chapter/paper (see `GET /api/ask/options` below) — retrieval narrows to
+exactly that one source instead of searching everything ingested for the subject. Board +
+class + subject stay mandatory either way; these two only ever narrow further, never replace
+that filter.
 
 **Response — answered** (`200`)
 
@@ -85,6 +94,41 @@ working correctly, and the UI must not render it as an error.
 
 **The rule that must never break:** when the guardrail returns REFUSE, the LLM is not called. Not
 with a shorter prompt, not with a warning. Not called. See `docs/confidence-guardrails.md`.
+
+---
+
+## `GET /api/ask/options` — what a student can pick from before asking
+
+No auth required (same reasoning as `/api/syllabus` — textbook/paper content isn't sensitive).
+
+**Request** — query params: `board`, `classLevel`, `subject` (same defaults as `/api/ask`).
+
+**Response** (`200`)
+
+```json
+{
+  "board": "FBISE",
+  "classLevel": 10,
+  "subject": "physics",
+  "sources": [
+    { "sourceType": "textbook", "units": [] },
+    { "sourceType": "past_paper", "units": [] },
+    {
+      "sourceType": "model_paper",
+      "units": [{ "chapterNo": 2025, "chapterTitle": "Model Paper 2025 — physics" }]
+    },
+    { "sourceType": "marking_scheme", "units": [] }
+  ]
+}
+```
+
+Always returns all four source types, even with an empty `units` array — the `/ask` page
+shows that as an honest "nothing ingested yet" state per category rather than hiding it.
+`chapterNo` is the real chapter number for `textbook` sources; for the others it's the exam
+year the crawler tagged the document with (see `data/crawl-sources.json`'s `year` field and
+`scripts/crawl.ts`) — there is no separate "paper session" concept in the schema, so a paper
+is identified by (subject, class, year) same as a book chapter is identified by (subject,
+class, chapter number).
 
 ---
 

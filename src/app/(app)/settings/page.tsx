@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AtSign,
   Lock,
@@ -13,22 +13,19 @@ import {
   Eye,
   EyeOff,
   Camera,
+  GraduationCap,
+  BookMarked,
 } from 'lucide-react';
-import { useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useScope } from '@/components/app/ScopeContext';
+import type { Profile } from '@/lib/auth/get-current-user';
 import PasswordStrengthMeter from '@/components/PasswordStrengthMeter';
+import { SUBJECTS } from '@/lib/subjects';
 
 interface CurrentUser {
   id: string;
   email?: string;
   metadata?: { full_name?: string };
-}
-
-interface ProfileData {
-  username: string;
-  classLevel: number;
-  examDate: string | null;
 }
 
 const CLASS_LEVELS = [9, 10, 11, 12];
@@ -37,7 +34,34 @@ const CLASS_LEVELS = [9, 10, 11, 12];
 // immediate feedback, the server never trusts it.
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
+// Only one board exists today (see onboarding/page.tsx's own BOARDS array) — a real picker for
+// a single legal value would be fake interactivity, so this is a static label, not a control.
+const BOARD_NAME = 'Federal Board of Intermediate and Secondary Education';
+
 type Theme = 'light' | 'dark';
+
+// Downscales an image client-side before upload — keeps avatar files small and consistent
+// without a server-side image-processing dependency. Server still enforces its own 2MB cap
+// regardless (this can't be trusted as the only limit — a client can always be bypassed).
+async function resizeImage(file: File, maxDim = 512, quality = 0.85): Promise<File> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const width = Math.round(bitmap.width * scale);
+  const height = Math.round(bitmap.height * scale);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return file; // canvas unsupported — fall back to the original file untouched
+
+  ctx.drawImage(bitmap, 0, 0, width, height);
+
+  const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+  if (!blob) return file;
+
+  return new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+}
 
 function SectionCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -66,20 +90,81 @@ function InlineBanner({ kind, children }: { kind: 'error' | 'success'; children:
   );
 }
 
+// A labeled field + its own Save button + its own saving/error/success trio — the shape every
+// independently-saveable field below uses, so username/class/subjects don't share state (and
+// can't silently re-submit each other) the way the old single "Save profile" button did.
+function FieldRow({
+  label,
+  saving,
+  error,
+  success,
+  successMessage,
+  onSave,
+  saveDisabled,
+  children,
+}: {
+  label: string;
+  saving: boolean;
+  error: string | null;
+  success: boolean;
+  successMessage: string;
+  onSave: () => void;
+  saveDisabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold text-text-3 uppercase tracking-wide mb-1.5">{label}</p>
+      {children}
+      {error && <div className="mt-2"><InlineBanner kind="error">{error}</InlineBanner></div>}
+      {success && <div className="mt-2"><InlineBanner kind="success">{successMessage}</InlineBanner></div>}
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={saving || saveDisabled}
+        className="mt-2.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-dark disabled:bg-disabled disabled:text-disabled-text transition-colors"
+      >
+        {saving ? 'Saving...' : 'Save'}
+      </button>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const router = useRouter();
-  const { language, setLanguage } = useScope();
+  // Renamed on import — this file already has its own local `classLevel`/`setClassLevel` for
+  // the form input, distinct from ScopeContext's "active scope" class level that Ask/Quiz/
+  // Syllabus/Chat/Dashboard actually read from (see setScopeClassLevel's use in saveClass).
+  const { language, setLanguage, updateProfile, setClassLevel: setScopeClassLevel } = useScope();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [theme, setTheme] = useState<Theme | null>(null);
+  const [board, setBoard] = useState('');
 
-  // Profile form
+  // Username
   const [username, setUsername] = useState('');
+  // What was actually loaded from the server — lets the validation error below distinguish
+  // "you edited this into something invalid" from "this is old data you haven't touched yet."
+  // Real accounts can have a pre-existing display_name that doesn't satisfy today's stricter
+  // username format (e.g. a full name with a space, saved before this format was enforced
+  // everywhere) — showing a scary red error the instant that field is merely clicked into and
+  // blurred, with zero edits, was a real reported bug.
+  const [originalUsername, setOriginalUsername] = useState('');
   const [usernameTouched, setUsernameTouched] = useState(false);
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameSaveError, setUsernameSaveError] = useState<string | null>(null);
+  const [usernameSuccess, setUsernameSuccess] = useState(false);
+
+  // Class level
   const [classLevel, setClassLevel] = useState<number | null>(null);
-  const [examDate, setExamDate] = useState('');
-  const [profileSaving, setProfileSaving] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
-  const [profileSuccess, setProfileSuccess] = useState(false);
+  const [classSaving, setClassSaving] = useState(false);
+  const [classError, setClassError] = useState<string | null>(null);
+  const [classSuccess, setClassSuccess] = useState(false);
+
+  // Subjects
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [subjectsSaving, setSubjectsSaving] = useState(false);
+  const [subjectsError, setSubjectsError] = useState<string | null>(null);
+  const [subjectsSuccess, setSubjectsSuccess] = useState(false);
 
   // Avatar
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -92,11 +177,13 @@ export default function SettingsPage() {
       .then((res) => res.json())
       .then((data) => {
         setUser(data.user ?? null);
-        const profile: (ProfileData & { subjects?: string[]; avatarUrl?: string | null }) | null = data.profile ?? null;
+        const profile: Profile | null = data.profile ?? null;
         if (profile) {
           setUsername(profile.username || '');
+          setOriginalUsername(profile.username || '');
           setClassLevel(profile.classLevel ?? null);
-          setExamDate(profile.examDate || '');
+          setBoard(profile.board || '');
+          setSubjects(profile.subjects ?? []);
           setAvatarUrl(profile.avatarUrl ?? null);
         }
       })
@@ -106,7 +193,13 @@ export default function SettingsPage() {
     setTheme(stored ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   }, []);
 
-  const usernameError = usernameTouched && username.trim() && !USERNAME_RE.test(username.trim())
+  const usernameChanged = username.trim() !== originalUsername.trim();
+  const usernameInvalid = username.trim().length > 0 && !USERNAME_RE.test(username.trim());
+  // Only surfaced once they've actually edited the field into something invalid — a
+  // pre-existing value that already violates today's format (see originalUsername's comment)
+  // stays quiet until they touch it, instead of greeting them with an error for data they
+  // never typed.
+  const usernameError = usernameTouched && usernameChanged && usernameInvalid
     ? 'Username must be 3-20 characters — letters, numbers and underscores only.'
     : null;
 
@@ -114,12 +207,14 @@ export default function SettingsPage() {
     setAvatarUploading(true);
     setAvatarError(null);
     try {
+      const resized = await resizeImage(file);
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', resized);
       const res = await fetch('/api/auth/avatar', { method: 'POST', body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed.');
       setAvatarUrl(data.avatarUrl);
+      updateProfile({ avatarUrl: data.avatarUrl });
     } catch (err) {
       setAvatarError(err instanceof Error ? err.message : 'Could not upload image.');
     } finally {
@@ -127,24 +222,81 @@ export default function SettingsPage() {
     }
   };
 
-  const saveProfile = async () => {
-    setProfileSaving(true);
-    setProfileError(null);
-    setProfileSuccess(false);
+  const saveUsername = async () => {
+    setUsernameSaving(true);
+    setUsernameSaveError(null);
+    setUsernameSuccess(false);
     try {
       const res = await fetch('/api/auth/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), classLevel, examDate: examDate || null }),
+        body: JSON.stringify({ username: username.trim() }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not save your profile.');
-      setProfileSuccess(true);
-      setTimeout(() => setProfileSuccess(false), 3000);
+      if (!res.ok) throw new Error(data.error || 'Could not save your username.');
+      setOriginalUsername(username.trim());
+      updateProfile({ username: username.trim() });
+      setUsernameSuccess(true);
+      setTimeout(() => setUsernameSuccess(false), 3000);
     } catch (err) {
-      setProfileError(err instanceof Error ? err.message : 'Something went wrong.');
+      setUsernameSaveError(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
-      setProfileSaving(false);
+      setUsernameSaving(false);
+    }
+  };
+
+  const saveClass = async () => {
+    setClassSaving(true);
+    setClassError(null);
+    setClassSuccess(false);
+    try {
+      const res = await fetch('/api/auth/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classLevel }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not save your class.');
+      if (classLevel) {
+        updateProfile({ classLevel });
+        // This is the value Ask/Quiz/Syllabus/Chat/Dashboard actually query and display —
+        // updateProfile alone only updates the "your account says class X" display value, not
+        // the active scope everything else in the app is filtered by. Saving a new class here
+        // should mean "browse as this class" immediately, not just after a reload.
+        setScopeClassLevel(classLevel);
+      }
+      setClassSuccess(true);
+      setTimeout(() => setClassSuccess(false), 3000);
+    } catch (err) {
+      setClassError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setClassSaving(false);
+    }
+  };
+
+  const toggleSubject = (code: string) => {
+    setSubjects((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
+  };
+
+  const saveSubjects = async () => {
+    setSubjectsSaving(true);
+    setSubjectsError(null);
+    setSubjectsSuccess(false);
+    try {
+      const res = await fetch('/api/auth/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjects }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not save your subjects.');
+      updateProfile({ subjects });
+      setSubjectsSuccess(true);
+      setTimeout(() => setSubjectsSuccess(false), 3000);
+    } catch (err) {
+      setSubjectsError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setSubjectsSaving(false);
     }
   };
 
@@ -239,9 +391,9 @@ export default function SettingsPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Profile */}
-      <SectionCard title="Profile" description="Your username, class, and exam date.">
+      <SectionCard title="Profile" description="Your photo, username, class, board, and subjects.">
         {user ? (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div className="flex items-center gap-4">
               {/* Clickable avatar — triggers hidden file input */}
               <button
@@ -275,7 +427,7 @@ export default function SettingsPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -290,11 +442,15 @@ export default function SettingsPage() {
             </div>
             {avatarError && <InlineBanner kind="error">{avatarError}</InlineBanner>}
 
-            {profileError && <InlineBanner kind="error">{profileError}</InlineBanner>}
-            {profileSuccess && <InlineBanner kind="success">Profile saved.</InlineBanner>}
-
-            <div>
-              <p className="text-[10px] font-bold text-text-3 uppercase tracking-wide mb-1.5">Username</p>
+            <FieldRow
+              label="Username"
+              saving={usernameSaving}
+              error={usernameSaveError}
+              success={usernameSuccess}
+              successMessage="Username saved."
+              onSave={saveUsername}
+              saveDisabled={usernameInvalid || !username.trim() || !usernameChanged}
+            >
               <div className="relative">
                 <AtSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-3 pointer-events-none" />
                 <input
@@ -308,10 +464,17 @@ export default function SettingsPage() {
                 />
               </div>
               {usernameError && <p className="mt-1.5 text-[11px] text-error">{usernameError}</p>}
-            </div>
+            </FieldRow>
 
-            <div>
-              <p className="text-[10px] font-bold text-text-3 uppercase tracking-wide mb-2">Class</p>
+            <FieldRow
+              label="Class"
+              saving={classSaving}
+              error={classError}
+              success={classSuccess}
+              successMessage="Class saved."
+              onSave={saveClass}
+              saveDisabled={!classLevel}
+            >
               <div className="flex flex-wrap gap-2">
                 {CLASS_LEVELS.map((c) => (
                   <button
@@ -326,26 +489,47 @@ export default function SettingsPage() {
                   </button>
                 ))}
               </div>
-            </div>
+            </FieldRow>
 
             <div>
-              <p className="text-[10px] font-bold text-text-3 uppercase tracking-wide mb-1.5">Exam date (optional)</p>
-              <input
-                type="date"
-                value={examDate}
-                onChange={(e) => setExamDate(e.target.value)}
-                className="w-full rounded-xl border border-border bg-surface-2/60 px-3.5 py-2.5 text-sm text-navy focus:bg-surface focus:border-brand focus:ring-2 focus:ring-brand/20 focus:outline-none transition-all"
-              />
+              <p className="text-[10px] font-bold text-text-3 uppercase tracking-wide mb-1.5">Board</p>
+              <div className="flex items-center gap-2.5 rounded-xl border border-border bg-surface-2/40 px-3.5 py-2.5">
+                <GraduationCap className="w-4 h-4 text-text-3 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-navy">{board || 'FBISE'}</p>
+                  <p className="text-[11px] text-text-3 truncate">{BOARD_NAME} — more boards coming soon</p>
+                </div>
+              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={saveProfile}
-              disabled={profileSaving || !!usernameError || !username.trim() || !classLevel}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-dark disabled:bg-disabled disabled:text-disabled-text transition-colors"
+            <FieldRow
+              label="Subjects"
+              saving={subjectsSaving}
+              error={subjectsError}
+              success={subjectsSuccess}
+              successMessage="Subjects saved."
+              onSave={saveSubjects}
+              saveDisabled={subjects.length === 0}
             >
-              {profileSaving ? 'Saving...' : 'Save profile'}
-            </button>
+              <div className="flex flex-wrap gap-2">
+                {SUBJECTS.map((s) => {
+                  const selected = subjects.includes(s.code);
+                  return (
+                    <button
+                      key={s.code}
+                      type="button"
+                      onClick={() => toggleSubject(s.code)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        selected ? 'bg-brand text-white border-brand' : 'bg-surface-2 text-navy-2 border-border hover:border-brand/40'
+                      }`}
+                    >
+                      <BookMarked className="w-3 h-3" />
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </FieldRow>
           </div>
         ) : (
           <p className="text-xs text-text-2">You're not signed in — settings here apply to this device only.</p>
@@ -378,7 +562,7 @@ export default function SettingsPage() {
       </SectionCard>
 
       {/* Language */}
-      <SectionCard title="Language" description="Affects Ask input expectations and text direction.">
+      <SectionCard title="Language" description="Sets how Ask expects your questions and which language Chat replies in.">
         <div className="inline-flex rounded-xl border border-border bg-surface-2/60 p-1 gap-1">
           <button
             type="button"
