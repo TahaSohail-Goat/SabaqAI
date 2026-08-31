@@ -1,16 +1,20 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { RefreshCw, CheckCircle2, XCircle, BookOpen, FileQuestion } from 'lucide-react';
+import { RefreshCw, CheckCircle2, XCircle, BookOpen, FileQuestion, Sparkles } from 'lucide-react';
 import { useScope } from '@/components/app/ScopeContext';
 import EmptyState from '@/components/app/EmptyState';
 import { SUBJECT_LABELS } from '@/lib/subjects';
+
+type QuestionType = 'mcq' | 'short' | 'long';
 
 interface QuizQuestion {
   id: string;
   position: number;
   stem: string;
-  options: string[];
+  questionType: QuestionType;
+  options?: string[];
+  maxScore?: number;
   chunkId: string;
   chapterNo: number;
   page: number;
@@ -19,10 +23,15 @@ interface QuizQuestion {
 
 interface GradedQuestion {
   questionId: string;
+  questionType: QuestionType;
   selectedIndex: number | null;
-  correctIndex: number;
+  answerText: string | null;
+  correctIndex: number | null;
   correct: boolean;
-  explanation: string;
+  explanation: string | null;
+  pointsAwarded: number | null;
+  pointsPossible: number | null;
+  feedback: string | null;
 }
 
 interface QuizGrade {
@@ -36,6 +45,8 @@ interface Chapter {
   chapterNo: number;
   chapterTitle: string | null;
 }
+
+const QUIZ_SCOPE_DESCRIPTION = '50 MCQs, 10 short-answer and 2 long-answer questions';
 
 export default function QuizPage() {
   const { board, classLevel, subject: scopeSubject, profile } = useScope();
@@ -51,19 +62,25 @@ export default function QuizPage() {
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
-  const [isFallback, setIsFallback] = useState(false);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
+  const [hasGenerated, setHasGenerated] = useState(false);
+  const [isPartial, setIsPartial] = useState(false);
+  const [effectiveCounts, setEffectiveCounts] = useState<{ mcq: number; short: number; long: number } | null>(null);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number | string>>({});
   const [isQuizSubmitted, setIsQuizSubmitted] = useState(false);
-  const [answerToken, setAnswerToken] = useState<string | null>(null);
-  const [quizId, setQuizId] = useState<string | null>(null);
+  // Nothing about this quiz is recorded server-side until submitQuiz() posts this token —
+  // generation only ever seals a token, it never writes a DB row (see /api/quiz/grade).
+  const [quizToken, setQuizToken] = useState<string | null>(null);
   const [quizGrade, setQuizGrade] = useState<QuizGrade | null>(null);
   const [gradeError, setGradeError] = useState<string | null>(null);
   const [isGrading, setIsGrading] = useState(false);
 
-  const loadQuiz = async (chapterNo: number, subject: string) => {
+  const generateQuiz = async () => {
+    if (selectedChapter === null || quizLoading) return;
     setQuizLoading(true);
     setQuizError(null);
-    setIsFallback(false);
+    setHasGenerated(true);
+    setIsPartial(false);
+    setEffectiveCounts(null);
     setSelectedAnswers({});
     setIsQuizSubmitted(false);
     setQuizGrade(null);
@@ -72,51 +89,52 @@ export default function QuizPage() {
       const res = await fetch('/api/quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chapterNo, subject, board, classLevel }),
+        body: JSON.stringify({
+          chapterNo: selectedChapter,
+          subject: selectedSubject,
+          board,
+          classLevel,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setQuizError(data.error || 'Could not load a quiz for this chapter.');
+        setQuizError(data.error || 'Could not generate a quiz for this scope.');
         setQuizQuestions([]);
-        setAnswerToken(null);
-        setQuizId(null);
+        setQuizToken(null);
         return;
       }
       setQuizQuestions(data.questions || []);
-      setAnswerToken(data.answerToken ?? null);
-      setQuizId(data.quizId ?? null);
-      setIsFallback(!!data.isFallback);
+      setQuizToken(data.quizToken ?? null);
+      setIsPartial(!!data.partial);
+      setEffectiveCounts(data.effectiveCounts ?? null);
     } catch (err) {
-      console.error('Quiz load error:', err);
+      console.error('Quiz generation error:', err);
       setQuizError('Could not reach the server. Check your connection and try again.');
     } finally {
       setQuizLoading(false);
     }
   };
 
-  // Which chapters actually have ingested content for the selected subject — driven by the real
-  // corpus (same endpoint /syllabus uses), not a hardcoded chapter list that could claim
-  // coverage the corpus doesn't have.
+  // Which chapters actually have ingested content for the selected subject — driven by the
+  // real corpus, not a hardcoded chapter list that could claim coverage the corpus doesn't have.
   useEffect(() => {
     let cancelled = false;
     setChaptersLoading(true);
     setChapters([]);
     setSelectedChapter(null);
     setQuizQuestions([]);
+    setHasGenerated(false);
 
     const params = new URLSearchParams({ board, classLevel: String(classLevel), subject: selectedSubject });
-    fetch(`/api/syllabus?${params}`)
+    fetch(`/api/quiz/scope?${params}`)
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return;
         const chs: Chapter[] = data.chapters || [];
         setChapters(chs);
-        if (chs.length > 0) {
-          setSelectedChapter(chs[0].chapterNo);
-          loadQuiz(chs[0].chapterNo, selectedSubject);
-        }
+        if (chs.length > 0) setSelectedChapter(chs[0].chapterNo);
       })
-      .catch((err) => console.error('Syllabus chapters load error:', err))
+      .catch((err) => console.error('Quiz scope (chapters) load error:', err))
       .finally(() => {
         if (!cancelled) setChaptersLoading(false);
       });
@@ -124,28 +142,29 @@ export default function QuizPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSubject, board, classLevel]);
 
-  // Grading happens on the server — the browser never held the answer key. quizId (a real,
-  // persisted quiz) is preferred when present; answerToken is the fallback for when this quiz
-  // couldn't be persisted (see /api/quiz's respondWithQuiz).
+  // Grading happens on the server — the browser never held the answer key/rubric. This is also
+  // the ONLY point the quiz is ever recorded: generation never writes a DB row, so a quiz the
+  // student generates and never submits leaves no trace.
   const submitQuiz = async () => {
-    if ((!answerToken && !quizId) || isGrading) return;
+    if (!quizToken || isGrading) return;
     setIsGrading(true);
     setGradeError(null);
 
-    const answersById: Record<string, number> = {};
+    const answersById: Record<string, number | string> = {};
     quizQuestions.forEach((q, idx) => {
       const selected = selectedAnswers[idx];
-      if (typeof selected === 'number') answersById[q.id] = selected;
+      if (typeof selected === 'number' || (typeof selected === 'string' && selected.trim().length > 0)) {
+        answersById[q.id] = selected;
+      }
     });
 
     try {
       const res = await fetch('/api/quiz/grade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quizId, answerToken, answers: answersById }),
+        body: JSON.stringify({ quizToken, answers: answersById }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -164,68 +183,86 @@ export default function QuizPage() {
   const gradeFor = (questionId: string): GradedQuestion | undefined =>
     quizGrade?.results.find((r) => r.questionId === questionId);
 
+  const answeredCount = Object.values(selectedAnswers).filter(
+    (v) => typeof v === 'number' || (typeof v === 'string' && v.trim().length > 0)
+  ).length;
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Subject filter */}
-      <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
-        <p className="text-xs font-bold text-text-2 uppercase tracking-wide">Subject</p>
-        <div className="flex flex-wrap gap-2">
-          {enrolledSubjects.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setSelectedSubject(s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
-                selectedSubject === s
-                  ? 'bg-brand text-white border-brand'
-                  : 'bg-surface-2 text-navy-2 border-border-strong hover:bg-border'
-              }`}
-            >
-              {SUBJECT_LABELS[s] || s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Chapter selection */}
-      <div className="bg-surface border border-border rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h3 className="text-sm font-semibold text-navy">
-            {board} Class {classLevel} {SUBJECT_LABELS[selectedSubject] || selectedSubject} Chapter Quizzes
-          </h3>
-          <p className="text-xs text-text-2">Board-pattern multiple choice questions grounded in textbook chunks</p>
+      {/* Subject + chapter pickers */}
+      <div className="bg-surface border border-border rounded-xl p-4 flex flex-wrap gap-4">
+        <div className="space-y-1.5 flex-1 min-w-[180px]">
+          <label htmlFor="quiz-subject" className="text-xs font-bold text-text-2 uppercase tracking-wide">
+            Subject
+          </label>
+          <select
+            id="quiz-subject"
+            value={selectedSubject}
+            onChange={(e) => setSelectedSubject(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg text-xs font-semibold bg-surface-2 border border-border-strong text-navy-2 focus:outline-none focus:ring-1 focus:ring-brand"
+          >
+            {enrolledSubjects.map((s) => (
+              <option key={s} value={s}>
+                {SUBJECT_LABELS[s] || s}
+              </option>
+            ))}
+          </select>
         </div>
 
         {!chaptersLoading && chapters.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            {chapters.map((c) => (
-              <button
-                key={c.chapterNo}
-                type="button"
-                onClick={() => {
-                  setSelectedChapter(c.chapterNo);
-                  loadQuiz(c.chapterNo, selectedSubject);
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
-                  selectedChapter === c.chapterNo
-                    ? 'bg-brand text-white border-brand'
-                    : 'bg-surface-2 text-navy-2 border-border-strong hover:bg-border'
-                }`}
-              >
-                Ch {c.chapterNo}{c.chapterTitle ? `: ${c.chapterTitle}` : ''}
-              </button>
-            ))}
+          <div className="space-y-1.5 flex-1 min-w-[180px]">
+            <label htmlFor="quiz-chapter" className="text-xs font-bold text-text-2 uppercase tracking-wide">
+              Chapter
+            </label>
+            <select
+              id="quiz-chapter"
+              value={selectedChapter ?? ''}
+              onChange={(e) => setSelectedChapter(Number(e.target.value))}
+              className="w-full px-3 py-2 rounded-lg text-xs font-medium bg-surface-2 border border-border-strong text-navy-2 focus:outline-none focus:ring-1 focus:ring-brand"
+            >
+              {chapters.map((c) => (
+                <option key={c.chapterNo} value={c.chapterNo}>
+                  Ch {c.chapterNo}{c.chapterTitle ? `: ${c.chapterTitle}` : ''}
+                </option>
+              ))}
+            </select>
           </div>
         )}
       </div>
 
-      {isFallback && !quizLoading && quizQuestions.length > 0 && (
-        <div className="text-xs text-navy bg-quiz-light border border-quiz-border rounded-lg px-3.5 py-2.5">
-          Live generation was unavailable for this request — showing a fallback question bank instead of a freshly generated quiz.
+      {/* Generate button */}
+      {!chaptersLoading && selectedChapter !== null && chapters.length > 0 && (
+        <div className="bg-surface border border-border rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-semibold text-navy">
+              {board} Class {classLevel} {SUBJECT_LABELS[selectedSubject] || selectedSubject} — Chapter {selectedChapter}
+            </h3>
+            <p className="text-xs text-text-2">
+              {QUIZ_SCOPE_DESCRIPTION}, grounded in the ingested textbook — a fresh quiz every time.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={generateQuiz}
+            disabled={quizLoading}
+            className="flex items-center gap-2 px-5 py-2 bg-brand hover:bg-brand-dark disabled:bg-disabled disabled:text-disabled-text text-white text-xs font-semibold rounded-lg shadow transition cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {quizLoading ? 'Generating…' : hasGenerated ? 'Regenerate Quiz' : 'Generate Quiz'}
+          </button>
         </div>
       )}
 
-      {/* States: loading chapters, no chapters ingested, loading quiz, quiz error, or the quiz itself */}
+      {isPartial && !quizLoading && quizQuestions.length > 0 && (
+        <div className="text-xs text-navy bg-quiz-light border border-quiz-border rounded-lg px-3.5 py-2.5">
+          This chapter doesn't have enough ingested content yet for the full quiz size
+          {effectiveCounts && (
+            <> — generated {effectiveCounts.mcq} MCQs, {effectiveCounts.short} short-answer and {effectiveCounts.long} long-answer questions instead.</>
+          )}
+        </div>
+      )}
+
+      {/* States: loading chapters, no chapters ingested, not yet generated, loading quiz, quiz error, or the quiz itself */}
       {chaptersLoading ? (
         <div className="bg-surface border border-border rounded-xl p-12 text-center space-y-3">
           <RefreshCw className="w-8 h-8 text-brand animate-spin mx-auto" />
@@ -240,10 +277,18 @@ export default function QuizPage() {
       ) : quizLoading ? (
         <div className="bg-surface border border-border rounded-xl p-12 text-center space-y-3">
           <RefreshCw className="w-8 h-8 text-brand animate-spin mx-auto" />
-          <div className="text-sm text-navy-2">Generating syllabus-verified quiz from Chapter {selectedChapter}...</div>
+          <div className="text-sm text-navy-2">
+            Generating a fresh chapter quiz — this can take a little longer for larger quizzes...
+          </div>
         </div>
       ) : quizError ? (
         <EmptyState icon={FileQuestion} title="Quiz unavailable" message={quizError} />
+      ) : !hasGenerated ? (
+        <EmptyState
+          icon={Sparkles}
+          title="Ready when you are"
+          message="Pick a subject and chapter, then generate a quiz."
+        />
       ) : (
         <div className="space-y-4">
           {quizQuestions.map((q, qIdx) => {
@@ -258,54 +303,87 @@ export default function QuizPage() {
                     <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-surface-2 text-brand border border-border-strong">
                       Q{qIdx + 1}
                     </span>
-                    <h4 className="text-sm font-medium text-navy">{q.stem}</h4>
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-medium text-navy">{q.stem}</h4>
+                      {q.questionType !== 'mcq' && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-text-2">
+                          {q.questionType === 'short' ? 'Short answer' : 'Long answer'} · {q.maxScore ?? 1} marks
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className="text-[11px] text-text-2 bg-surface-2 px-2 py-0.5 rounded border border-border flex-shrink-0">
                     p. {q.page}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                  {q.options.map((opt, oIdx) => {
-                    let optStyle = 'bg-surface-2 border-border text-navy-2 hover:border-border-strong';
+                {q.questionType === 'mcq' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                    {(q.options || []).map((opt, oIdx) => {
+                      let optStyle = 'bg-surface-2 border-border text-navy-2 hover:border-border-strong';
 
-                    if (graded) {
-                      if (oIdx === graded.correctIndex) {
-                        optStyle = 'bg-brand-light border-brand text-brand-dark font-semibold';
-                      } else if (selectedOpt === oIdx && !isCorrect) {
-                        optStyle = 'bg-error-bg border-error text-error';
+                      if (graded) {
+                        if (oIdx === graded.correctIndex) {
+                          optStyle = 'bg-brand-light border-brand text-brand-dark font-semibold';
+                        } else if (selectedOpt === oIdx && !isCorrect) {
+                          optStyle = 'bg-error-bg border-error text-error';
+                        }
+                      } else if (selectedOpt === oIdx) {
+                        optStyle = 'bg-brand-mint border-brand text-brand-dark';
                       }
-                    } else if (selectedOpt === oIdx) {
-                      optStyle = 'bg-brand-mint border-brand text-brand-dark';
-                    }
 
-                    return (
-                      <button
-                        key={oIdx}
-                        type="button"
-                        disabled={isQuizSubmitted}
-                        onClick={() => setSelectedAnswers((prev) => ({ ...prev, [qIdx]: oIdx }))}
-                        className={`p-3 rounded-lg border text-xs text-left transition flex items-center justify-between ${optStyle}`}
-                      >
-                        <span>{opt}</span>
-                        {graded && oIdx === graded.correctIndex && (
-                          <CheckCircle2 className="w-4 h-4 text-brand" />
-                        )}
-                        {graded && selectedOpt === oIdx && !isCorrect && (
-                          <XCircle className="w-4 h-4 text-error" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                      return (
+                        <button
+                          key={oIdx}
+                          type="button"
+                          disabled={isQuizSubmitted}
+                          onClick={() => setSelectedAnswers((prev) => ({ ...prev, [qIdx]: oIdx }))}
+                          className={`p-3 rounded-lg border text-xs text-left transition flex items-center justify-between ${optStyle}`}
+                        >
+                          <span>{opt}</span>
+                          {graded && oIdx === graded.correctIndex && (
+                            <CheckCircle2 className="w-4 h-4 text-brand" />
+                          )}
+                          {graded && selectedOpt === oIdx && !isCorrect && (
+                            <XCircle className="w-4 h-4 text-error" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <textarea
+                    value={typeof selectedOpt === 'string' ? selectedOpt : ''}
+                    onChange={(e) => setSelectedAnswers((prev) => ({ ...prev, [qIdx]: e.target.value }))}
+                    disabled={isQuizSubmitted}
+                    rows={q.questionType === 'long' ? 6 : 3}
+                    placeholder="Type your answer here..."
+                    className="w-full p-3 rounded-lg border border-border bg-surface-2 text-xs text-navy disabled:opacity-70 focus:outline-none focus:ring-1 focus:ring-brand"
+                  />
+                )}
 
-                {graded && (
+                {graded && q.questionType === 'mcq' && (
                   <div className="bg-surface-2 p-3 rounded-lg border border-border text-xs space-y-1">
                     <div className="font-semibold text-brand flex items-center gap-1.5">
                       <BookOpen className="w-3.5 h-3.5" />
                       <span>Textbook Explanation ({q.section}):</span>
                     </div>
                     <p className="text-navy-2">{graded.explanation}</p>
+                  </div>
+                )}
+
+                {graded && q.questionType !== 'mcq' && (
+                  <div className="bg-surface-2 p-3 rounded-lg border border-border text-xs space-y-1">
+                    <div className="font-semibold text-brand flex items-center justify-between gap-1.5">
+                      <span className="flex items-center gap-1.5">
+                        <BookOpen className="w-3.5 h-3.5" />
+                        Feedback ({q.section}):
+                      </span>
+                      <span className="text-navy font-mono">
+                        {graded.pointsAwarded ?? 0} / {graded.pointsPossible ?? q.maxScore ?? 1} marks
+                      </span>
+                    </div>
+                    <p className="text-navy-2">{graded.feedback}</p>
                   </div>
                 )}
               </div>
@@ -322,24 +400,24 @@ export default function QuizPage() {
               <button
                 type="button"
                 onClick={submitQuiz}
-                disabled={Object.keys(selectedAnswers).length === 0 || isGrading}
+                disabled={answeredCount === 0 || isGrading}
                 className="px-6 py-2 bg-brand hover:bg-brand-dark disabled:bg-disabled disabled:text-disabled-text text-white text-xs font-semibold rounded-lg shadow transition cursor-pointer self-start"
               >
                 {isGrading
                   ? 'Grading…'
-                  : `Submit & Grade Quiz (${Object.keys(selectedAnswers).length}/${quizQuestions.length} answered)`}
+                  : `Submit & Grade Quiz (${answeredCount}/${quizQuestions.length} answered)`}
               </button>
             ) : (
               <div className="flex items-center justify-between w-full">
                 <div className="text-sm font-semibold">
                   Score:{' '}
                   <span className="text-brand">
-                    {quizGrade?.score ?? 0} / {quizGrade?.total ?? quizQuestions.length} Correct
+                    {quizGrade?.score ?? 0} / {quizGrade?.total ?? quizQuestions.length} passed
                   </span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => selectedChapter !== null && loadQuiz(selectedChapter, selectedSubject)}
+                  onClick={generateQuiz}
                   className="px-4 py-2 bg-surface-2 hover:bg-border text-navy-2 text-xs font-medium rounded-lg transition"
                 >
                   Retake Quiz
