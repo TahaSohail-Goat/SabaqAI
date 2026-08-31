@@ -19,10 +19,24 @@ export function sourcePdfPath(params: {
   return `${board.toLowerCase()}/${classLevel}/${subject}/${sourceType}-${chapterNo}.pdf`;
 }
 
-// A few source PDFs (scanned/image-heavy ones especially) run well past what a "textbook
-// PDF" sounds like it should weigh — one biology model paper alone is ~20.5MB. 50MB is
-// headroom over the largest seen so far, not a guess.
+// This project's Supabase account has an account-wide storage file-size ceiling at or below
+// 50MB — confirmed directly, twice: raising this bucket's OWN configured limit to 100MB was
+// rejected outright by updateBucket itself ("exceeded the maximum allowed size"), independent
+// of any specific file upload. No per-bucket setting can raise it past the account's real cap,
+// so 50MB is the actual usable ceiling here, not a target this file gets to choose.
+//
+// This is why source PDFs for full scanned textbooks (a 222-page book runs ~75MB whole) are
+// uploaded per-CHAPTER, rebuilt from rendered page images (see scripts/crawl.ts's
+// rebuildChapterPdf) rather than as one file — a chapter lands around 5-6MB, comfortably under
+// this ceiling; the original whole-book file never could.
 const MAX_PDF_SIZE = '50MB';
+// The comparison threshold below MUST be derived from MAX_PDF_SIZE, not a separate hardcoded
+// number — a prior version compared against a stale hardcoded 50_000_000 even after MAX_PDF_SIZE
+// was (incorrectly) raised to 100MB, so a bucket already sitting at exactly the old 50MB limit
+// was judged "doesn't need raising" and silently stayed at 50MB while the code believed it had
+// succeeded. Keeping this derived avoids that class of drift again, even though the two values
+// happen to match again now.
+const MAX_PDF_SIZE_BYTES = 50 * 1000 * 1000;
 
 /** Creates the bucket if it doesn't exist yet, or raises its size limit if it's lower than
  *  MAX_PDF_SIZE — safe and idempotent to call every run. */
@@ -45,7 +59,7 @@ export async function ensureSourcePdfBucket(admin: SupabaseClient): Promise<void
   }
 
   const currentLimit = bucket.file_size_limit;
-  const needsRaise = currentLimit !== null && currentLimit !== undefined && currentLimit < 50_000_000;
+  const needsRaise = currentLimit !== null && currentLimit !== undefined && currentLimit < MAX_PDF_SIZE_BYTES;
   if (needsRaise) {
     const { error: updateError } = await admin.storage.updateBucket(SOURCE_PDF_BUCKET, {
       public: true,

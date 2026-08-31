@@ -99,6 +99,13 @@ export interface AskUnit {
   /** Public URL to the real source PDF in Storage, or null if it hasn't been uploaded (e.g.
    *  not yet backfilled — see scripts/backfill-pdf-storage.ts). Display-only. */
   pdfUrl: string | null;
+  /** The absolute page number (in the original source book/paper) that corresponds to page 1
+   *  of pdfUrl. Textbook chapters are uploaded as their own rebuilt, per-chapter PDF (see
+   *  rebuildChapterPdf in scripts/crawl.ts), so a citation's pageFrom — which is always an
+   *  absolute page in the original book — must be re-based against this before it means
+   *  anything inside pdfUrl. null when there's no known offset (e.g. model papers, where the
+   *  whole original file is uploaded as-is and page numbers already line up 1:1). */
+  pageFrom: number | null;
 }
 
 export interface AskSourceOption {
