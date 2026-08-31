@@ -66,6 +66,8 @@
   --color-subj-cs: #5367B8;
   --color-subj-english: #C98345;
   --color-subj-urdu: #B86473;
+  --color-subj-islamiyat: #4E8B9E;
+  --color-subj-pakstudies: #9C6B3E;
 
   /* Semantic aliases — the vocabulary design briefs reach for (background/surface/accent/
      text-primary…). Point at the tokens above rather than duplicating values, so a theme

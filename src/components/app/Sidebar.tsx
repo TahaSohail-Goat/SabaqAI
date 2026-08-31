@@ -9,6 +9,7 @@ import {
   MessagesSquare,
   Award,
   BookOpen,
+  Orbit,
   ShieldCheck,
   TrendingUp,
   CalendarClock,
@@ -73,6 +74,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           <NavItem href="/chat" icon={MessagesSquare} label="Chat" onNavigate={onClose} />
           <NavItem href="/quiz" icon={Award} label="Quiz" onNavigate={onClose} />
           <NavItem href="/syllabus" icon={BookOpen} label="Syllabus" onNavigate={onClose} />
+          <NavItem href="/explore" icon={Orbit} label="Explore" onNavigate={onClose} />
         </div>
 
         <div className="space-y-1">
