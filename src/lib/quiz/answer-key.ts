@@ -1,28 +1,61 @@
-// Keeps quiz answers out of the browser until the student submits.
+// Keeps a generated quiz's answers/grading spec out of the browser until the student submits,
+// AND keeps the quiz itself unrecorded until then too.
 //
 // docs/database.md: "The correct answer is never sent to the browser before the student submits."
 // The route previously shipped `correctIndex` and `explanation` with every question, so the whole
 // answer key was one devtools panel away.
 //
-// The key is now ENCRYPTED (AES-256-GCM) into an opaque token. Encryption, not just signing:
-// a signed-but-base64 token still lets anyone decode the payload and read the answers, which
-// would leave the original bug in place behind a longer string. GCM gives confidentiality AND
-// integrity, so the token can be neither read nor forged.
+// This module used to just carry the answer key (grading data only) — persistence happened
+// eagerly at generation time via persistQuiz(), before the student had answered anything. That
+// meant every quiz a student generated showed up as a real DB row even if they never attempted
+// a single question and immediately navigated away — a "quiz taken" record for a quiz nobody
+// actually took. Fixed by moving ALL persistence to submit time: generation now always returns
+// this token, carrying everything needed both to grade AND to persist the quiz for the first
+// time (position/stem/type/chunkId/options/etc, not just the answer key) — /api/quiz/grade is
+// the only place that ever calls persistQuiz, and only when there's a real submission.
 //
-// Stateless on purpose: works on serverless with no database and no shared cache. Once the
-// `quizzes` / `quiz_questions` tables are actually written to, grading can look the key up by
-// quiz id instead and this module becomes unnecessary.
+// The token is ENCRYPTED (AES-256-GCM), not just signed: a signed-but-base64 token still lets
+// anyone decode the payload and read the answers, which would leave the original bug in place
+// behind a longer string. GCM gives confidentiality AND integrity, so the token can be neither
+// read nor forged.
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import type { QuestionType } from '@/lib/quiz/persist';
 
-export interface AnswerKeyEntry {
-  questionId: string;
-  correctIndex: number;
-  explanation: string;
+export type QuizTokenQuestion =
+  | {
+      id: string;
+      position: number;
+      stem: string;
+      questionType: 'mcq';
+      chunkId: string | null;
+      options: string[];
+      correctIndex: number;
+      explanation: string;
+    }
+  | {
+      id: string;
+      position: number;
+      stem: string;
+      questionType: 'short' | 'long';
+      chunkId: string | null;
+      modelAnswer: string;
+      rubric: string;
+      maxScore: number;
+    };
+
+export interface QuizToken {
+  /** Resolved at generation time (chapters is shared curriculum metadata, not a per-student
+   *  record, so upserting it eagerly doesn't create a "did I take this quiz" record). Null when
+   *  Supabase wasn't configured — grading still works, persistence at submit time is just
+   *  skipped, same as today. */
+  chapterId: string | null;
+  topicLabel: string | null;
+  questions: QuizTokenQuestion[];
 }
 
 interface Payload {
-  key: AnswerKeyEntry[];
+  data: QuizToken;
   /** Unix ms. Tokens expire so a captured one can't be replayed indefinitely. */
   exp: number;
 }
@@ -55,9 +88,9 @@ function secretKey(): Buffer {
   return createHash('sha256').update(secret).digest();
 }
 
-/** Encrypt the answer key into an opaque token safe to hand to the browser. */
-export function sealAnswerKey(key: AnswerKeyEntry[]): string {
-  const payload: Payload = { key, exp: Date.now() + TOKEN_TTL_MS };
+/** Encrypt a freshly generated quiz into an opaque token safe to hand to the browser. */
+export function sealQuizToken(data: QuizToken): string {
+  const payload: Payload = { data, exp: Date.now() + TOKEN_TTL_MS };
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv(ALGORITHM, secretKey(), iv);
 
@@ -70,7 +103,7 @@ export function sealAnswerKey(key: AnswerKeyEntry[]): string {
 }
 
 /** Decrypt and validate. Returns null if tampered with, malformed, or expired. */
-export function openAnswerKey(token: string): AnswerKeyEntry[] | null {
+export function openQuizToken(token: string): QuizToken | null {
   if (typeof token !== 'string' || token.length === 0) return null;
 
   try {
@@ -88,11 +121,14 @@ export function openAnswerKey(token: string): AnswerKeyEntry[] | null {
     const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
     const payload = JSON.parse(plaintext) as Payload;
 
-    if (!payload || !Array.isArray(payload.key)) return null;
+    if (!payload || !payload.data || !Array.isArray(payload.data.questions)) return null;
     if (typeof payload.exp !== 'number' || Date.now() > payload.exp) return null;
 
-    return payload.key;
+    return payload.data;
   } catch {
     return null;
   }
 }
+
+// Re-exported so callers don't need a separate import just for the discriminant type.
+export type { QuestionType };

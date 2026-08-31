@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { GoogleGenAI } from '@google/genai';
 import { INITIAL_SYLLABUS_CHUNKS, CHAPTER_DIRECTORY } from '@/lib/syllabus-data';
 import { getGeminiClient } from '@/lib/gemini';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
 import { getCurrentUserAndProfile } from '@/lib/auth/get-current-user';
-import { sealAnswerKey, type AnswerKeyEntry } from '@/lib/quiz/answer-key';
-import { persistQuiz, type PersistableQuestion } from '@/lib/quiz/persist';
+import { sealQuizToken, type QuizTokenQuestion } from '@/lib/quiz/answer-key';
+import { resolveChapterId, fetchRecentStems, type QuestionType } from '@/lib/quiz/persist';
 
 interface SourceChunk {
   id: string;
@@ -16,11 +17,11 @@ interface SourceChunk {
   chapterTitle: string | null;
 }
 
-/** Real ingested content — the same content_chunks_expanded view /api/syllabus already reads.
+/** Real ingested content — the same content_chunks_expanded view /api/quiz/scope reads.
  *  Returns null when Supabase isn't configured at all (caller falls back to the local dev
  *  corpus), or an array (possibly empty) when it is — an empty array here means "genuinely
- *  nothing ingested for this chapter yet," which the caller must treat as a real 404, not fall
- *  through to unrelated hardcoded content pretending to be this chapter's. */
+ *  nothing ingested for this chapter/topic yet," which the caller must treat as a real 404,
+ *  not fall through to unrelated hardcoded content pretending to be this chapter's. */
 async function fetchChunksFromDb(
   admin: SupabaseClient | null,
   board: string,
@@ -30,13 +31,16 @@ async function fetchChunksFromDb(
 ): Promise<SourceChunk[] | null> {
   if (!admin) return null;
 
+  // Quizzes must be grounded in textbook prose only — never model papers or past papers, which
+  // are exam question-and-answer content, not syllabus material to derive fresh questions from.
   const { data, error } = await admin
     .from('content_chunks_expanded')
     .select('id, content, page_from, section, chapter_no, chapter_title')
     .eq('board', board)
     .eq('class_level', classLevel)
     .eq('subject', subject)
-    .eq('chapter_no', chapterNo);
+    .eq('chapter_no', chapterNo)
+    .eq('source_type', 'textbook');
 
   if (error) {
     console.error('Quiz: content_chunks_expanded query failed:', error.message);
@@ -52,200 +56,318 @@ async function fetchChunksFromDb(
   }));
 }
 
-/** Real content_chunks rows are gen_random_uuid() — the hand-written fallback bank and local
- *  dev corpus use synthetic ids like "pctb-10-phy-ch14-01" that don't exist as real rows.
- *  Persisting one of those as quiz_questions.chunk_id would violate its foreign key. */
+/** Real content_chunks rows are gen_random_uuid() — the local dev corpus uses synthetic ids
+ *  like "pctb-10-phy-ch14-01" that don't exist as real rows. Persisting one of those as
+ *  quiz_questions.chunk_id would violate its foreign key. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isRealChunkId = (id: string) => UUID_RE.test(id);
 
-/** Internal shape, including the answer. Never returned to the browser as-is. */
+/** Internal shape, including the answer/rubric. Never returned to the browser as-is. */
 export interface QuizQuestionData {
   id: string;
   position: number;
   stem: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
+  questionType: QuestionType;
   chunkId: string;
   chapterNo: number;
   page: number;
   section: string;
+  // MCQ only.
+  options?: string[];
+  correctIndex?: number;
+  explanation?: string;
+  // short/long only.
+  modelAnswer?: string;
+  rubric?: string;
+  maxScore?: number;
 }
 
-/** What the browser actually receives: no correctIndex, no explanation. */
-export type PublicQuizQuestion = Omit<QuizQuestionData, 'correctIndex' | 'explanation'>;
+/** What the browser actually receives: no correctIndex/explanation/modelAnswer/rubric. */
+export type PublicQuizQuestion = Omit<QuizQuestionData, 'correctIndex' | 'explanation' | 'modelAnswer' | 'rubric'>;
 
-/** Strip the answer key out of the questions and seal it into a signed token. Used only as a
- *  fallback when real persistence isn't possible (no Supabase, no signed-in user, or a genuine
- *  DB error) — see respondWithQuiz below, which tries persistQuiz() first. */
-function toPublicQuizWithToken(questions: QuizQuestionData[]) {
-  const answerKey: AnswerKeyEntry[] = questions.map((q) => ({
-    questionId: q.id,
-    correctIndex: q.correctIndex,
-    explanation: q.explanation,
-  }));
+const SHORT_MAX_SCORE = 2;
+const LONG_MAX_SCORE = 5;
 
-  const publicQuestions: PublicQuizQuestion[] = questions.map(
-    ({ correctIndex: _correctIndex, explanation: _explanation, ...rest }) => rest
-  );
+const CHAPTER_PROFILE = { mcq: 50, short: 10, long: 2 };
 
-  return { questions: publicQuestions, answerToken: sealAnswerKey(answerKey) };
+const CHARS_PER_MCQ = 250;
+const CHARS_PER_TEXT_Q = 500;
+const MIN_MCQ = 5;
+
+/** Scales the target question counts down when a chapter's ingested content is too thin to
+ *  safely support the full profile — forcing the full 50/10/2 against a short chapter is what
+ *  produces near-duplicate or barely-grounded questions. Returns null when even the floor
+ *  (MIN_MCQ worth of MCQs) can't be supported, meaning the caller should refuse outright rather
+ *  than generate anything. */
+function scaleCounts(
+  totalChars: number,
+  profile: { mcq: number; short: number; long: number }
+): { mcq: number; short: number; long: number; partial: boolean } | null {
+  const required = profile.mcq * CHARS_PER_MCQ + (profile.short + profile.long) * CHARS_PER_TEXT_Q;
+  if (totalChars >= required) return { ...profile, partial: false };
+
+  const minRequired = MIN_MCQ * CHARS_PER_MCQ;
+  if (totalChars < minRequired) return null;
+
+  const ratio = totalChars / required;
+  return {
+    mcq: profile.mcq > 0 ? Math.min(profile.mcq, Math.max(MIN_MCQ, Math.round(profile.mcq * ratio))) : 0,
+    short: profile.short > 0 ? Math.min(profile.short, Math.round(profile.short * ratio)) : 0,
+    long: profile.long > 0 ? Math.min(profile.long, Math.round(profile.long * ratio)) : 0,
+    partial: true,
+  };
 }
 
-/** Persists the quiz for real when a logged-in user + Supabase are both available, returning a
- *  quizId the browser can grade against later (src/lib/quiz/persist.ts — this is what the
- *  quiz_answer_keys migration comment meant by "lets answer-key.ts be retired once quiz
- *  persistence ships"). Falls back to the signed-token approach on any failure, same resilience
- *  pattern the rest of this app uses rather than hard-failing when persistence isn't possible. */
-async function respondWithQuiz(
+function batchSizes(total: number, maxPerBatch: number): number[] {
+  const sizes: number[] = [];
+  let remaining = total;
+  while (remaining > 0) {
+    const size = Math.min(maxPerBatch, remaining);
+    sizes.push(size);
+    remaining -= size;
+  }
+  return sizes;
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+// Max questions asked for per Gemini call. Gemini's free tier caps requests at 15/minute
+// (a separate, tighter limit than the input-token quota) — a chapter-scope quiz that split
+// MCQs into 5 batches of 10 fired 7 concurrent calls (5 MCQ + short + long) per generation,
+// which alone ate nearly the whole per-minute request budget and left no headroom for retries
+// or other app features (chat/ask) sharing the same quota. Larger, fewer batches trade a
+// slightly higher per-call truncation risk (mitigated by callGemini's one retry) for staying
+// well under the request-count ceiling.
+const MCQ_MAX_PER_BATCH = 25;
+
+// Per-batch context budgets, in characters. Handing every batch the FULL chapter's chunk set
+// (as opposed to just shuffling the order) multiplies token usage by the number of concurrent
+// batches — a ~130K-char chapter with several MCQ batches ran concurrent calls each carrying
+// the whole chapter, which blew through Gemini's free-tier per-minute input-token quota (250K
+// tokens/min) in one request. Sampling a bounded slice per batch keeps total usage sane while
+// still giving each batch (and each regeneration) a different, shuffled view of the corpus.
+const MCQ_BATCH_CHAR_BUDGET = 16000;
+const TEXT_BATCH_CHAR_BUDGET = 12000;
+
+function sampleChunksForBudget<T extends { content: string }>(chunks: T[], charBudget: number): T[] {
+  const shuffled = shuffle(chunks);
+  const picked: T[] = [];
+  let total = 0;
+  for (const c of shuffled) {
+    if (total >= charBudget && picked.length > 0) break;
+    picked.push(c);
+    total += c.content.length;
+  }
+  return picked;
+}
+
+async function callGeminiOnce(ai: GoogleGenAI, model: string, prompt: string): Promise<unknown[] | null> {
+  try {
+    const res = await ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: { responseMimeType: 'application/json', temperature: 0.35 },
+    });
+    const text = res.text?.trim();
+    if (!text) return null;
+    const cleaned = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+    const parsed = JSON.parse(cleaned);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch (err) {
+    console.warn('Quiz batch generation failed:', err);
+    return null;
+  }
+}
+
+/** One retry on top of callGeminiOnce — occasional truncated/malformed JSON from the model is
+ *  common enough at this batch volume that a single retry meaningfully improves how often a
+ *  batch actually contributes its full question count, without adding much latency (batches
+ *  already run in parallel, so one retry costs one extra round-trip for the batches that need
+ *  it, not a serial multiplier across all of them). */
+async function callGemini(ai: GoogleGenAI, model: string, prompt: string): Promise<unknown[] | null> {
+  const first = await callGeminiOnce(ai, model, prompt);
+  if (first && first.length > 0) return first;
+  return callGeminiOnce(ai, model, prompt);
+}
+
+/** Validates each generated question's citation against the chunks that batch was actually
+ *  shown. A question citing a chunk id that doesn't exist is DISCARDED, never reassigned —
+ *  substituting a real chunk would give a hallucinated question real-looking provenance,
+ *  which is worse than dropping it. */
+function validateMcq(parsed: unknown[], chunks: SourceChunk[]): QuizQuestionData[] {
+  return parsed
+    .map((raw, idx) => {
+      const q = raw as any;
+      const matchedChunk = chunks.find((c) => c.id === q.chunkId);
+      if (!matchedChunk) {
+        console.warn(`Quiz: discarding MCQ ${q.id ?? idx} — cites unknown chunk "${q.chunkId}"`);
+        return null;
+      }
+      if (!q.stem || !Array.isArray(q.options) || typeof q.correctIndex !== 'number') {
+        console.warn(`Quiz: discarding MCQ ${q.id ?? idx} — malformed`);
+        return null;
+      }
+      const question: QuizQuestionData = {
+        // Never trust the model's own "id" field for uniqueness — it numbers each batch/type
+        // independently (every batch tends to start again at "q-1"), so keeping it verbatim
+        // produces id collisions across question types that corrupt answer-token grading.
+        id: `mcq-${idx}-${Math.random().toString(36).slice(2, 10)}`,
+        position: 0,
+        stem: q.stem,
+        questionType: 'mcq',
+        options: q.options,
+        correctIndex: q.correctIndex,
+        explanation: q.explanation ?? '',
+        chunkId: matchedChunk.id,
+        chapterNo: matchedChunk.chapterNo,
+        page: matchedChunk.pageFrom ?? 0,
+        section: matchedChunk.section ?? '',
+      };
+      return question;
+    })
+    .filter((q): q is QuizQuestionData => q !== null);
+}
+
+function validateText(
+  parsed: unknown[],
+  chunks: SourceChunk[],
+  type: 'short' | 'long',
+  maxScore: number
+): QuizQuestionData[] {
+  return parsed
+    .map((raw, idx) => {
+      const q = raw as any;
+      const matchedChunk = chunks.find((c) => c.id === q.chunkId);
+      if (!matchedChunk) {
+        console.warn(`Quiz: discarding ${type} question ${q.id ?? idx} — cites unknown chunk "${q.chunkId}"`);
+        return null;
+      }
+      if (!q.stem || !q.modelAnswer) {
+        console.warn(`Quiz: discarding ${type} question ${q.id ?? idx} — malformed`);
+        return null;
+      }
+      const question: QuizQuestionData = {
+        // Same reasoning as validateMcq above — never trust the model's self-assigned id.
+        id: `${type}-${idx}-${Math.random().toString(36).slice(2, 10)}`,
+        position: 0,
+        stem: q.stem,
+        questionType: type,
+        modelAnswer: q.modelAnswer,
+        rubric: q.rubric ?? '',
+        maxScore,
+        chunkId: matchedChunk.id,
+        chapterNo: matchedChunk.chapterNo,
+        page: matchedChunk.pageFrom ?? 0,
+        section: matchedChunk.section ?? '',
+      };
+      return question;
+    })
+    .filter((q): q is QuizQuestionData => q !== null);
+}
+
+async function generateQuestions(
+  ai: GoogleGenAI,
+  model: string,
+  type: QuestionType,
+  count: number,
+  chunks: SourceChunk[],
+  board: string,
+  classLevel: number,
+  subject: string,
+  chapterNo: number,
+  avoidStems: string[]
+): Promise<QuizQuestionData[]> {
+  if (count <= 0) return [];
+
+  const chunkText = chunks
+    .map((c) => `[CHUNK id="${c.id}" page="${c.pageFrom ?? ''}" section="${c.section ?? ''}"]\n${c.content}\n[/CHUNK]`)
+    .join('\n\n');
+  const scopeDesc = `Chapter ${chapterNo}`;
+  const avoidBlock =
+    avoidStems.length > 0
+      ? `\n\nDo not repeat or closely paraphrase any of these previously-asked questions:\n${avoidStems
+          .map((s) => `- ${s}`)
+          .join('\n')}`
+      : '';
+
+  const prompt =
+    type === 'mcq'
+      ? `Based ONLY on the syllabus chunks below, generate ${count} multiple choice questions (MCQs) for ${board} Class ${classLevel} ${subject}, ${scopeDesc}.
+Each MCQ must have exactly 4 options, a 0-indexed correct answer, a brief explanation citing the textbook fact, and the chunkId it was derived from.${avoidBlock}
+
+CONTEXT:
+${chunkText}
+
+Return strictly a JSON array of objects in this shape:
+[{"id":"q-1","stem":"Question text here?","options":["A","B","C","D"],"correctIndex":0,"explanation":"Why this is correct according to the syllabus...","chunkId":"<a chunk id from above>"}]`
+      : `Based ONLY on the syllabus chunks below, generate ${count} ${
+          type === 'short' ? 'short-answer (2-3 sentence)' : 'long-answer (detailed, multi-paragraph)'
+        } questions for ${board} Class ${classLevel} ${subject}, ${scopeDesc}.
+For each question, provide a model answer and a brief grading rubric (what a correct answer must cover), and the chunkId it was derived from.${avoidBlock}
+
+CONTEXT:
+${chunkText}
+
+Return strictly a JSON array of objects in this shape:
+[{"id":"q-1","stem":"Question text here?","modelAnswer":"The ideal answer...","rubric":"Must mention X, Y, Z...","chunkId":"<a chunk id from above>"}]`;
+
+  const parsed = await callGemini(ai, model, prompt);
+  if (!parsed) return [];
+
+  return type === 'mcq'
+    ? validateMcq(parsed, chunks)
+    : validateText(parsed, chunks, type, type === 'short' ? SHORT_MAX_SCORE : LONG_MAX_SCORE);
+}
+
+/** Builds the response for a freshly generated quiz. Deliberately does NOT touch quizzes/
+ *  quiz_questions/etc — nothing about this quiz is recorded in the database yet. The quiz only
+ *  gets persisted for real when the student actually submits an attempt (/api/quiz/grade),
+ *  which is what the sealed token here carries everything necessary for. Generating a quiz and
+ *  never answering it should leave no trace of a "quiz taken." */
+function respondWithQuiz(
   questions: QuizQuestionData[],
-  ctx: {
-    userId: string | null;
-    admin: SupabaseClient | null;
-    board: string;
-    classLevel: number;
-    subject: string;
-    chapterNo: number;
-    chapterTitle: string;
-  },
+  ctx: { chapterId: string | null },
   extra: Record<string, unknown>
 ) {
-  if (ctx.userId && ctx.admin) {
-    const persistable: PersistableQuestion[] = questions.map((q) => ({
-      position: q.position,
-      stem: q.stem,
-      options: q.options,
-      correctIndex: q.correctIndex,
-      explanation: q.explanation,
-      chunkId: isRealChunkId(q.chunkId) ? q.chunkId : null,
-    }));
+  const tokenQuestions: QuizTokenQuestion[] = questions.map((q) =>
+    q.questionType === 'mcq'
+      ? {
+          id: q.id,
+          position: q.position,
+          stem: q.stem,
+          questionType: 'mcq',
+          chunkId: isRealChunkId(q.chunkId) ? q.chunkId : null,
+          options: q.options!,
+          correctIndex: q.correctIndex!,
+          explanation: q.explanation ?? '',
+        }
+      : {
+          id: q.id,
+          position: q.position,
+          stem: q.stem,
+          questionType: q.questionType,
+          chunkId: isRealChunkId(q.chunkId) ? q.chunkId : null,
+          modelAnswer: q.modelAnswer ?? '',
+          rubric: q.rubric ?? '',
+          maxScore: q.maxScore ?? SHORT_MAX_SCORE,
+        }
+  );
 
-    const persisted = await persistQuiz(
-      ctx.admin,
-      ctx.userId,
-      ctx.board,
-      ctx.classLevel,
-      ctx.subject,
-      ctx.chapterNo,
-      ctx.chapterTitle,
-      persistable
-    );
+  const quizToken = sealQuizToken({ chapterId: ctx.chapterId, topicLabel: null, questions: tokenQuestions });
 
-    if (persisted) {
-      const publicQuestions: PublicQuizQuestion[] = questions.map((q, idx) => {
-        const { correctIndex: _c, explanation: _e, ...rest } = q;
-        return { ...rest, id: persisted.questionIds[idx] };
-      });
-      return NextResponse.json({ questions: publicQuestions, quizId: persisted.quizId, ...extra });
-    }
-    console.warn('Quiz: persistence failed, falling back to signed-token grading for this request.');
-  }
+  const publicQuestions: PublicQuizQuestion[] = questions.map(
+    ({ correctIndex: _correctIndex, explanation: _explanation, modelAnswer: _modelAnswer, rubric: _rubric, ...rest }) => rest
+  );
 
-  return NextResponse.json({ ...toPublicQuizWithToken(questions), ...extra });
+  return NextResponse.json({ questions: publicQuestions, quizToken, ...extra });
 }
-
-const PRECOMPUTED_QUIZZES: Record<number, QuizQuestionData[]> = {
-  14: [
-    {
-      id: 'q-14-1',
-      position: 1,
-      stem: "What is the SI unit of electric current?",
-      options: ["Volt (V)", "Ampere (A)", "Ohm (Ω)", "Coulomb (C)"],
-      correctIndex: 1,
-      explanation: "Current is the rate of flow of charge (I = Q/t). Its SI unit is Ampere (A), which equals 1 Coulomb per second.",
-      chunkId: 'pctb-10-phy-ch14-01',
-      chapterNo: 14,
-      page: 91,
-      section: '14.1 Electric Current'
-    },
-    {
-      id: 'q-14-2',
-      position: 2,
-      stem: "According to Ohm's law, what condition must remain constant for current to be directly proportional to potential difference?",
-      options: ["The magnetic field", "The temperature and physical state", "The color of the wire", "The atmospheric pressure"],
-      correctIndex: 1,
-      explanation: "Ohm's law states that V ∝ I only when the temperature and physical state of the conductor remain constant.",
-      chunkId: 'pctb-10-phy-ch14-03',
-      chapterNo: 14,
-      page: 95,
-      section: "14.3 Ohm's Law and Resistance"
-    },
-    {
-      id: 'q-14-3',
-      position: 3,
-      stem: "How is the resistance of a conductor related to its cross-sectional area (A)?",
-      options: ["Directly proportional (R ∝ A)", "Inversely proportional (R ∝ 1/A)", "Independent of area", "Proportional to A squared"],
-      correctIndex: 1,
-      explanation: "Resistance is inversely proportional to cross-sectional area: R = ρ(L/A). Thicker wires offer less resistance.",
-      chunkId: 'pctb-10-phy-ch14-04',
-      chapterNo: 14,
-      page: 98,
-      section: '14.4 Factors Affecting Resistance'
-    },
-    {
-      id: 'q-14-4',
-      position: 4,
-      stem: "According to Joule's Law, how is heat generated in a resistor related to the current flowing through it?",
-      options: ["Proportional to current (I)", "Proportional to square of current (I²)", "Inversely proportional to current", "Proportional to square root of current"],
-      correctIndex: 1,
-      explanation: "Joule's law states that heat generated W = I² · R · t, directly proportional to the square of current.",
-      chunkId: 'pctb-10-phy-ch14-05',
-      chapterNo: 14,
-      page: 102,
-      section: "14.6 Joule's Law"
-    },
-    {
-      id: 'q-14-5',
-      position: 5,
-      stem: "One kilowatt-hour (1 kWh) of electrical energy is equal to how many Joules?",
-      options: ["1,000 J", "36,000 J", "3.6 × 10⁶ J (3.6 MJ)", "3.6 × 10³ J"],
-      correctIndex: 2,
-      explanation: "1 kWh = 1000 W × 3600 seconds = 3,600,000 J = 3.6 × 10⁶ Joules.",
-      chunkId: 'pctb-10-phy-ch14-05',
-      chapterNo: 14,
-      page: 103,
-      section: "14.6 Joule's Law and Electrical Energy"
-    }
-  ],
-  15: [
-    {
-      id: 'q-15-1',
-      position: 1,
-      stem: "Which rule is used to find the direction of magnetic field lines around a straight current-carrying wire?",
-      options: ["Left Hand Rule", "Right Hand Grip Rule", "Lenz's Rule", "Coulomb's Law"],
-      correctIndex: 1,
-      explanation: "Grasp the wire with thumb pointing in direction of conventional current; curled fingers point along magnetic field lines.",
-      chunkId: 'pctb-10-phy-ch15-01',
-      chapterNo: 15,
-      page: 116,
-      section: '15.1 Magnetic Effects of Steady Current'
-    },
-    {
-      id: 'q-15-2',
-      position: 2,
-      stem: "Lenz's Law is a consequence of which fundamental law of physics?",
-      options: ["Conservation of charge", "Conservation of energy", "Conservation of momentum", "Newton's third law"],
-      correctIndex: 1,
-      explanation: "Lenz's Law states induced current opposes its cause, which complies strictly with the Law of Conservation of Energy.",
-      chunkId: 'pctb-10-phy-ch15-02',
-      chapterNo: 15,
-      page: 124,
-      section: '15.4 Electromagnetic Induction & Lenz’s Law'
-    },
-    {
-      id: 'q-15-3',
-      position: 3,
-      stem: "Why does a transformer NOT operate on direct current (DC)?",
-      options: ["DC has too high voltage", "DC does not produce a changing magnetic flux", "DC burns the copper wire", "DC has infinite frequency"],
-      correctIndex: 1,
-      explanation: "Transformers require changing magnetic flux to induce voltage in the secondary coil; steady DC has zero rate of flux change.",
-      chunkId: 'pctb-10-phy-ch15-03',
-      chapterNo: 15,
-      page: 129,
-      section: '15.6 Transformer'
-    }
-  ]
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -262,23 +384,37 @@ export async function POST(req: NextRequest) {
     const admin = getServiceRoleClient();
 
     // Real ingested content first; the hardcoded local corpus is a dev-only fallback for when
-    // Supabase isn't configured at all (same pattern /api/syllabus already uses) — never a
+    // Supabase isn't configured at all (same pattern /api/quiz/scope already uses) — never a
     // silent substitute for content that's simply missing for this specific chapter.
     const dbChunks = await fetchChunksFromDb(admin, board, classLevel, subject, chapterNo);
     const matchingChunks: SourceChunk[] =
       dbChunks ??
-      INITIAL_SYLLABUS_CHUNKS.filter((c) => c.chapterNo === chapterNo && c.subject.toLowerCase() === subject).map((c) => ({
-        id: c.id,
-        content: c.content,
-        pageFrom: c.pageFrom,
-        section: c.section,
-        chapterNo: c.chapterNo,
-        chapterTitle: c.chapterTitle,
-      }));
+      INITIAL_SYLLABUS_CHUNKS.filter((c) => c.chapterNo === chapterNo && c.subject.toLowerCase() === subject).map(
+        (c) => ({
+          id: c.id,
+          content: c.content,
+          pageFrom: c.pageFrom,
+          section: c.section,
+          chapterNo: c.chapterNo,
+          chapterTitle: c.chapterTitle,
+        })
+      );
 
     if (matchingChunks.length === 0) {
       return NextResponse.json(
-        { error: `No ingested content for ${board} Class ${classLevel} ${subject} Chapter ${chapterNo} yet.` },
+        { error: `No ingested textbook content for ${board} Class ${classLevel} ${subject} Chapter ${chapterNo} yet.` },
+        { status: 404 }
+      );
+    }
+
+    const totalChars = matchingChunks.reduce((sum, c) => sum + c.content.length, 0);
+    const counts = scaleCounts(totalChars, CHAPTER_PROFILE);
+    if (!counts) {
+      return NextResponse.json(
+        {
+          error:
+            'Not enough ingested content to safely generate a quiz for this chapter yet. Try a different one, or check back once more content has been ingested.',
+        },
         { status: 404 }
       );
     }
@@ -287,115 +423,76 @@ export async function POST(req: NextRequest) {
       matchingChunks[0].chapterTitle ||
       CHAPTER_DIRECTORY.find((c) => c.chapterNo === chapterNo)?.chapterTitle ||
       `Chapter ${chapterNo}`;
-    const persistCtx = { userId: user?.id ?? null, admin, board, classLevel, subject, chapterNo, chapterTitle };
+
+    let chapterId: string | null = null;
+    if (admin) {
+      chapterId = await resolveChapterId(admin, board, classLevel, subject, chapterNo, chapterTitle);
+    }
+
+    let recentStems: string[] = [];
+    if (user && admin && chapterId) {
+      recentStems = await fetchRecentStems(admin, user.id, chapterId, null);
+    }
 
     const ai = getGeminiClient();
-    if (ai) {
-      try {
-        const chunkText = matchingChunks
-          .map((c) => `[CHUNK id="${c.id}" page="${c.pageFrom ?? ''}" section="${c.section ?? ''}"]\n${c.content}\n[/CHUNK]`)
-          .join('\n\n');
-
-        const prompt = `Based ONLY on the syllabus chunks below, generate 5 multiple choice questions (MCQs) for ${board} Class ${classLevel} ${subject} Chapter ${chapterNo}.
-Each MCQ must have exactly 4 options, a 0-indexed correct answer, a brief explanation citing the textbook fact, and the chunkId it was derived from.
-
-CONTEXT:
-${chunkText}
-
-Return strictly a JSON array of objects in this shape:
-[
-  {
-    "id": "q-1",
-    "position": 1,
-    "stem": "Question text here?",
-    "options": ["A", "B", "C", "D"],
-    "correctIndex": 0,
-    "explanation": "Why this is correct according to the syllabus...",
-    "chunkId": "pctb-10-phy-ch14-01"
-  }
-]`;
-
-        const res = await ai.models.generateContent({
-          model: process.env.CHAT_MODEL || 'gemini-3.5-flash-lite',
-          contents: prompt,
-          config: {
-            responseMimeType: 'application/json',
-            temperature: 0.2,
-          },
-        });
-
-        const text = res.text?.trim();
-        if (text) {
-          const cleaned = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-          const parsed = JSON.parse(cleaned);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            // Validate each question's citation against the chunks we actually retrieved.
-            // A question citing a chunk id that doesn't exist is DISCARDED, never reassigned:
-            // substituting a real chunk would give a hallucinated question real-looking
-            // provenance, which is worse than dropping it.
-            const mappedQuestions: QuizQuestionData[] = parsed
-              .map((q, idx) => {
-                const matchedChunk = matchingChunks.find((c) => c.id === q.chunkId);
-                if (!matchedChunk) {
-                  console.warn(
-                    `Quiz: discarding question ${q.id ?? idx} — cites unknown chunk "${q.chunkId}"`
-                  );
-                  return null;
-                }
-                if (!q.stem || !Array.isArray(q.options) || typeof q.correctIndex !== 'number') {
-                  console.warn(`Quiz: discarding question ${q.id ?? idx} — malformed`);
-                  return null;
-                }
-                return {
-                  id: q.id || `gen-q-${idx}`,
-                  position: 0, // renumbered after filtering
-                  stem: q.stem,
-                  options: q.options,
-                  correctIndex: q.correctIndex,
-                  explanation: q.explanation,
-                  chunkId: matchedChunk.id,
-                  chapterNo: matchedChunk.chapterNo,
-                  page: matchedChunk.pageFrom ?? 0,
-                  section: matchedChunk.section ?? '',
-                };
-              })
-              .filter((q): q is QuizQuestionData => q !== null)
-              .map((q, idx) => ({ ...q, position: idx + 1 }));
-
-            if (mappedQuestions.length > 0) {
-              return await respondWithQuiz(mappedQuestions, persistCtx, {
-                chapterNo,
-                subject,
-                discarded: parsed.length - mappedQuestions.length,
-              });
-            }
-            console.warn('Quiz: every generated question failed citation validation.');
-          }
-        }
-      } catch (err) {
-        console.warn('Gemini quiz generation fallback:', err);
-      }
+    if (!ai) {
+      return NextResponse.json(
+        { error: 'Quiz generation is temporarily unavailable — the generation service is not configured.' },
+        { status: 503 }
+      );
     }
 
-    // Hand-written fallback bank, used only when generation is unavailable or produced nothing
-    // that validated — and ONLY for a chapter it actually covers (14/15 today). Substituting a
-    // different chapter's questions here (the old "|| PRECOMPUTED_QUIZZES[14]" behavior) would
-    // silently show a student the wrong chapter's content while the response still claimed the
-    // chapter they asked for — a real, honest "unavailable" beats a mislabeled quiz.
-    const fallbackQuestions = PRECOMPUTED_QUIZZES[chapterNo];
-    if (fallbackQuestions) {
-      return await respondWithQuiz(fallbackQuestions, persistCtx, {
-        chapterNo,
-        subject,
-        isFallback: true,
-        note: 'Fallback question bank — live generation unavailable for this request.',
-      });
-    }
+    const model = process.env.CHAT_MODEL || 'gemini-3.5-flash-lite';
 
-    return NextResponse.json(
-      { error: 'Quiz generation is temporarily unavailable for this chapter. Please try again shortly.' },
-      { status: 503 }
+    // Each batch gets its own bounded, shuffled sample of the retrieved chunks — both to keep
+    // total token usage across concurrent batches sane (see sampleChunksForBudget above) and,
+    // combined with the recent-stems "avoid these" instruction, to keep repeat generations for
+    // the same chapter meaningfully different from one another.
+    const mcqPromises = batchSizes(counts.mcq, MCQ_MAX_PER_BATCH).map((size) =>
+      generateQuestions(
+        ai, model, 'mcq', size, sampleChunksForBudget(matchingChunks, MCQ_BATCH_CHAR_BUDGET),
+        board, classLevel, subject, chapterNo, recentStems
+      )
     );
+    const shortPromise = generateQuestions(
+      ai, model, 'short', counts.short, sampleChunksForBudget(matchingChunks, TEXT_BATCH_CHAR_BUDGET),
+      board, classLevel, subject, chapterNo, recentStems
+    );
+    const longPromise = generateQuestions(
+      ai, model, 'long', counts.long, sampleChunksForBudget(matchingChunks, TEXT_BATCH_CHAR_BUDGET),
+      board, classLevel, subject, chapterNo, recentStems
+    );
+
+    const [mcqBatches, shortQuestions, longQuestions] = await Promise.all([
+      Promise.all(mcqPromises),
+      shortPromise,
+      longPromise,
+    ]);
+
+    const mcqQuestions = mcqBatches.flat();
+    // Reading order: MCQs first, then short answer, then long answer.
+    const allQuestions = [...mcqQuestions, ...shortQuestions, ...longQuestions].map((q, idx) => ({
+      ...q,
+      position: idx + 1,
+    }));
+
+    if (allQuestions.length === 0) {
+      return NextResponse.json(
+        { error: 'Quiz generation is temporarily unavailable for this request. Please try again shortly.' },
+        { status: 503 }
+      );
+    }
+
+    const requestedTotal = CHAPTER_PROFILE.mcq + CHAPTER_PROFILE.short + CHAPTER_PROFILE.long;
+    const partial = counts.partial || allQuestions.length < requestedTotal;
+
+    return respondWithQuiz(allQuestions, { chapterId }, {
+      chapterNo,
+      subject,
+      partial,
+      requestedCounts: CHAPTER_PROFILE,
+      effectiveCounts: { mcq: mcqQuestions.length, short: shortQuestions.length, long: longQuestions.length },
+    });
   } catch (error) {
     console.error('Quiz API error:', error);
     return NextResponse.json({ error: 'Failed to generate quiz' }, { status: 500 });
