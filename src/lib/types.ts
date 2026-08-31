@@ -142,3 +142,21 @@ export interface AskDocumentResponse {
   sourceType: AskSourceType;
   sections: AskDocumentSection[];
 }
+
+// /api/explore/overview — a per-subject content summary for the whole board+classLevel in one
+// round trip, so /explore can render a "planet" per subject without one request per subject.
+// Always includes every subject code, even ones with zero ingested content (same honest-empty
+// convention as /api/ask/options) — a subject with nothing ingested still gets a plain, clickable
+// book; it just doesn't get the ring/glow that hasTextbook drives.
+export interface ExploreSubjectSummary {
+  subjectCode: string;
+  chapterCount: number;
+  hasTextbook: boolean;
+  hasModelPaper: boolean;
+}
+
+export interface ExploreOverviewResponse {
+  board: string;
+  classLevel: number;
+  subjects: ExploreSubjectSummary[];
+}
