@@ -18,5 +18,11 @@ next-env.d.ts
 # Crawler: per-run state (checksums, timestamps). Machine-local, not for VCS.
 data/.crawl-state.json
 
+# Crawler: cached OCR output per PDF checksum — OCR is the slowest step (20-30+ min for a full
+# textbook) and deterministic for an unchanged file, so re-running it after an ingestion-only
+# code change (e.g. tuning chapter detection) is pure waste. Machine-local, not for VCS — can
+# get large and is trivially regenerable.
+data/.ocr-cache/
+
 # Tesseract language data — downloaded at runtime by tesseract.js, not for VCS
 *.traineddata

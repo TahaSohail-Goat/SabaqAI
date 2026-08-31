@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { AskResponse, Citation, AskOptionsResponse, AskSourceType, AskUnit } from '@/lib/types';
 import { useScope } from '@/components/app/ScopeContext';
+import AskSubjectSelector from '@/components/app/AskSubjectSelector';
 import AskSourceSelector from '@/components/app/AskSourceSelector';
 import AskUnitSelector from '@/components/app/AskUnitSelector';
 import AskDocumentReader from '@/components/app/AskDocumentReader';
@@ -19,7 +20,8 @@ import { ASK_SOURCE_TYPES } from '@/lib/ask/source-meta';
 const EMPTY_SOURCES: AskOptionsResponse['sources'] = ASK_SOURCE_TYPES.map((sourceType) => ({ sourceType, units: [] }));
 
 export default function AskPage() {
-  const { board, classLevel, subject, language } = useScope();
+  const { board, classLevel, subject, language, setSubject, profile } = useScope();
+  const enrolledSubjects = profile?.subjects ?? [subject];
 
   const [sources, setSources] = useState(EMPTY_SOURCES);
   const [optionsLoading, setOptionsLoading] = useState(true);
@@ -103,6 +105,7 @@ export default function AskPage() {
       {/* Left: scope picker, input & result */}
       <div className="lg:col-span-6 space-y-6">
         <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm space-y-4">
+          <AskSubjectSelector value={subject} subjects={enrolledSubjects} onChange={setSubject} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <AskSourceSelector
               value={sourceType}
@@ -203,12 +206,18 @@ export default function AskPage() {
                       <span className="inline-flex gap-1.5 ml-2">
                         {stmt.chunkIds.map((cid, cIdx) => {
                           const citeObj = askResult.citations.find((c) => c.chunkId === cid);
+                          const isActive = citeObj && selectedCitation?.chunkId === citeObj.chunkId;
                           return (
                             <button
                               key={cIdx}
                               type="button"
                               onClick={() => citeObj && setSelectedCitation(citeObj)}
-                              className="inline-flex items-center gap-1 text-[11px] bg-brand-mint hover:bg-brand-light text-brand-dark border border-brand/20 px-2 py-0.5 rounded-md cursor-pointer transition-colors font-mono font-bold"
+                              title={citeObj ? `Jump to page ${citeObj.pageFrom} in ${citeObj.chapterTitle ?? `Chapter ${citeObj.chapterNo}`}` : undefined}
+                              className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md cursor-pointer transition-colors font-mono font-bold border ${
+                                isActive
+                                  ? 'bg-brand text-white border-brand'
+                                  : 'bg-brand-mint hover:bg-brand-light text-brand-dark border-brand/20'
+                              }`}
                             >
                               <span>[p. {citeObj?.pageFrom ?? '?'}]</span>
                             </button>
@@ -220,21 +229,36 @@ export default function AskPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {askResult.citations.map((cite, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setSelectedCitation(cite)}
-                      className={`text-xs px-3 py-2 rounded-xl border flex items-center gap-2 transition-colors ${
-                        selectedCitation?.chunkId === cite.chunkId
-                          ? 'bg-brand text-white border-brand'
-                          : 'bg-surface border-border text-navy-2 hover:border-brand/30'
-                      }`}
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span className="font-semibold truncate max-w-[220px]">{cite.chapterTitle ?? `Ch ${cite.chapterNo}`}</span>
-                    </button>
-                  ))}
+                  {askResult.citations.map((cite, idx) => {
+                    const isActive = selectedCitation?.chunkId === cite.chunkId;
+                    const pageLabel = cite.pageFrom
+                      ? cite.pageTo && cite.pageTo !== cite.pageFrom
+                        ? `p. ${cite.pageFrom}–${cite.pageTo}`
+                        : `p. ${cite.pageFrom}`
+                      : null;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedCitation(cite)}
+                        title={cite.excerpt}
+                        aria-pressed={isActive}
+                        className={`text-xs px-3 py-2 rounded-xl border flex items-center gap-2 transition-colors ${
+                          isActive
+                            ? 'bg-brand text-white border-brand'
+                            : 'bg-surface border-border text-navy-2 hover:border-brand/30'
+                        }`}
+                      >
+                        <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="font-semibold truncate max-w-[180px]">{cite.chapterTitle ?? `Ch ${cite.chapterNo}`}</span>
+                        {pageLabel && (
+                          <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${isActive ? 'bg-white/20' : 'bg-surface-2'}`}>
+                            {pageLabel}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ) : (

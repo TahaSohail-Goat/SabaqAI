@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from('chapters')
-    .select('chapter_no, chapter_title, chapter_sources(source_type, storage_path)')
+    .select('chapter_no, chapter_title, chapter_sources(source_type, storage_path, sections(page_from))')
     .eq('board_code', board)
     .eq('class_level', classLevel)
     .eq('subject_code', subject)
@@ -62,10 +62,18 @@ export async function GET(req: NextRequest) {
       // chapter_sources unique constraint) — one entry per chapter is enough for this picker.
       if (!units || seenForRow.has(sourceType)) continue;
       seenForRow.add(sourceType);
+      // The absolute page (in the original source) that maps to page 1 of this unit's own
+      // PDF — see AskUnit.pageFrom. Only textbook chapters carry a real offset (their PDF is
+      // a rebuilt excerpt of the full book); other source types' sections have no page_from
+      // at all, so this comes back null and the reader treats citation pages as already local.
+      const pageNumbers = (source.sections ?? [])
+        .map((s: { page_from: number | null }) => s.page_from)
+        .filter((p): p is number => p != null);
       units.push({
         chapterNo: row.chapter_no,
         chapterTitle: row.chapter_title,
         pdfUrl: source.storage_path ? getSourcePdfUrl(admin, source.storage_path) : null,
+        pageFrom: pageNumbers.length > 0 ? Math.min(...pageNumbers) : null,
       });
     }
   }

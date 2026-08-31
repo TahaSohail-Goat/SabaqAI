@@ -1,8 +1,14 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { BookOpen, ShieldCheck } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { AskDocumentResponse, AskSourceType, AskUnit, Citation } from '@/lib/types';
+
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
+}
 
 interface AskDocumentReaderProps {
   board: string;
@@ -47,32 +53,154 @@ export default function AskDocumentReader({ board, classLevel, subject, sourceTy
   );
 }
 
-// ─── Real PDF, rendered by the browser's own viewer — no library shipped for this. ─────────
+// ─── Real PDF, rendered onto a canvas via pdf.js — not the browser's native viewer. ─────────
+//
+// An earlier version of this pointed an iframe at `${pdfUrl}#page=N}`, remounting it (keyed
+// on the fragment) to force a fresh load per click. That's not just unreliable browser
+// behavior — for a textbook chapter it was outright wrong: chapter PDFs are rebuilt as their
+// own file starting at local page 1 (see rebuildChapterPdf in scripts/crawl.ts), but a
+// citation's pageFrom is always the ABSOLUTE page number in the original book. E.g. "Work And
+// Energy" spans book pages 138-169, so its PDF has 32 pages — a citation for book page 139
+// means local page 2, not literal page 139 (which doesn't exist in that file and just got
+// clamped/ignored). unit.pageFrom (see AskUnit) carries the offset needed to convert one into
+// the other; see the effect below. Rendering with pdf.js on top of that also gives full JS
+// control over which page is on screen, instead of depending on a browser's native PDF viewer
+// to honor a URL fragment.
 
 function PdfDocumentView({ unit, pdfUrl, activeCitation }: { unit: AskUnit; pdfUrl: string; activeCitation: Citation | null }) {
-  // Verified live that just changing an already-mounted iframe's src to a new #page=N
-  // fragment does NOT move Chrome's native PDF viewer — it only reads that fragment on a
-  // genuinely fresh load. Keying the iframe on the target page forces React to remount a
-  // new element per click, which does navigate correctly (the file itself is already
-  // browser-cached from the first load, so this isn't a real network refetch).
-  const page = activeCitation?.pageFrom;
-  const src = page ? `${pdfUrl}#page=${page}` : pdfUrl;
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const docRef = useRef<PDFDocumentProxy | null>(null);
+
+  const [numPages, setNumPages] = useState(0);
+  const [pageNum, setPageNum] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load the document whenever the PDF itself changes (a different chapter selected).
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    docRef.current = null;
+    setNumPages(0);
+    setPageNum(1);
+
+    const task = pdfjsLib.getDocument({ url: pdfUrl });
+    task.promise
+      .then((doc) => {
+        if (cancelled) return;
+        docRef.current = doc;
+        setNumPages(doc.numPages);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setError('Could not load this PDF.');
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      docRef.current = null;
+      task.destroy();
+    };
+  }, [pdfUrl]);
+
+  // Jump to the cited page whenever a new citation is selected (or a fresh document loads).
+  // activeCitation.pageFrom is always an absolute page in the original source — re-base it
+  // against unit.pageFrom (the absolute page that maps to local page 1 of THIS pdfUrl) before
+  // using it, or a textbook citation lands on the wrong page (or gets clamped past the end).
+  useEffect(() => {
+    if (!activeCitation?.pageFrom) return;
+    const local = unit.pageFrom ? activeCitation.pageFrom - unit.pageFrom + 1 : activeCitation.pageFrom;
+    setPageNum(Math.max(1, local));
+  }, [activeCitation, unit.pageFrom, pdfUrl]);
+
+  // Render the current page onto the canvas. This is the part that actually moves the
+  // reader — deterministic, not dependent on any browser's native PDF viewer.
+  useEffect(() => {
+    const doc = docRef.current;
+    const canvas = canvasRef.current;
+    if (!doc || !canvas || numPages === 0) return;
+    let cancelled = false;
+    const clamped = Math.min(Math.max(1, pageNum), numPages);
+
+    doc.getPage(clamped).then((page) => {
+      if (cancelled) return;
+      const containerWidth = containerRef.current?.clientWidth || 700;
+      const baseViewport = page.getViewport({ scale: 1 });
+      const scale = containerWidth / baseViewport.width;
+      const viewport = page.getViewport({ scale });
+
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      page.render({ canvas, canvasContext: ctx, viewport }).promise.catch(() => {
+        if (!cancelled) setError('Could not render this page.');
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pageNum, numPages]);
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="pb-3 mb-3 border-b border-border flex-shrink-0">
-        <h4 className="text-sm font-bold text-navy leading-tight">{unit.chapterTitle ?? `Chapter ${unit.chapterNo}`}</h4>
-        <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-text-2">
-          <ShieldCheck className="w-3.5 h-3.5 text-brand" />
-          <span>The real source PDF — not a reconstruction.</span>
+      <div className="pb-3 mb-3 border-b border-border flex-shrink-0 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="text-sm font-bold text-navy leading-tight truncate">{unit.chapterTitle ?? `Chapter ${unit.chapterNo}`}</h4>
+          <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-text-2">
+            <ShieldCheck className="w-3.5 h-3.5 text-brand flex-shrink-0" />
+            <span>The real source PDF — not a reconstruction.</span>
+          </div>
         </div>
+        {numPages > 0 && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setPageNum((p) => Math.max(1, p - 1))}
+              disabled={pageNum <= 1}
+              aria-label="Previous page"
+              className="p-1 rounded-md text-text-2 hover:bg-surface-2 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-[11px] font-mono text-text-2 min-w-[52px] text-center">
+              {pageNum} / {numPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPageNum((p) => Math.min(numPages, p + 1))}
+              disabled={pageNum >= numPages}
+              aria-label="Next page"
+              className="p-1 rounded-md text-text-2 hover:bg-surface-2 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
-      <iframe
-        key={src}
-        src={src}
-        title={unit.chapterTitle ?? 'Source document'}
-        className="flex-1 min-h-0 w-full rounded-lg border border-border bg-surface-2/40"
-      />
+
+      <div
+        ref={containerRef}
+        className="flex-1 min-h-0 overflow-auto rounded-lg border border-border bg-surface-2/40 flex items-start justify-center p-2"
+      >
+        {loading && (
+          <div className="flex items-center justify-center w-full h-full min-h-[200px]">
+            <div className="w-8 h-8 rounded-full border-2 border-brand/20 border-t-brand animate-spin" />
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center justify-center w-full h-full min-h-[200px] text-center text-xs text-text-2 px-4">
+            {error}
+          </div>
+        )}
+        <canvas ref={canvasRef} className={`rounded shadow-sm ${loading || error ? 'hidden' : ''}`} />
+      </div>
     </div>
   );
 }
