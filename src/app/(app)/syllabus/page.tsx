@@ -1,125 +1,100 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import type { AskOptionsResponse, AskSourceType, AskUnit } from '@/lib/types';
 import { useScope } from '@/components/app/ScopeContext';
-import { SUBJECTS, SUBJECT_LABELS } from '@/lib/subjects';
+import { ALL_SUBJECT_CODES } from '@/lib/subjects';
+import { ASK_SOURCE_META, ASK_SOURCE_TYPES } from '@/lib/ask/source-meta';
+import AskSubjectSelector from '@/components/app/AskSubjectSelector';
+import AskSourceSelector from '@/components/app/AskSourceSelector';
+import AskUnitSelector from '@/components/app/AskUnitSelector';
+import SyllabusPdfReader from '@/components/app/SyllabusPdfReader';
 
-interface SyllabusChunk {
-  id: string;
-  chapterNo: number;
-  chapterTitle: string;
-  section: string;
-  pageFrom: number;
-  pageTo: number;
-  excerpt: string;
-  sourceType: string;
-}
+const EMPTY_SOURCES: AskOptionsResponse['sources'] = ASK_SOURCE_TYPES.map((sourceType) => ({ sourceType, units: [] }));
 
-interface SyllabusData {
-  board: string;
-  classLevel: number;
-  subject: string;
-  totalChunks: number;
-  chunks: SyllabusChunk[];
-}
-
+// The Syllabus Explorer: the same scope picker as /ask (subject → source → chapter/paper),
+// but no question box — pick a unit and its real source PDF opens in the reader alongside,
+// scrolled top-to-bottom. Class + board come from the profile. Retrieval/generation never
+// touch this screen.
 export default function SyllabusPage() {
   const { board, classLevel, subject, setSubject } = useScope();
-  const [syllabusData, setSyllabusData] = useState<SyllabusData | null>(null);
-  const [syllabusLoading, setSyllabusLoading] = useState(false);
 
+  const [sources, setSources] = useState(EMPTY_SOURCES);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+  const [sourceType, setSourceType] = useState<AskSourceType | null>(null);
+  const [unit, setUnit] = useState<AskUnit | null>(null);
+
+  // Re-fetch and reset the cascade whenever the scope changes.
   useEffect(() => {
     let cancelled = false;
-    setSyllabusLoading(true);
-    const params = new URLSearchParams({ board, classLevel: String(classLevel), subject });
-    fetch(`/api/syllabus?${params}`)
+    setOptionsLoading(true);
+    setSourceType(null);
+    setUnit(null);
+
+    fetch(`/api/ask/options?board=${encodeURIComponent(board)}&classLevel=${classLevel}&subject=${encodeURIComponent(subject)}`)
       .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) setSyllabusData(data);
+      .then((data: AskOptionsResponse) => {
+        if (!cancelled) setSources(data.sources);
       })
-      .catch((err) => console.error('Syllabus load error:', err))
+      .catch(() => {
+        if (!cancelled) setSources(EMPTY_SOURCES);
+      })
       .finally(() => {
-        if (!cancelled) setSyllabusLoading(false);
+        if (!cancelled) setOptionsLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
   }, [board, classLevel, subject]);
 
-  const subjectLabel = SUBJECT_LABELS[subject] || subject;
+  const activeUnits = sourceType ? sources.find((s) => s.sourceType === sourceType)?.units ?? [] : [];
+  const readerTitle = unit
+    ? unit.chapterTitle ?? `${ASK_SOURCE_META[sourceType!].unitNoun} ${unit.chapterNo}`
+    : '';
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Subject filter */}
-      <div className="bg-surface border border-border/60 rounded-2xl p-5 space-y-3">
-        <div>
-          <p className="text-sm font-bold text-navy">Subject</p>
-          <p className="text-xs text-text-2 mt-0.5">Browsing chunks for this subject.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {SUBJECTS.map((s) => (
-            <button
-              key={s.code}
-              type="button"
-              onClick={() => setSubject(s.code)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                subject === s.code
-                  ? 'bg-brand text-white border-brand'
-                  : 'bg-surface-2 text-navy-2 border-border hover:border-brand/40'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+      {/* Left: scope picker (no question box) */}
+      <div className="lg:col-span-5 space-y-6">
+        <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm space-y-4">
+          <AskSubjectSelector value={subject} subjects={ALL_SUBJECT_CODES} onChange={setSubject} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <AskSourceSelector
+              value={sourceType}
+              sources={sources}
+              loading={optionsLoading}
+              onChange={(t) => {
+                setSourceType(t);
+                setUnit(null);
+              }}
+            />
+            {sourceType ? (
+              <AskUnitSelector
+                sourceType={sourceType}
+                units={activeUnits}
+                value={unit}
+                onChange={setUnit}
+              />
+            ) : (
+              <div className="flex items-center px-4 py-3 rounded-xl border border-dashed border-border text-[13px] text-text-3">
+                Choose a source first
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="bg-surface border border-border rounded-xl p-5 flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-bold text-navy">Ingested Syllabus Corpus</h3>
-          <p className="text-xs text-text-2 mt-0.5">
-            Verified textbook chunks for {syllabusData?.board ?? board} Class {syllabusData?.classLevel ?? classLevel} ({SUBJECT_LABELS[syllabusData?.subject ?? subject] || syllabusData?.subject || subjectLabel})
-          </p>
-        </div>
-        <div className="text-xs font-mono bg-surface-2 px-3 py-1.5 rounded-lg border border-border text-brand">
-          {syllabusData?.totalChunks ?? 0} Ingested Chunks
+      {/* Right: the real source PDF, scrolled top-to-bottom */}
+      <div className="lg:col-span-7">
+        <div className="bg-surface border border-border rounded-2xl p-6 sticky top-24 h-[calc(100vh-7rem)] flex flex-col">
+          <SyllabusPdfReader
+            key={unit ? `${sourceType}-${unit.chapterNo}` : 'none'}
+            pdfUrl={unit?.pdfUrl ?? null}
+            title={readerTitle}
+          />
         </div>
       </div>
-
-      {syllabusLoading ? (
-        <div className="bg-surface border border-border rounded-xl p-12 text-center">
-          <div className="w-8 h-8 rounded-full border-2 border-brand/20 border-t-brand animate-spin mx-auto" />
-        </div>
-      ) : (syllabusData?.chunks.length ?? 0) === 0 ? (
-        <div className="bg-surface-muted border border-border rounded-2xl p-8 text-center text-sm text-text-2">
-          No content has been ingested for {syllabusData?.board ?? board} Class {syllabusData?.classLevel ?? classLevel} {subjectLabel} yet.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {syllabusData?.chunks.map((chunk) => (
-            <div key={chunk.id} className="bg-surface border border-border rounded-xl p-4 space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="text-[10px] font-mono text-brand bg-brand-mint border border-brand/20 px-2 py-0.5 rounded">
-                    Chapter {chunk.chapterNo} • p. {chunk.pageFrom}-{chunk.pageTo}
-                  </span>
-                  <h4 className="text-sm font-semibold text-navy mt-1.5">{chunk.section}</h4>
-                  <p className="text-xs text-text-2">{chunk.chapterTitle}</p>
-                </div>
-              </div>
-
-              <p className="text-xs text-navy-2 leading-relaxed bg-surface-2 p-3 rounded-lg border border-border">
-                &quot;{chunk.excerpt}&quot;
-              </p>
-
-              <div className="flex items-center justify-between text-[11px] text-text-2 pt-1">
-                <span>ID: <code className="text-navy-2">{chunk.id}</code></span>
-                <span>Source: {chunk.sourceType}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

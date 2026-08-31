@@ -248,19 +248,34 @@ until it lands.
 
 ## 8. M7 — Syllabus Explorer
 
-**Surface:** `/syllabus` · **Route:** `GET /api/syllabus` (reads `content_chunks_expanded`)
+**Surface:** `/syllabus` · **Data:** `GET /api/ask/options`
 
-Browse what the system actually knows: chapters → sections → chunk counts, with `source_type`
-badges (`textbook`, `past_paper`). Doubles as an honesty surface — a student can see coverage
-before trusting a refusal.
+Browse exactly what the system has ingested for the student's class and a chosen subject, and
+**read the real source PDF** in place. Doubles as an honesty surface — a student can see
+coverage before trusting a refusal.
+
+- **Scope picker** — the same `/ask` cascade (subject → source type → chapter/paper), reusing
+  `AskSubjectSelector` / `AskSourceSelector` / `AskUnitSelector`, but with **no question box**.
+  All 9 subjects are browsable; class + board come from the profile (set at signup) and are not
+  pickable here.
+- **Reader** — `src/components/app/SyllabusPdfReader.tsx`. Renders every page of the source PDF
+  stacked in one scroll column (read top-to-bottom, no paging — unlike `/ask`'s
+  `AskDocumentReader`, which pages so a clicked citation can jump to an exact page). Has zoom
+  in/out, and an "expand" that opens the same reader as a fullscreen modal (portalled to
+  `document.body`, above the app shell; dismissed by close ✕, Esc, or a backdrop click).
 
 | Feature | Status |
 | --- | --- |
-| Chapter list with counts | Real, unverified |
-| Section drill-down | Real, unverified |
-| Deep link from a citation (M2) | **Missing** |
-| Deep link from nearest-chapters (M3) | **Missing** |
-| Coverage indicator ("no past papers yet") | **Missing** |
+| `/ask`-style scope picker (subject / source / unit), no question box | Real |
+| Continuous-scroll source-PDF reader — zoom + fullscreen modal | Real |
+| Deep link from a citation (M2) / nearest-chapters (M3) | **Deferred** |
+
+> Textbook PDFs currently exist only for FBISE C9 physics/chemistry/biology/mathematics and C10
+> mathematics; other class+subject combinations have model papers only, and the source dropdown
+> shows an honest "nothing ingested yet" for empty categories.
+>
+> `GET /api/syllabus` is unchanged and still backs the `/quiz` chapter list — the Explorer page
+> itself no longer calls it.
 
 ---
 

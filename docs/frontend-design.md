@@ -140,9 +140,11 @@ The layout remains two-column (7 / 5), but the execution is significantly upgrad
 - The progress bar utilizes the permitted green-teal gradient, smoothly filling the width `transition-[width] duration-500`.
 
 ### Syllabus Explorer
-- A premium drill-down tree or grid list.
-- Chapter cards feature subtle scale animations on hover.
-- Badges for chunk counts and source types (`textbook`, `past_paper`) use soft background tints.
+- The `/ask` scope picker (subject → source type → chapter/paper dropdowns) with **no question
+  box**, beside a source-PDF reader that scrolls top-to-bottom.
+- Reader controls: zoom in/out, and "expand" → a fullscreen modal (portalled above the app
+  shell; dismissed by ✕, Esc, or backdrop click).
+- Source dropdown shows an honest "nothing ingested yet" for empty categories.
 
 ---
 

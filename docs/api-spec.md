@@ -270,7 +270,12 @@ put it on a page that loads automatically during the demo.
 
 ## `GET /api/syllabus` — corpus browser
 
-No request body. Returns the ingested corpus for the syllabus explorer.
+No request body. Returns the ingested corpus as a flat chunk list.
+
+> **Note:** the `/syllabus` Explorer page no longer calls this — it uses `GET /api/ask/options`
+> (source types + units + PDF URLs), the same endpoint `/ask` uses. `/api/syllabus` is still
+> live and now only backs the `/quiz` page's chapter dropdown, so its response shape must not
+> change.
 
 ```json
 {
