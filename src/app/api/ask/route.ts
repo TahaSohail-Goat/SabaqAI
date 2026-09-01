@@ -153,12 +153,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         status: 'refused',
+        // Not an actual guardrail decision (retrieval never completed, so there's nothing to
+        // score) — reusing 'low_similarity' here is a label of convenience, not a claim, since
+        // it's the only reason value that doesn't imply a specific check ran and failed.
         reason: 'low_similarity',
-        message: 'Unable to safely process question against the syllabus database.',
+        message: "Something went wrong on our end and we couldn't get an answer this time.",
         // Retrieval never completed, so there is nothing to be "nearest" to. Say nothing
         // rather than suggesting chapters we didn't actually score.
         nearestChapters: [],
-        suggestion: 'Please try again with a syllabus question.',
+        suggestion: 'Please try asking again in a moment.',
       },
       { status: 500 }
     );

@@ -30,7 +30,7 @@ The core route. Everything else is supporting cast.
 `FBISE / 10 / physics / en`. `language` is `"en"` or `"ur"` and controls the response language.
 
 `sourceType` (`"textbook" | "past_paper" | "model_paper" | "marking_scheme"`) and `chapterNo`
-are both optional but always sent together by the `/ask` page once a student has picked a
+are both optional but always sent together by the `/doubts` page once a student has picked a
 source and a specific chapter/paper (see `GET /api/ask/options` below) — retrieval narrows to
 exactly that one source instead of searching everything ingested for the subject. Board +
 class + subject stay mandatory either way; these two only ever narrow further, never replace
@@ -122,7 +122,7 @@ No auth required (same reasoning as `/api/syllabus` — textbook/paper content i
 }
 ```
 
-Always returns all four source types, even with an empty `units` array — the `/ask` page
+Always returns all four source types, even with an empty `units` array — the `/doubts` page
 shows that as an honest "nothing ingested yet" state per category rather than hiding it.
 `chapterNo` is the real chapter number for `textbook` sources; for the others it's the exam
 year the crawler tagged the document with (see `data/crawl-sources.json`'s `year` field and

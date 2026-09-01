@@ -139,9 +139,9 @@ new API routes.
 
 ---
 
-## 3. M1 — Ask (the core loop)
+## 3. M1 — Doubts (the core loop)
 
-**Surface:** `/ask` · **Route:** `POST /api/ask`
+**Surface:** `/doubts` · **Route:** `POST /api/ask`
 **Pipeline:** retrieve → gate → generate → validate citations → log
 
 | Feature | Status | Note |
@@ -170,7 +170,7 @@ the book to and verify.
 
 ## 4. M2 — Citation Inspector
 
-**Surface:** right column of `/ask`, sticky.
+**Surface:** right column of `/doubts`, sticky.
 
 Clicking a citation chip opens the exact stored chunk: chapter, section, page range, excerpt.
 All fields read from `content_chunks_expanded`. This is the trust surface — it is the reason a
@@ -254,7 +254,7 @@ Browse exactly what the system has ingested for the student's class and a chosen
 **read the real source PDF** in place. Doubles as an honesty surface — a student can see
 coverage before trusting a refusal.
 
-- **Picker** — a library layout, deliberately *not* `/ask`'s dropdown cascade: a left rail of
+- **Picker** — a library layout, deliberately *not* `/doubts`' dropdown cascade: a left rail of
   the 9 subjects (subject-colour dot per row) with a **Recent** list under it (last 6 opened
   documents, `localStorage`, click to jump back — cross-subject too); a **segmented control**
   for source type (only the types that have ingested content are shown); and the
@@ -262,7 +262,7 @@ coverage before trusting a refusal.
 - **Reader** — `src/components/app/SyllabusPdfReader.tsx`. Selecting a unit swaps the list for
   the reader (heading leads with the unit number, e.g. "Chapter 3 · Dynamics"; back link and
   prev/next-chapter controls above it). Renders every page of the
-  source PDF stacked in one scroll column (read top-to-bottom, no paging — unlike `/ask`'s
+  source PDF stacked in one scroll column (read top-to-bottom, no paging — unlike `/doubts`'
   `AskDocumentReader`, which pages so a clicked citation can jump to an exact page). Has zoom
   in/out and an "expand" to a fullscreen modal (portalled to `document.body`, above the app
   shell; dismissed by close ✕, Esc, or a backdrop click).
