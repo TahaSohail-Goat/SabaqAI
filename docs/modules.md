@@ -254,25 +254,28 @@ Browse exactly what the system has ingested for the student's class and a chosen
 **read the real source PDF** in place. Doubles as an honesty surface — a student can see
 coverage before trusting a refusal.
 
-- **Scope picker** — the same `/ask` cascade (subject → source type → chapter/paper), reusing
-  `AskSubjectSelector` / `AskSourceSelector` / `AskUnitSelector`, but with **no question box**.
-  All 9 subjects are browsable; class + board come from the profile (set at signup) and are not
-  pickable here.
-- **Reader** — `src/components/app/SyllabusPdfReader.tsx`. Renders every page of the source PDF
-  stacked in one scroll column (read top-to-bottom, no paging — unlike `/ask`'s
+- **Picker** — a library layout, deliberately *not* `/ask`'s dropdown cascade: a left rail of
+  the 9 subjects (subject-colour dot per row) with a **Recent** list under it (last 6 opened
+  documents, `localStorage`, click to jump back — cross-subject too); a **segmented control**
+  for source type (only the types that have ingested content are shown); and the
+  chapters/papers as a **visible list**. No question box. Class + board come from the profile.
+- **Reader** — `src/components/app/SyllabusPdfReader.tsx`. Selecting a unit swaps the list for
+  the reader (heading leads with the unit number, e.g. "Chapter 3 · Dynamics"; back link and
+  prev/next-chapter controls above it). Renders every page of the
+  source PDF stacked in one scroll column (read top-to-bottom, no paging — unlike `/ask`'s
   `AskDocumentReader`, which pages so a clicked citation can jump to an exact page). Has zoom
-  in/out, and an "expand" that opens the same reader as a fullscreen modal (portalled to
-  `document.body`, above the app shell; dismissed by close ✕, Esc, or a backdrop click).
+  in/out and an "expand" to a fullscreen modal (portalled to `document.body`, above the app
+  shell; dismissed by close ✕, Esc, or a backdrop click).
 
 | Feature | Status |
 | --- | --- |
-| `/ask`-style scope picker (subject / source / unit), no question box | Real |
-| Continuous-scroll source-PDF reader — zoom + fullscreen modal | Real |
+| Subject rail + Recent list + source-type segmented control + unit list (no question box) | Real |
+| Continuous-scroll source-PDF reader — number-prefixed heading, zoom + fullscreen modal, prev/next chapter | Real |
 | Deep link from a citation (M2) / nearest-chapters (M3) | **Deferred** |
 
 > Textbook PDFs currently exist only for FBISE C9 physics/chemistry/biology/mathematics and C10
-> mathematics; other class+subject combinations have model papers only, and the source dropdown
-> shows an honest "nothing ingested yet" for empty categories.
+> mathematics; other class+subject combinations have model papers only — a source type with
+> nothing ingested simply doesn't appear in the segmented control.
 >
 > `GET /api/syllabus` is unchanged and still backs the `/quiz` chapter list — the Explorer page
 > itself no longer calls it.
