@@ -33,6 +33,28 @@
     "comment": "Real FBISE Class 9 Biology textbook (National Book Foundation, New SNC/National Curriculum, sessions 2024-25 to 2026-27). Verified working link (HTTP 200, Content-Length 50,255,894 bytes ~= 47.9MB) before adding. Third textbook in the sciences 9-12 rollout, after Physics 9 and Chemistry 9."
   },
   {
+    "url": "https://www.taleem360.com/download/9th-class-math-text-book-federal-board-pdf",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "mathematics",
+    "sourceType": "textbook",
+    "language": "en",
+    "year": null,
+    "checksum": null,
+    "comment": "Real FBISE Class 9 Mathematics textbook (National Book Foundation, New SNC/National Curriculum 2022-23, 2025 edition). Verified working link (HTTP 200 after the taleem360 -> Google Drive redirect chain, Content-Length 42,312,054 bytes ~= 40.35MB) before adding. Fourth textbook in the sciences 9-12 rollout, after Physics 9, Chemistry 9, and Biology 9."
+  },
+  {
+    "url": "https://www.taleem360.com/download/10th-class-maths-federal-board-text-book-pdf",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "mathematics",
+    "sourceType": "textbook",
+    "language": "en",
+    "year": null,
+    "checksum": null,
+    "comment": "Real FBISE Class 10 Mathematics textbook (National Book Foundation, New SNC/National Curriculum 2022-23, 2025 edition). Verified working link (HTTP 200 after the taleem360 -> Google Drive redirect chain, Content-Length 47,503,027 bytes ~= 45.31MB) before adding. First Class 10 textbook ingested (all prior textbooks were Class 9)."
+  },
+  {
     "url": "https://www.fbise.edu.pk/ModelPaper/2025/Assessment%20Frameworks/SSC-I/Final%20Assessment%20Framework%20Model%20Question%20Paper%20Biology%20SSC-I.pdf",
     "board": "FBISE",
     "classLevel": 9,

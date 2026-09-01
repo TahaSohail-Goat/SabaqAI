@@ -553,7 +553,16 @@ const NUMBERED_HEADER_RE = /^(?:unit|chapter)\s*[:\-–—.]?\s*(\d{1,2})\b\s*[:
 function extractNumberedHeaderCandidates(pages: OcrPage[]): NumberedHeaderCandidate[] {
   const candidates: NumberedHeaderCandidate[] = [];
   for (const { pageNumber, text } of pages) {
-    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 5);
+    const allLines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    // Some books print this running marker as a page HEADER (first few lines — the design
+    // extractHeaderCandidates and the original version of this function assumed), others as a
+    // FOOTER instead (confirmed on real FBISE Maths 10 OCR: "Unit-01: Complex Numbers" sits at
+    // the second-to-last line of a 44-line page, never near the top). Checking both ends
+    // covers either layout; the line-start anchor in NUMBERED_HEADER_RE still does the real
+    // filtering work either way — it's what keeps ordinary prose mentioning "unit" (e.g. "...in
+    // terms of unit 7", confirmed seen mid-page in the same book) from ever matching, since
+    // that text never starts its own line with "unit"/"chapter".
+    const lines = [...allLines.slice(0, 5), ...allLines.slice(-5)];
     for (const line of lines) {
       const m = line.match(NUMBERED_HEADER_RE);
       if (!m) continue;
