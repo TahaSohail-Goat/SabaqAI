@@ -159,7 +159,7 @@ export default function SyllabusPage() {
       {/* Subject rail + recents */}
       <aside className="space-y-6">
         <div>
-          <span className="hidden lg:inline-flex items-center rounded-full bg-brand text-white text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 mb-2 ml-1">
+          <span className="hidden lg:block text-[10px] font-bold text-text-2 uppercase tracking-wider mb-1.5 ml-1">
             Subjects
           </span>
           <div className="flex lg:flex-col gap-1.5 lg:gap-0.5 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0">
@@ -172,12 +172,10 @@ export default function SyllabusPage() {
                   onClick={() => setSubject(s.code)}
                   aria-pressed={active}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap transition-colors ${
-                    active ? 'bg-brand text-white' : 'text-navy-2 hover:bg-surface-2'
+                    active ? 'bg-selected-surface text-selected-text' : 'text-navy-2 hover:bg-surface-2'
                   }`}
                 >
-                  <span
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${active ? 'bg-white/80' : SUBJECT_DOT[s.code] ?? 'bg-text-3'}`}
-                  />
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${SUBJECT_DOT[s.code] ?? 'bg-text-3'}`} />
                   <span className="truncate">{s.label}</span>
                 </button>
               );
@@ -186,7 +184,7 @@ export default function SyllabusPage() {
         </div>
 
         <div className="hidden lg:block">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 mb-2 ml-1">
+          <span className="flex items-center gap-1.5 text-[10px] font-bold text-text-2 uppercase tracking-wider mb-1.5 ml-1">
             <Clock className="w-3 h-3" />
             Recent
           </span>
@@ -245,12 +243,12 @@ export default function SyllabusPage() {
                       onClick={() => setSourceType(s.sourceType)}
                       aria-pressed={active}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        active ? 'bg-brand text-white' : 'text-navy-2 hover:bg-surface'
+                        active ? 'bg-selected-surface text-selected-text' : 'text-navy-2 hover:bg-surface'
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5" />
                       {sMeta.label}
-                      <span className={`text-[10px] font-mono ${active ? 'text-white/70' : 'text-text-3'}`}>
+                      <span className={`text-[10px] font-mono ${active ? 'text-selected-text/70' : 'text-text-3'}`}>
                         {s.units.length}
                       </span>
                     </button>

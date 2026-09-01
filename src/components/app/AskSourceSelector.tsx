@@ -79,21 +79,21 @@ export default function AskSourceSelector({ value, sources, onChange, loading }:
                   setOpen(false);
                 }}
                 className={`w-full flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors ${
-                  isActive ? 'bg-accent-subtle' : 'hover:bg-surface-hover'
+                  isActive ? 'bg-selected-surface' : 'hover:bg-surface-hover'
                 }`}
               >
-                <Icon className="w-4 h-4 text-brand flex-shrink-0 mt-0.5" />
+                <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isActive ? 'text-selected-text' : 'text-brand'}`} />
                 <span className="flex-1 min-w-0">
-                  <span className={`block text-[13px] font-semibold ${isActive ? 'text-brand-dark' : 'text-navy'}`}>
+                  <span className={`block text-[13px] font-semibold ${isActive ? 'text-selected-text' : 'text-navy'}`}>
                     {meta.label}
                   </span>
-                  <span className="block text-[11px] text-text-2 mt-0.5">
+                  <span className={`block text-[11px] mt-0.5 ${isActive ? 'text-selected-text/80' : 'text-text-2'}`}>
                     {count === 0
                       ? 'Nothing ingested yet'
                       : `${count} ${meta.unitNoun.toLowerCase()}${count === 1 ? '' : 's'} available`}
                   </span>
                 </span>
-                {isActive && <Check className="w-4 h-4 text-brand flex-shrink-0 mt-1" />}
+                {isActive && <Check className="w-4 h-4 text-selected-text flex-shrink-0 mt-1" />}
               </button>
             );
           })}

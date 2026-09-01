@@ -41,7 +41,7 @@ export default function ChatConversationList({ conversations, activeId, onSelect
             <div
               key={c.id}
               className={`group relative flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
-                activeId === c.id ? 'bg-accent-subtle text-brand-dark' : 'text-navy-2 hover:bg-surface-hover'
+                activeId === c.id ? 'bg-selected-surface text-selected-text' : 'text-navy-2 hover:bg-surface-hover'
               }`}
               onClick={() => onSelect(c.id)}
             >

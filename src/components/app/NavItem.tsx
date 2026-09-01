@@ -23,18 +23,18 @@ export default function NavItem({ href, icon: Icon, label, badge, disabled, onNa
     disabled
       ? 'text-text-2 cursor-not-allowed'
       : active
-      ? 'bg-accent-subtle text-navy'
+      ? 'bg-selected-surface text-selected-text'
       : 'text-text-2 hover:bg-surface-hover hover:text-navy'
   }`;
 
   const content = (
     <>
       {active && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-brand" aria-hidden="true" />
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-selected-text/70" aria-hidden="true" />
       )}
       <Icon
         className={`w-[18px] h-[18px] shrink-0 transition-colors ${
-          disabled ? 'text-text-3' : active ? 'text-brand' : 'text-text-3 group-hover:text-navy-2'
+          disabled ? 'text-text-3' : active ? 'text-selected-text' : 'text-text-3 group-hover:text-navy-2'
         }`}
       />
       <span className="flex-1 truncate">{label}</span>
