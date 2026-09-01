@@ -194,57 +194,15 @@
 }
 
 /* Dark theme — overrides the @theme tokens above via CSS variable cascade.
-   Applies whenever data-theme="dark" is set on <html> (see ThemeToggle) or,
-   with no explicit choice stored, when the OS prefers dark.
+   Applies only when data-theme="dark" is explicitly set on <html> (see ThemeToggle).
+   Light is the default regardless of OS preference — there is no prefers-color-scheme
+   auto-switch here on purpose.
 
    Design rule (not just brightness): the app background is a near-neutral, desaturated
    charcoal — it recedes. Structural surfaces (sidebar/topbar/cards) step up in real lightness
    increments (~5 points of L each), not 2-3. Accent surfaces (brand-mint et al) hold a
    materially higher saturation than the neutral surfaces at a similar lightness, so "this is
    accented" reads from color identity, not just being a bit brighter. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --color-page: #0A1310;
-    --color-surface-elevated: #0F1E19;
-    --color-surface: #17281F;
-    --color-surface-hover: #1E332A;
-    --color-surface-active: #254335;
-    --color-surface-muted: #0D1916;
-    --color-surface-2: #14241D;
-
-    --color-navy: #F4F9F6;
-    --color-navy-2: #C7DAD0;
-    --color-text-2: #96AFA2;
-    --color-text-3: #66806F;
-
-    --color-border: #253F33;
-    --color-border-strong: #35604D;
-
-    /* Accent gets brighter (not just re-tinted) in dark mode — a mid-green designed for white
-       text on top reads poorly as text/icon color on a near-black surface otherwise. This is
-       what fixes badges like "Internal" (text-brand-dark on bg-brand/15) from going invisible. */
-    --color-brand: #2FAE79;
-    --color-brand-dark: #1F8C5E;
-    --color-brand-light: #1B4433;
-    --color-brand-mint: #12332A;
-    --color-ai-light: #12332E;
-    --color-ai-border: #2C5049;
-    --color-quiz-light: #2E2618;
-    --color-quiz-border: #4A3D22;
-
-    /* The quiet tinted-surface treatment, not light theme's solid fill — see the definition
-       comment in the @theme block above. */
-    --color-selected-surface: var(--color-brand-mint);
-    --color-selected-text: var(--color-navy);
-
-    --color-error-bg: #3A1E1E;
-    --color-info-bg: #1C2C3A;
-
-    --color-disabled: #17251F;
-    --color-disabled-text: #55695E;
-  }
-}
-
 :root[data-theme="dark"] {
   --color-page: #0A1310;
   --color-surface-elevated: #0F1E19;

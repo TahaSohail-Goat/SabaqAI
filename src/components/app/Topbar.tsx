@@ -43,7 +43,7 @@ export default function Topbar({ onOpenSidebar }: TopbarProps) {
 
   useEffect(() => {
     const stored = window.localStorage.getItem('sabaqai-theme') as Theme | null;
-    setTheme(stored ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+    setTheme(stored ?? 'light');
   }, []);
 
   const toggleTheme = () => {
