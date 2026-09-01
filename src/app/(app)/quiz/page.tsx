@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCw, CheckCircle2, XCircle, BookOpen, FileQuestion, Sparkles } from 'lucide-react';
 import { useScope } from '@/components/app/ScopeContext';
 import EmptyState from '@/components/app/EmptyState';
+import SelectField from '@/components/app/SelectField';
 import { SUBJECT_LABELS } from '@/lib/subjects';
 
 type QuestionType = 'mcq' | 'short' | 'long';
@@ -191,42 +192,28 @@ export default function QuizPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Subject + chapter pickers */}
       <div className="bg-surface border border-border rounded-xl p-4 flex flex-wrap gap-4">
-        <div className="space-y-1.5 flex-1 min-w-[180px]">
-          <label htmlFor="quiz-subject" className="text-xs font-bold text-text-2 uppercase tracking-wide">
-            Subject
-          </label>
-          <select
-            id="quiz-subject"
-            value={selectedSubject}
-            onChange={(e) => setSelectedSubject(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg text-xs font-semibold bg-surface-2 border border-border-strong text-navy-2 focus:outline-none focus:ring-1 focus:ring-brand"
-          >
-            {enrolledSubjects.map((s) => (
-              <option key={s} value={s}>
-                {SUBJECT_LABELS[s] || s}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SelectField id="quiz-subject" label="Subject" value={selectedSubject} onChange={setSelectedSubject} className="flex-1 min-w-[180px]">
+          {enrolledSubjects.map((s) => (
+            <option key={s} value={s}>
+              {SUBJECT_LABELS[s] || s}
+            </option>
+          ))}
+        </SelectField>
 
         {!chaptersLoading && chapters.length > 0 && (
-          <div className="space-y-1.5 flex-1 min-w-[180px]">
-            <label htmlFor="quiz-chapter" className="text-xs font-bold text-text-2 uppercase tracking-wide">
-              Chapter
-            </label>
-            <select
-              id="quiz-chapter"
-              value={selectedChapter ?? ''}
-              onChange={(e) => setSelectedChapter(Number(e.target.value))}
-              className="w-full px-3 py-2 rounded-lg text-xs font-medium bg-surface-2 border border-border-strong text-navy-2 focus:outline-none focus:ring-1 focus:ring-brand"
-            >
-              {chapters.map((c) => (
-                <option key={c.chapterNo} value={c.chapterNo}>
-                  Ch {c.chapterNo}{c.chapterTitle ? `: ${c.chapterTitle}` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            id="quiz-chapter"
+            label="Chapter"
+            value={selectedChapter !== null ? String(selectedChapter) : ''}
+            onChange={(v) => setSelectedChapter(Number(v))}
+            className="flex-1 min-w-[180px]"
+          >
+            {chapters.map((c) => (
+              <option key={c.chapterNo} value={c.chapterNo}>
+                Ch {c.chapterNo}{c.chapterTitle ? `: ${c.chapterTitle}` : ''}
+              </option>
+            ))}
+          </SelectField>
         )}
       </div>
 
