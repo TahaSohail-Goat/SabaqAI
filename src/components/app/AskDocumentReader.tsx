@@ -6,6 +6,11 @@ import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { AskDocumentResponse, AskSourceType, AskUnit, Citation } from '@/lib/types';
 
+// Marks an error whose .message is already student-safe (built from /api/ask/document's own
+// controlled error string, or a fixed fallback below) — anything else caught (a raw network
+// rejection, a JSON parse failure) is a debugging detail, never shown as-is.
+class DocumentLoadError extends Error {}
+
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
 }
@@ -243,14 +248,19 @@ function TextDocumentView({
 
     fetch(`/api/ask/document?${params}`)
       .then(async (res) => {
-        if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? 'Failed to load this document.');
+        if (!res.ok) throw new DocumentLoadError((await res.json().catch(() => null))?.error ?? 'Failed to load this document.');
         return res.json();
       })
       .then((data: AskDocumentResponse) => {
         if (!cancelled) setDoc(data);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load this document.');
+        // A DocumentLoadError's message is always one of ours (the API's own controlled error
+        // string, or the fixed fallback above) — anything else is a raw exception (dropped
+        // connection, invalid JSON) that a student was never meant to read.
+        if (!cancelled) {
+          setError(err instanceof DocumentLoadError ? err.message : 'Could not load this document — check your connection and try again.');
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

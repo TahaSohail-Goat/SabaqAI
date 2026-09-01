@@ -8,6 +8,7 @@ import {
   BookOpen,
   AlertTriangle,
   HelpCircle,
+  WifiOff,
 } from 'lucide-react';
 import type { AskResponse, Citation, AskOptionsResponse, AskSourceType, AskUnit } from '@/lib/types';
 import { useScope } from '@/components/app/ScopeContext';
@@ -19,18 +20,28 @@ import { ASK_SOURCE_TYPES } from '@/lib/ask/source-meta';
 
 const EMPTY_SOURCES: AskOptionsResponse['sources'] = ASK_SOURCE_TYPES.map((sourceType) => ({ sourceType, units: [] }));
 
-export default function AskPage() {
+// Shown when the question genuinely couldn't be sent/answered at all — a dropped connection,
+// a server that didn't respond, or a reply that wasn't even valid JSON (a gateway/proxy error
+// page, say). Distinct from a REFUSAL: /api/ask's own catch-all already turns every ordinary
+// server-side failure into a calm, refusal-shaped body (see its final catch block), so this
+// only ever fires for failures that happened before any response body could be read at all —
+// nothing here is a technical detail a student needs, just "try again."
+const CONNECTION_ERROR_MESSAGE = "Sabaq couldn't reach the server to answer that. Check your internet connection and try again.";
+
+export default function DoubtsPage() {
   const { board, classLevel, subject, language, setSubject, profile } = useScope();
   const enrolledSubjects = profile?.subjects ?? [subject];
 
   const [sources, setSources] = useState(EMPTY_SOURCES);
   const [optionsLoading, setOptionsLoading] = useState(true);
+  const [optionsError, setOptionsError] = useState(false);
   const [sourceType, setSourceType] = useState<AskSourceType | null>(null);
   const [unit, setUnit] = useState<AskUnit | null>(null);
 
   const [query, setQuery] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [askResult, setAskResult] = useState<AskResponse | null>(null);
+  const [askError, setAskError] = useState<string | null>(null);
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
 
   // Re-fetch (and reset the cascade) whenever the underlying scope changes — e.g. the
@@ -38,6 +49,7 @@ export default function AskPage() {
   useEffect(() => {
     let cancelled = false;
     setOptionsLoading(true);
+    setOptionsError(false);
     setSourceType(null);
     setUnit(null);
     setAskResult(null);
@@ -49,7 +61,13 @@ export default function AskPage() {
         if (!cancelled) setSources(data.sources);
       })
       .catch(() => {
-        if (!cancelled) setSources(EMPTY_SOURCES);
+        // A real connection failure, not "this subject has nothing ingested" (that case
+        // still returns 200 with empty categories — see /api/ask/options). Worth telling
+        // the student apart from an honest "nothing here yet", not just falling back silently.
+        if (!cancelled) {
+          setSources(EMPTY_SOURCES);
+          setOptionsError(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setOptionsLoading(false);
@@ -68,6 +86,7 @@ export default function AskPage() {
 
     setIsAsking(true);
     setAskResult(null);
+    setAskError(null);
     setSelectedCitation(null);
 
     try {
@@ -90,7 +109,13 @@ export default function AskPage() {
         setSelectedCitation(data.citations[0]);
       }
     } catch (err) {
+      // Never reached /api/ask's own response handling at all — a dropped connection, or a
+      // reply that wasn't valid JSON. /api/ask's own catch-all already turns every ordinary
+      // server-side failure into a calm refusal instead of landing here, so whatever err.message
+      // says (a raw "Failed to fetch", a JSON parse error) is a debugging detail, not something
+      // a student should ever see — only the one fixed, friendly message goes on screen.
       console.error('Ask error:', err);
+      setAskError(CONNECTION_ERROR_MESSAGE);
     } finally {
       setIsAsking(false);
     }
@@ -105,6 +130,12 @@ export default function AskPage() {
       {/* Left: scope picker, input & result */}
       <div className="lg:col-span-6 space-y-6">
         <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm space-y-4">
+          {optionsError && (
+            <div className="flex items-center gap-2 rounded-xl bg-error-bg text-error text-xs font-medium px-3 py-2">
+              <WifiOff className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Couldn&apos;t load your chapters and papers — check your connection and reload the page.</span>
+            </div>
+          )}
           <AskSubjectSelector value={subject} subjects={enrolledSubjects} onChange={setSubject} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <AskSourceSelector
@@ -115,6 +146,7 @@ export default function AskPage() {
                 setSourceType(t);
                 setUnit(null);
                 setAskResult(null);
+                setAskError(null);
               }}
             />
             {sourceType ? (
@@ -125,6 +157,7 @@ export default function AskPage() {
                 onChange={(u) => {
                   setUnit(u);
                   setAskResult(null);
+                  setAskError(null);
                 }}
               />
             ) : (
@@ -179,6 +212,30 @@ export default function AskPage() {
               <div className="w-8 h-8 rounded-full border-2 border-brand/20 border-t-brand animate-spin" />
             </div>
             <div className="text-xs text-text-2">Searching the selected {unit?.chapterTitle ?? 'source'}…</div>
+          </div>
+        )}
+
+        {/* Connection/send failure — distinct from a refusal: this is a real problem, not the
+            product working correctly, so it's allowed to look like one (unlike a refusal card,
+            which stays deliberately calm and never red). */}
+        {askError && !isAsking && (
+          <div className="bg-surface border border-error/30 rounded-2xl p-6 animate-fade-up">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-error-bg text-error flex-shrink-0">
+                <WifiOff className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-bold text-navy">Couldn&apos;t send your question</h3>
+                <p className="text-[13px] text-navy-2 mt-1 leading-relaxed">{askError}</p>
+                <button
+                  type="button"
+                  onClick={() => handleAsk()}
+                  className="mt-3 text-xs font-bold text-brand hover:text-brand-dark transition-colors"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

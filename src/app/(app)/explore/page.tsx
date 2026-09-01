@@ -34,7 +34,7 @@ export default function ExplorePage() {
 
   const handleArrived = (subjectCode: string) => {
     setSubject(subjectCode);
-    router.push('/ask');
+    router.push('/doubts');
   };
 
   return (

@@ -140,7 +140,7 @@ The layout remains two-column (7 / 5), but the execution is significantly upgrad
 - The progress bar utilizes the permitted green-teal gradient, smoothly filling the width `transition-[width] duration-500`.
 
 ### Syllabus Explorer
-- A library layout — intentionally distinct from `/ask`'s dropdown form. Left rail of the 9
+- A library layout — intentionally distinct from `/doubts`' dropdown form. Left rail of the 9
   subjects (subject-colour dot per row, `brand` active state) with a **Recent** list beneath
   it (last 6 opened, `localStorage`); a **segmented control** for source type showing only the
   types that have content; the chapters/papers as a **visible list**. No question box.
