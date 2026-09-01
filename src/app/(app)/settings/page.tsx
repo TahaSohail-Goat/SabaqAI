@@ -190,7 +190,7 @@ export default function SettingsPage() {
       .catch(() => setUser(null));
 
     const stored = window.localStorage.getItem('sabaqai-theme') as Theme | null;
-    setTheme(stored ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+    setTheme(stored ?? 'light');
   }, []);
 
   const usernameChanged = username.trim() !== originalUsername.trim();
