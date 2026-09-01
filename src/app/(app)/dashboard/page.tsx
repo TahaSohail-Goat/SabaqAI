@@ -10,12 +10,15 @@ import {
   TrendingUp,
   History,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useScope } from '@/components/app/ScopeContext';
 import ActionCard from '@/components/app/ActionCard';
 import StatCard from '@/components/app/StatCard';
 import EmptyState from '@/components/app/EmptyState';
 import SectionHeader from '@/components/app/SectionHeader';
 import Badge from '@/components/app/Badge';
+import ChapterMasteryRow from '@/components/app/ChapterMasteryRow';
+import type { ChapterMastery, SubjectMastery } from '@/app/api/dashboard/progress/route';
 
 const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -54,6 +57,7 @@ export default function DashboardPage() {
   // guess. Asserting "0" before this resolves would still be the invariant-7 violation the
   // original placeholder comment here was written to avoid.
   const [activityStats, setActivityStats] = useState<{ questionsAsked: number; quizzesTaken: number } | null>(null);
+  const [progressSubjects, setProgressSubjects] = useState<SubjectMastery[] | null>(null);
   useEffect(() => {
     let cancelled = false;
     fetch('/api/dashboard/stats')
@@ -62,10 +66,30 @@ export default function DashboardPage() {
         if (!cancelled) setActivityStats(data);
       })
       .catch(() => {});
+    fetch('/api/dashboard/progress')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setProgressSubjects(data.subjects ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setProgressSubjects([]);
+      });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Top 3 weakest chapters across all subjects — "weak" means real evidence of struggling
+  // (needs_work first, then getting_there, ascending by accuracy), never chapters with no data
+  // at all (insufficient_data/not_started aren't weakness, just an absence of a score yet).
+  const weakestChapters: ChapterMastery[] = (progressSubjects ?? [])
+    .flatMap((s) => s.chapters)
+    .filter((c) => c.band === 'needs_work' || c.band === 'getting_there')
+    .sort((a, b) => {
+      if (a.band !== b.band) return a.band === 'needs_work' ? -1 : 1;
+      return (a.accuracy ?? 0) - (b.accuracy ?? 0);
+    })
+    .slice(0, 3);
 
   const STATS = [
     {
@@ -136,13 +160,29 @@ export default function DashboardPage() {
       <div className="space-y-4">
         <SectionHeader title="Insights" subtitle="Fills in automatically as you use Sabaq AI." />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <EmptyState
-            icon={TrendingUp}
-            title="No weak chapters yet"
-            message="Take a quiz and this will show which chapters need more work, ranked by your actual scores."
-            ctaLabel="Take a quiz"
-            ctaHref="/quiz"
-          />
+          {weakestChapters.length > 0 ? (
+            <div className="bg-surface border border-border rounded-2xl p-4 sm:p-5 space-y-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-text-2">Chapters to work on</span>
+                <Link href="/dashboard/progress" className="text-[11px] font-bold text-brand hover:text-brand-dark transition-colors">
+                  View all →
+                </Link>
+              </div>
+              <div className="divide-y divide-border">
+                {weakestChapters.map((c) => (
+                  <ChapterMasteryRow key={`${c.chapterNo}-${c.chapterTitle}`} chapter={c} />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              icon={TrendingUp}
+              title="No weak chapters yet"
+              message="Take a quiz and this will show which chapters need more work, ranked by your actual scores."
+              ctaLabel="Take a quiz"
+              ctaHref="/quiz"
+            />
+          )}
           <EmptyState
             icon={History}
             title="No recent activity"

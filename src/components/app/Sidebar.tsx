@@ -80,7 +80,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         <div className="space-y-1">
           <p className="px-3.5 mb-1.5 text-[10px] font-bold text-text-2 uppercase tracking-wider">Insights</p>
           <NavItem href="/eval" icon={ShieldCheck} label="Evaluation" badge="Internal" onNavigate={onClose} />
-          <NavItem href="/dashboard/progress" icon={TrendingUp} label="Progress" badge="Soon" disabled />
+          <NavItem href="/dashboard/progress" icon={TrendingUp} label="Progress" onNavigate={onClose} />
           <NavItem href="/dashboard/plan" icon={CalendarClock} label="Plan" badge="Soon" disabled />
         </div>
       </nav>
