@@ -39,7 +39,7 @@ Legend: **Real** = works against live data · **Stub** = returns hardcoded or fa
 | `qa_log` writes | **Real** ✅ v2 junction rows, **unverified** | Dev A | `src/lib/qa-log.ts` |
 | `student_profiles` creation | **Real** ✅ v2 (+ student_subjects), **unverified** | Dev B | `src/app/api/auth/signup/` |
 | Onboarding (real board/class/subjects) | **Real** ✅ new, **unverified** — no live Supabase session tested against yet | Dev D | `src/app/onboarding/`, `src/app/api/auth/onboarding/` |
-| Syllabus browser / Explorer | **Real** ✅ rebuilt — `/ask`-style subject/source/unit picker (no question box) + continuous-scroll source-PDF reader (`SyllabusPdfReader`) with zoom and a fullscreen modal; fed by `/api/ask/options`. `/api/syllabus` unchanged, still used only by `/quiz`. | Dev C | `src/app/(app)/syllabus/page.tsx`, `src/components/app/SyllabusPdfReader.tsx` |
+| Syllabus browser / Explorer | **Real** ✅ rebuilt — library layout: subject rail + Recent list (localStorage) + source-type segmented control + unit list (no question box) + continuous-scroll source-PDF reader (`SyllabusPdfReader`) with zoom, fullscreen modal, prev/next chapter; fed by `/api/ask/options`. `/api/syllabus` unchanged, still used only by `/quiz`. | Dev C | `src/app/(app)/syllabus/page.tsx`, `src/components/app/SyllabusPdfReader.tsx` |
 | Syllabus corpus | **Stub** (10 hardcoded, dev only) | Dev C | `src/lib/syllabus-data.ts` |
 | FBISE Syllabus Crawler | **Real** ✅ new, **unverified against live URLs** | — | `scripts/crawl.ts`, `data/crawl-sources.json`, `.github/workflows/weekly-crawl.yml` |
 | Quiz persistence | **Missing** | Dev B | tables exist, unused |
