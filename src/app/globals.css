@@ -193,6 +193,17 @@
   }
 }
 
+/* Hides the scrollbar track/thumb on an overflow container without disabling scrolling itself —
+   used by the Revision Planner's horizontal day timeline, which is driven by wheel/drag instead
+   of a visible OS scrollbar (see src/app/(app)/dashboard/plan/page.tsx). */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Dark theme — overrides the @theme tokens above via CSS variable cascade.
    Applies whenever data-theme="dark" is set on <html> (see ThemeToggle) or,
    with no explicit choice stored, when the OS prefers dark.

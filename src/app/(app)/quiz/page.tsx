@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { RefreshCw, CheckCircle2, XCircle, BookOpen, FileQuestion, Sparkles } from 'lucide-react';
 import { useScope } from '@/components/app/ScopeContext';
 import EmptyState from '@/components/app/EmptyState';
@@ -49,13 +50,32 @@ interface Chapter {
 
 const QUIZ_SCOPE_DESCRIPTION = '50 MCQs, 10 short-answer and 2 long-answer questions';
 
+// useSearchParams requires a Suspense boundary in the App Router — this wrapper exists only for
+// that; all the real page logic lives in QuizPageInner.
 export default function QuizPage() {
+  return (
+    <Suspense fallback={null}>
+      <QuizPageInner />
+    </Suspense>
+  );
+}
+
+function QuizPageInner() {
   const { board, classLevel, subject: scopeSubject, profile } = useScope();
   // A student is enrolled in every seeded subject by default (see create-account.ts) — filter
   // to just those so this doesn't offer subjects with no reason to appear here.
   const enrolledSubjects = profile?.subjects?.length ? profile.subjects : [scopeSubject];
 
-  const [selectedSubject, setSelectedSubject] = useState(scopeSubject);
+  // The Revision Planner links here with ?subject=&chapterNo= for its "Practice quiz" action —
+  // pre-select that scope when present and valid, instead of always defaulting to the current
+  // scope subject / the first ingested chapter.
+  const searchParams = useSearchParams();
+  const linkedSubject = searchParams.get('subject');
+  const linkedChapterNo = searchParams.get('chapterNo') ? Number(searchParams.get('chapterNo')) : null;
+
+  const [selectedSubject, setSelectedSubject] = useState(
+    linkedSubject && enrolledSubjects.includes(linkedSubject) ? linkedSubject : scopeSubject
+  );
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [chaptersLoading, setChaptersLoading] = useState(true);
   const [selectedChapter, setSelectedChapter] = useState<number | null>(null);
@@ -133,7 +153,16 @@ export default function QuizPage() {
         if (cancelled) return;
         const chs: Chapter[] = data.chapters || [];
         setChapters(chs);
-        if (chs.length > 0) setSelectedChapter(chs[0].chapterNo);
+        if (chs.length > 0) {
+          // Only honor the linked chapter while still on the subject the link pointed at — if
+          // the student manually switches subjects afterward, fall back to the normal default
+          // rather than reapplying a chapter number that belonged to a different subject.
+          const linked =
+            selectedSubject === linkedSubject &&
+            linkedChapterNo !== null &&
+            chs.some((c) => c.chapterNo === linkedChapterNo);
+          setSelectedChapter(linked ? linkedChapterNo : chs[0].chapterNo);
+        }
       })
       .catch((err) => console.error('Quiz scope (chapters) load error:', err))
       .finally(() => {
@@ -143,7 +172,7 @@ export default function QuizPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedSubject, board, classLevel]);
+  }, [selectedSubject, board, classLevel, linkedSubject, linkedChapterNo]);
 
   // Grading happens on the server — the browser never held the answer key/rubric. This is also
   // the ONLY point the quiz is ever recorded: generation never writes a DB row, so a quiz the
