@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   RefreshCw,
   ArrowRight,
@@ -17,8 +17,19 @@ import AskSourceSelector from '@/components/app/AskSourceSelector';
 import AskUnitSelector from '@/components/app/AskUnitSelector';
 import AskDocumentReader from '@/components/app/AskDocumentReader';
 import { ASK_SOURCE_TYPES } from '@/lib/ask/source-meta';
+import { loadPageProgress, savePageProgress } from '@/lib/persist/page-progress';
 
 const EMPTY_SOURCES: AskOptionsResponse['sources'] = ASK_SOURCE_TYPES.map((sourceType) => ({ sourceType, units: [] }));
+
+const PROGRESS_KEY = 'doubts';
+
+interface DoubtsProgress {
+  sourceType: AskSourceType | null;
+  unit: AskUnit | null;
+  query: string;
+  askResult: AskResponse | null;
+  selectedCitation: Citation | null;
+}
 
 // Shown when the question genuinely couldn't be sent/answered at all — a dropped connection,
 // a server that didn't respond, or a reply that wasn't even valid JSON (a gateway/proxy error
@@ -29,9 +40,21 @@ const EMPTY_SOURCES: AskOptionsResponse['sources'] = ASK_SOURCE_TYPES.map((sourc
 const CONNECTION_ERROR_MESSAGE = "Sabaq couldn't reach the server to answer that. Check your internet connection and try again.";
 
 export default function DoubtsPage() {
-  const { board, classLevel, subject, language, setSubject, profile } = useScope();
+  const { board, classLevel, subject, language, setSubject, profile, user } = useScope();
   const enrolledSubjects = profile?.subjects ?? [subject];
+  // Includes the account id so a shared device never surfaces one student's in-progress
+  // question for whoever's signed in next — logout also clears this key outright (see
+  // Sidebar/IdleLogoutWatcher), this is the belt-and-suspenders half for the case where the
+  // browser was just closed (ending the session per src/lib/auth/session-activity.ts) rather
+  // than an explicit logout click.
+  const scopeKey = `${user?.id ?? 'anon'}|${board}|${classLevel}|${subject}`;
 
+  // These all start at the same empty defaults the page always had — deliberately NOT read
+  // from localStorage here. This component is server-rendered before it's hydrated, and a
+  // lazy useState initializer that reads localStorage runs on the client only, so it would
+  // return different content than the server-rendered HTML on the very first client render —
+  // a hydration mismatch. Restoring happens in the effect below instead, which (like
+  // ScopeContext's own localStorage restore) only ever runs client-side, after hydration.
   const [sources, setSources] = useState(EMPTY_SOURCES);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [optionsError, setOptionsError] = useState(false);
@@ -44,16 +67,43 @@ export default function DoubtsPage() {
   const [askError, setAskError] = useState<string | null>(null);
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
 
+  // Tracks the last scope this effect actually ran for, to tell "the underlying scope really
+  // changed" apart from "React re-invoked this same mount's effect a second time" — which
+  // React's Strict Mode does deliberately, once, in dev only. A run-count ref (e.g. a boolean
+  // flipped after the first run) gets this wrong: the ref survives the double-invoke, so the
+  // second call would look like a genuine later change and wrongly wipe out what the first
+  // call just restored. Comparing scope-to-scope instead is idempotent — both StrictMode calls
+  // see the identical scopeKey, so only an actual student-driven change (a real prior scope
+  // that differs from the current one) triggers the reset below.
+  const lastScopeRef = useRef<string | null>(null);
+
   // Re-fetch (and reset the cascade) whenever the underlying scope changes — e.g. the
-  // student switches subject in Settings while this page is already open.
+  // student switches subject in Settings while this page is already open. On the very first
+  // run for this component instance, restore whatever was saved for this exact scope instead.
   useEffect(() => {
     let cancelled = false;
     setOptionsLoading(true);
     setOptionsError(false);
-    setSourceType(null);
-    setUnit(null);
-    setAskResult(null);
-    setSelectedCitation(null);
+
+    const isInitialMount = lastScopeRef.current === null;
+    const isRealScopeChange = !isInitialMount && lastScopeRef.current !== scopeKey;
+    lastScopeRef.current = scopeKey;
+
+    if (isInitialMount) {
+      const restored = loadPageProgress<DoubtsProgress>(PROGRESS_KEY, scopeKey);
+      if (restored) {
+        setSourceType(restored.sourceType);
+        setUnit(restored.unit);
+        setQuery(restored.query);
+        setAskResult(restored.askResult);
+        setSelectedCitation(restored.selectedCitation);
+      }
+    } else if (isRealScopeChange) {
+      setSourceType(null);
+      setUnit(null);
+      setAskResult(null);
+      setSelectedCitation(null);
+    }
 
     fetch(`/api/ask/options?board=${encodeURIComponent(board)}&classLevel=${classLevel}&subject=${encodeURIComponent(subject)}`)
       .then((res) => res.json())
@@ -76,7 +126,17 @@ export default function DoubtsPage() {
     return () => {
       cancelled = true;
     };
-  }, [board, classLevel, subject]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scopeKey is derived from exactly
+    // board/classLevel/subject/user.id; depending on it directly is equivalent and simpler.
+  }, [scopeKey]);
+
+  // Persists the in-progress question/answer so a refresh or navigating away and back to this
+  // page restores it — see src/lib/persist/page-progress.ts. Deliberately excludes `isAsking`/
+  // `askError`: those describe an in-flight request or a dropped connection, neither of which
+  // should still be true after the page reloads.
+  useEffect(() => {
+    savePageProgress<DoubtsProgress>(PROGRESS_KEY, scopeKey, { sourceType, unit, query, askResult, selectedCitation });
+  }, [scopeKey, sourceType, unit, query, askResult, selectedCitation]);
 
   const activeUnits = sourceType ? sources.find((s) => s.sourceType === sourceType)?.units ?? [] : [];
   const canAsk = Boolean(sourceType && unit);

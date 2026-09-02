@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { IDLE_TIMEOUT_MS } from '@/lib/auth/session-activity';
+import { clearAllPageProgress } from '@/lib/persist/page-progress';
 
 const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart'] as const;
 
@@ -23,6 +24,7 @@ export default function IdleLogoutWatcher() {
         // Best-effort — middleware/getCurrentUserAndProfile will reject the stale
         // session server-side regardless of whether this call succeeds.
       }
+      clearAllPageProgress();
       router.push('/login?reason=inactivity');
       router.refresh();
     };
