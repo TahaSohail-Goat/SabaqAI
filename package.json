@@ -10,7 +10,6 @@
     "start": "next start",
     "lint": "tsc --noEmit",
     "ingest": "tsx scripts/ingest.ts",
-    "eval": "tsx scripts/eval.ts",
     "crawl": "tsx scripts/crawl.ts",
     "crawl:dry": "tsx scripts/crawl.ts --dry-run"
   },

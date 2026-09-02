@@ -12,7 +12,7 @@ import { createServerClient } from '@supabase/ssr';
 import { ACTIVITY_COOKIE_NAME, activityCookieOptions, isActivityFresh } from '@/lib/auth/session-activity';
 
 // Routes that require authentication
-const PROTECTED_PREFIXES = ['/dashboard', '/doubts', '/chat', '/quiz', '/syllabus', '/eval', '/settings'];
+const PROTECTED_PREFIXES = ['/dashboard', '/doubts', '/chat', '/quiz', '/syllabus', '/settings'];
 
 // Routes only for guests (redirect to dashboard if already logged in)
 const AUTH_ONLY_ROUTES = ['/login', '/signup'];
