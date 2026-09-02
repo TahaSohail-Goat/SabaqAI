@@ -23,6 +23,7 @@ import {
 import NavItem from './NavItem';
 import SabaqLogoBadge from '@/components/SabaqLogoBadge';
 import { useScope } from './ScopeContext';
+import { clearAllPageProgress } from '@/lib/persist/page-progress';
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
@@ -34,6 +35,10 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
+      // The in-progress question/quiz/chat draft each page persists to localStorage is scoped
+      // by account id already, but clearing it here too means a shared device never even holds
+      // onto it past this point instead of relying solely on the next login's id mismatch.
+      clearAllPageProgress();
       router.push('/login');
     } catch (e) {
       console.error(e);
@@ -70,7 +75,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         <div className="space-y-1">
           <p className="px-3.5 mb-1.5 text-[10px] font-bold text-text-2 uppercase tracking-wider">Workspace</p>
           <NavItem href="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onClose} />
-          <NavItem href="/ask" icon={Search} label="Ask" onNavigate={onClose} />
+          <NavItem href="/doubts" icon={Search} label="Doubts" onNavigate={onClose} />
           <NavItem href="/chat" icon={MessagesSquare} label="Chat" onNavigate={onClose} />
           <NavItem href="/quiz" icon={Award} label="Quiz" onNavigate={onClose} />
           <NavItem href="/syllabus" icon={BookOpen} label="Syllabus" onNavigate={onClose} />

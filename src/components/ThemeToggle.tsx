@@ -15,8 +15,7 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
 
   useEffect(() => {
     const stored = window.localStorage.getItem('sabaqai-theme') as Theme | null;
-    const initial = stored ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    setTheme(initial);
+    setTheme(stored ?? 'light');
   }, []);
 
   const toggle = () => {

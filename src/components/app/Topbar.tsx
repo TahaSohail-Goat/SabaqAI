@@ -11,7 +11,7 @@ type Theme = 'light' | 'dark';
 // no page has to remember to pass one down through the shared layout.
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Where you are and what to do next.' },
-  '/ask': { title: 'Ask', subtitle: 'Grounded answers with page citations, or an honest refusal.' },
+  '/doubts': { title: 'Doubts', subtitle: 'Grounded answers with page citations, or an honest refusal.' },
   '/chat': { title: 'Chat', subtitle: 'Open conversation with Gemini — not bound to your syllabus.' },
   '/quiz': { title: 'Quiz', subtitle: 'Board-pattern questions generated from your chapters.' },
   '/syllabus': { title: 'Syllabus', subtitle: 'What Sabaq AI actually knows, chapter by chapter.' },
@@ -43,7 +43,7 @@ export default function Topbar({ onOpenSidebar }: TopbarProps) {
 
   useEffect(() => {
     const stored = window.localStorage.getItem('sabaqai-theme') as Theme | null;
-    setTheme(stored ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+    setTheme(stored ?? 'light');
   }, []);
 
   const toggleTheme = () => {

@@ -1,12 +1,13 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { RefreshCw, CheckCircle2, XCircle, BookOpen, FileQuestion, Sparkles } from 'lucide-react';
 import { useScope } from '@/components/app/ScopeContext';
 import EmptyState from '@/components/app/EmptyState';
 import SelectField from '@/components/app/SelectField';
 import { SUBJECT_LABELS } from '@/lib/subjects';
+import { loadPageProgress, savePageProgress } from '@/lib/persist/page-progress';
 
 type QuestionType = 'mcq' | 'short' | 'long';
 
@@ -60,8 +61,23 @@ export default function QuizPage() {
   );
 }
 
+const PROGRESS_KEY = 'quiz';
+
+interface QuizProgress {
+  selectedSubject: string;
+  selectedChapter: number | null;
+  quizQuestions: QuizQuestion[];
+  hasGenerated: boolean;
+  isPartial: boolean;
+  effectiveCounts: { mcq: number; short: number; long: number } | null;
+  selectedAnswers: Record<number, number | string>;
+  isQuizSubmitted: boolean;
+  quizToken: string | null;
+  quizGrade: QuizGrade | null;
+}
+
 function QuizPageInner() {
-  const { board, classLevel, subject: scopeSubject, profile } = useScope();
+  const { board, classLevel, subject: scopeSubject, profile, user } = useScope();
   // A student is enrolled in every seeded subject by default (see create-account.ts) — filter
   // to just those so this doesn't offer subjects with no reason to appear here.
   const enrolledSubjects = profile?.subjects?.length ? profile.subjects : [scopeSubject];
@@ -72,7 +88,24 @@ function QuizPageInner() {
   const searchParams = useSearchParams();
   const linkedSubject = searchParams.get('subject');
   const linkedChapterNo = searchParams.get('chapterNo') ? Number(searchParams.get('chapterNo')) : null;
+  // A full deep link (both subject and chapter) is an explicit "take me here" — it should win
+  // over restoring whatever quiz was saved from a previous, unrelated visit to this page, not
+  // get silently overridden by it.
+  const arrivedViaLink = linkedSubject !== null && linkedChapterNo !== null;
 
+  // Scoped by account + board/class only — not the page-local selectedSubject state below,
+  // since that's exactly the field the restore effect corrects, and part of what's saved.
+  // Scoping by account also means a shared device never surfaces one student's ungraded quiz
+  // for whoever's signed in next; logout also clears this key outright (see
+  // Sidebar/IdleLogoutWatcher).
+  const progressScope = `${user?.id ?? 'anon'}|${board}|${classLevel}`;
+
+  // Every one of these starts at the same pristine defaults the page always had — deliberately
+  // NOT read from localStorage here. This component is server-rendered before it's hydrated,
+  // and a lazy useState initializer that reads localStorage runs on the client only, so it
+  // would return different content than the server-rendered HTML on the very first client
+  // render — a hydration mismatch. Restoring happens in the effect below instead, which (like
+  // ScopeContext's own localStorage restore) only ever runs client-side, after hydration.
   const [selectedSubject, setSelectedSubject] = useState(
     linkedSubject && enrolledSubjects.includes(linkedSubject) ? linkedSubject : scopeSubject
   );
@@ -94,6 +127,34 @@ function QuizPageInner() {
   const [quizGrade, setQuizGrade] = useState<QuizGrade | null>(null);
   const [gradeError, setGradeError] = useState<string | null>(null);
   const [isGrading, setIsGrading] = useState(false);
+
+  // Tracks the last scope (subject+board+class) this effect actually ran for, to tell "the
+  // student really changed subject" apart from "React re-invoked this same mount's effect a
+  // second time" — which React's Strict Mode does deliberately, once, in dev only. A run-count
+  // ref gets this wrong: it survives the double-invoke, so the second call would look like a
+  // genuine later change and wrongly wipe out what the first call just restored. Comparing
+  // scope-to-scope instead is idempotent — both StrictMode calls see the identical scope key,
+  // so only an actual change triggers the reset below.
+  const lastScopeRef = useRef<string | null>(null);
+  // Whether this component instance has ever finished attempting a one-time restore (found a
+  // match and applied it, or confirmed there was nothing to restore). Stays false across a
+  // subject *correction* below — that's not a completed attempt, it's this same attempt
+  // continuing on the next render once selectedSubject actually matches what was saved.
+  // Starts pre-settled (skips the restore branch entirely) when a full Practice Quiz deep link
+  // brought us here — see arrivedViaLink above. Otherwise starts false, same as always.
+  const hasRestoredRef = useRef(arrivedViaLink);
+  // A STATE mirror of hasRestoredRef's final value, purely to gate the persist effect further
+  // down. It has to be state, not the ref: the persist effect needs to know, from its OWN
+  // render's closure, whether that render's quizQuestions/etc are pre- or post-restore. Reading
+  // the ref there wouldn't help — by the time the ref flips true (inside the effect below), the
+  // *state* values that same effect just restored haven't landed in any closure yet; they only
+  // become visible together, in the next render, once React applies that batch. Until then, the
+  // persist effect must not write at all — otherwise it saves this render's still-blank values
+  // over whatever the restore is about to bring back (a real bug this caught: restoring a saved
+  // quiz needs a subject correction first, which takes an extra render — the persist effect's
+  // one intervening write, using that render's pre-correction blanks, silently destroyed the
+  // saved attempt before the corrected render ever got to read it).
+  const [restoreSettled, setRestoreSettled] = useState(arrivedViaLink);
 
   const generateQuiz = async () => {
     if (selectedChapter === null || quizLoading) return;
@@ -138,13 +199,59 @@ function QuizPageInner() {
 
   // Which chapters actually have ingested content for the selected subject — driven by the
   // real corpus, not a hardcoded chapter list that could claim coverage the corpus doesn't have.
+  // Also where a saved quiz attempt gets restored, on this component instance's first run only.
   useEffect(() => {
     let cancelled = false;
     setChaptersLoading(true);
     setChapters([]);
-    setSelectedChapter(null);
-    setQuizQuestions([]);
-    setHasGenerated(false);
+
+    const scopeKey = `${selectedSubject}|${board}|${classLevel}`;
+    const isRealScopeChange = lastScopeRef.current !== null && lastScopeRef.current !== scopeKey;
+    lastScopeRef.current = scopeKey;
+
+    let restored: QuizProgress | null = null;
+    if (!hasRestoredRef.current) {
+      const saved = loadPageProgress<QuizProgress>(PROGRESS_KEY, progressScope);
+      if (!saved) {
+        // Nothing to restore, ever — stop checking on every future run, and let the persist
+        // effect start writing (see restoreSettled's own comment above).
+        hasRestoredRef.current = true;
+        setRestoreSettled(true);
+      } else if (saved.selectedSubject !== selectedSubject) {
+        // A saved attempt exists, but for a different subject than this render currently has.
+        // Correct it — this effect will run again once selectedSubject actually updates to
+        // match, and will restore then. Deliberately doesn't mark restoration "done" yet, and
+        // doesn't settle restoreSettled either — the persist effect must stay silent through
+        // this correction, or it would save this render's still-blank quiz state and destroy
+        // the very thing about to be restored.
+        setSelectedSubject(saved.selectedSubject);
+      } else {
+        // Now on the matching subject (either it was the current one all along, or a prior
+        // run of this same effect just corrected it) — restore, once, for this instance.
+        hasRestoredRef.current = true;
+        restored = saved;
+        setSelectedChapter(saved.selectedChapter);
+        setQuizQuestions(saved.quizQuestions);
+        setHasGenerated(saved.hasGenerated);
+        setIsPartial(saved.isPartial);
+        setEffectiveCounts(saved.effectiveCounts);
+        setSelectedAnswers(saved.selectedAnswers);
+        setIsQuizSubmitted(saved.isQuizSubmitted);
+        setQuizToken(saved.quizToken);
+        setQuizGrade(saved.quizGrade);
+        setRestoreSettled(true);
+      }
+    } else if (isRealScopeChange) {
+      setSelectedChapter(null);
+      setQuizQuestions([]);
+      setHasGenerated(false);
+      setIsPartial(false);
+      setEffectiveCounts(null);
+      setSelectedAnswers({});
+      setIsQuizSubmitted(false);
+      setQuizToken(null);
+      setQuizGrade(null);
+    }
 
     const params = new URLSearchParams({ board, classLevel: String(classLevel), subject: selectedSubject });
     fetch(`/api/quiz/scope?${params}`)
@@ -153,15 +260,24 @@ function QuizPageInner() {
         if (cancelled) return;
         const chs: Chapter[] = data.chapters || [];
         setChapters(chs);
-        if (chs.length > 0) {
-          // Only honor the linked chapter while still on the subject the link pointed at — if
-          // the student manually switches subjects afterward, fall back to the normal default
-          // rather than reapplying a chapter number that belonged to a different subject.
-          const linked =
-            selectedSubject === linkedSubject &&
-            linkedChapterNo !== null &&
-            chs.some((c) => c.chapterNo === linkedChapterNo);
-          setSelectedChapter(linked ? linkedChapterNo : chs[0].chapterNo);
+        // Only honor the linked chapter while still on the subject the link pointed at — if
+        // the student manually switches subjects afterward, fall back to the normal
+        // restore/default logic rather than reapplying a chapter number that belonged to a
+        // different subject.
+        const linked =
+          selectedSubject === linkedSubject &&
+          linkedChapterNo !== null &&
+          chs.some((c) => c.chapterNo === linkedChapterNo);
+        if (linked) {
+          setSelectedChapter(linkedChapterNo);
+        } else {
+          // A restored chapter that's still real just stays selected (with its question/answers
+          // already restored above) — only fall back to chs[0] when there's nothing to restore,
+          // or the student genuinely picked a different subject.
+          const keepRestored = restored && chs.some((c) => c.chapterNo === restored!.selectedChapter);
+          if (!keepRestored) {
+            setSelectedChapter(chs.length > 0 ? chs[0].chapterNo : null);
+          }
         }
       })
       .catch((err) => console.error('Quiz scope (chapters) load error:', err))
@@ -172,7 +288,44 @@ function QuizPageInner() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `progressScope` is only read
+    // inside the `!hasRestoredRef.current` branch, which by construction only ever runs
+    // before that ref flips true; it doesn't need to be reactive here.
   }, [selectedSubject, board, classLevel, linkedSubject, linkedChapterNo]);
+
+  // Persists the in-progress quiz attempt so a refresh or navigating away and back restores
+  // it — see src/lib/persist/page-progress.ts. Excludes `quizLoading`/`quizError`/`gradeError`/
+  // `isGrading`: transient in-flight/failure states that shouldn't still be true on reload.
+  // Stays silent until restoreSettled — see that state's own comment for why writing any
+  // earlier would corrupt a save still being restored.
+  useEffect(() => {
+    if (!restoreSettled) return;
+    savePageProgress<QuizProgress>(PROGRESS_KEY, progressScope, {
+      selectedSubject,
+      selectedChapter,
+      quizQuestions,
+      hasGenerated,
+      isPartial,
+      effectiveCounts,
+      selectedAnswers,
+      isQuizSubmitted,
+      quizToken,
+      quizGrade,
+    });
+  }, [
+    restoreSettled,
+    progressScope,
+    selectedSubject,
+    selectedChapter,
+    quizQuestions,
+    hasGenerated,
+    isPartial,
+    effectiveCounts,
+    selectedAnswers,
+    isQuizSubmitted,
+    quizToken,
+    quizGrade,
+  ]);
 
   // Grading happens on the server — the browser never held the answer key/rubric. This is also
   // the ONLY point the quiz is ever recorded: generation never writes a DB row, so a quiz the

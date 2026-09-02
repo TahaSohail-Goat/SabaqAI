@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   RefreshCw,
   ArrowRight,
@@ -8,6 +8,7 @@ import {
   BookOpen,
   AlertTriangle,
   HelpCircle,
+  WifiOff,
 } from 'lucide-react';
 import type { AskResponse, Citation, AskOptionsResponse, AskSourceType, AskUnit } from '@/lib/types';
 import { useScope } from '@/components/app/ScopeContext';
@@ -16,32 +17,93 @@ import AskSourceSelector from '@/components/app/AskSourceSelector';
 import AskUnitSelector from '@/components/app/AskUnitSelector';
 import AskDocumentReader from '@/components/app/AskDocumentReader';
 import { ASK_SOURCE_TYPES } from '@/lib/ask/source-meta';
+import { loadPageProgress, savePageProgress } from '@/lib/persist/page-progress';
 
 const EMPTY_SOURCES: AskOptionsResponse['sources'] = ASK_SOURCE_TYPES.map((sourceType) => ({ sourceType, units: [] }));
 
-export default function AskPage() {
-  const { board, classLevel, subject, language, setSubject, profile } = useScope();
-  const enrolledSubjects = profile?.subjects ?? [subject];
+const PROGRESS_KEY = 'doubts';
 
+interface DoubtsProgress {
+  sourceType: AskSourceType | null;
+  unit: AskUnit | null;
+  query: string;
+  askResult: AskResponse | null;
+  selectedCitation: Citation | null;
+}
+
+// Shown when the question genuinely couldn't be sent/answered at all — a dropped connection,
+// a server that didn't respond, or a reply that wasn't even valid JSON (a gateway/proxy error
+// page, say). Distinct from a REFUSAL: /api/ask's own catch-all already turns every ordinary
+// server-side failure into a calm, refusal-shaped body (see its final catch block), so this
+// only ever fires for failures that happened before any response body could be read at all —
+// nothing here is a technical detail a student needs, just "try again."
+const CONNECTION_ERROR_MESSAGE = "Sabaq couldn't reach the server to answer that. Check your internet connection and try again.";
+
+export default function DoubtsPage() {
+  const { board, classLevel, subject, language, setSubject, profile, user } = useScope();
+  const enrolledSubjects = profile?.subjects ?? [subject];
+  // Includes the account id so a shared device never surfaces one student's in-progress
+  // question for whoever's signed in next — logout also clears this key outright (see
+  // Sidebar/IdleLogoutWatcher), this is the belt-and-suspenders half for the case where the
+  // browser was just closed (ending the session per src/lib/auth/session-activity.ts) rather
+  // than an explicit logout click.
+  const scopeKey = `${user?.id ?? 'anon'}|${board}|${classLevel}|${subject}`;
+
+  // These all start at the same empty defaults the page always had — deliberately NOT read
+  // from localStorage here. This component is server-rendered before it's hydrated, and a
+  // lazy useState initializer that reads localStorage runs on the client only, so it would
+  // return different content than the server-rendered HTML on the very first client render —
+  // a hydration mismatch. Restoring happens in the effect below instead, which (like
+  // ScopeContext's own localStorage restore) only ever runs client-side, after hydration.
   const [sources, setSources] = useState(EMPTY_SOURCES);
   const [optionsLoading, setOptionsLoading] = useState(true);
+  const [optionsError, setOptionsError] = useState(false);
   const [sourceType, setSourceType] = useState<AskSourceType | null>(null);
   const [unit, setUnit] = useState<AskUnit | null>(null);
 
   const [query, setQuery] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [askResult, setAskResult] = useState<AskResponse | null>(null);
+  const [askError, setAskError] = useState<string | null>(null);
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
 
+  // Tracks the last scope this effect actually ran for, to tell "the underlying scope really
+  // changed" apart from "React re-invoked this same mount's effect a second time" — which
+  // React's Strict Mode does deliberately, once, in dev only. A run-count ref (e.g. a boolean
+  // flipped after the first run) gets this wrong: the ref survives the double-invoke, so the
+  // second call would look like a genuine later change and wrongly wipe out what the first
+  // call just restored. Comparing scope-to-scope instead is idempotent — both StrictMode calls
+  // see the identical scopeKey, so only an actual student-driven change (a real prior scope
+  // that differs from the current one) triggers the reset below.
+  const lastScopeRef = useRef<string | null>(null);
+
   // Re-fetch (and reset the cascade) whenever the underlying scope changes — e.g. the
-  // student switches subject in Settings while this page is already open.
+  // student switches subject in Settings while this page is already open. On the very first
+  // run for this component instance, restore whatever was saved for this exact scope instead.
   useEffect(() => {
     let cancelled = false;
     setOptionsLoading(true);
-    setSourceType(null);
-    setUnit(null);
-    setAskResult(null);
-    setSelectedCitation(null);
+    setOptionsError(false);
+
+    const isInitialMount = lastScopeRef.current === null;
+    const isRealScopeChange = !isInitialMount && lastScopeRef.current !== scopeKey;
+    lastScopeRef.current = scopeKey;
+
+    if (isInitialMount) {
+      const restored = loadPageProgress<DoubtsProgress>(PROGRESS_KEY, scopeKey);
+      if (restored) {
+        setSourceType(restored.sourceType);
+        setUnit(restored.unit);
+        setQuery(restored.query);
+        setAskResult(restored.askResult);
+        setSelectedCitation(restored.selectedCitation);
+      }
+    } else if (isRealScopeChange) {
+      setSourceType(null);
+      setUnit(null);
+      setAskResult(null);
+      setSelectedCitation(null);
+    }
 
     fetch(`/api/ask/options?board=${encodeURIComponent(board)}&classLevel=${classLevel}&subject=${encodeURIComponent(subject)}`)
       .then((res) => res.json())
@@ -49,7 +111,13 @@ export default function AskPage() {
         if (!cancelled) setSources(data.sources);
       })
       .catch(() => {
-        if (!cancelled) setSources(EMPTY_SOURCES);
+        // A real connection failure, not "this subject has nothing ingested" (that case
+        // still returns 200 with empty categories — see /api/ask/options). Worth telling
+        // the student apart from an honest "nothing here yet", not just falling back silently.
+        if (!cancelled) {
+          setSources(EMPTY_SOURCES);
+          setOptionsError(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setOptionsLoading(false);
@@ -58,7 +126,17 @@ export default function AskPage() {
     return () => {
       cancelled = true;
     };
-  }, [board, classLevel, subject]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scopeKey is derived from exactly
+    // board/classLevel/subject/user.id; depending on it directly is equivalent and simpler.
+  }, [scopeKey]);
+
+  // Persists the in-progress question/answer so a refresh or navigating away and back to this
+  // page restores it — see src/lib/persist/page-progress.ts. Deliberately excludes `isAsking`/
+  // `askError`: those describe an in-flight request or a dropped connection, neither of which
+  // should still be true after the page reloads.
+  useEffect(() => {
+    savePageProgress<DoubtsProgress>(PROGRESS_KEY, scopeKey, { sourceType, unit, query, askResult, selectedCitation });
+  }, [scopeKey, sourceType, unit, query, askResult, selectedCitation]);
 
   const activeUnits = sourceType ? sources.find((s) => s.sourceType === sourceType)?.units ?? [] : [];
   const canAsk = Boolean(sourceType && unit);
@@ -68,6 +146,7 @@ export default function AskPage() {
 
     setIsAsking(true);
     setAskResult(null);
+    setAskError(null);
     setSelectedCitation(null);
 
     try {
@@ -90,7 +169,13 @@ export default function AskPage() {
         setSelectedCitation(data.citations[0]);
       }
     } catch (err) {
+      // Never reached /api/ask's own response handling at all — a dropped connection, or a
+      // reply that wasn't valid JSON. /api/ask's own catch-all already turns every ordinary
+      // server-side failure into a calm refusal instead of landing here, so whatever err.message
+      // says (a raw "Failed to fetch", a JSON parse error) is a debugging detail, not something
+      // a student should ever see — only the one fixed, friendly message goes on screen.
       console.error('Ask error:', err);
+      setAskError(CONNECTION_ERROR_MESSAGE);
     } finally {
       setIsAsking(false);
     }
@@ -105,6 +190,12 @@ export default function AskPage() {
       {/* Left: scope picker, input & result */}
       <div className="lg:col-span-6 space-y-6">
         <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm space-y-4">
+          {optionsError && (
+            <div className="flex items-center gap-2 rounded-xl bg-error-bg text-error text-xs font-medium px-3 py-2">
+              <WifiOff className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Couldn&apos;t load your chapters and papers — check your connection and reload the page.</span>
+            </div>
+          )}
           <AskSubjectSelector value={subject} subjects={enrolledSubjects} onChange={setSubject} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <AskSourceSelector
@@ -115,6 +206,7 @@ export default function AskPage() {
                 setSourceType(t);
                 setUnit(null);
                 setAskResult(null);
+                setAskError(null);
               }}
             />
             {sourceType ? (
@@ -125,6 +217,7 @@ export default function AskPage() {
                 onChange={(u) => {
                   setUnit(u);
                   setAskResult(null);
+                  setAskError(null);
                 }}
               />
             ) : (
@@ -179,6 +272,30 @@ export default function AskPage() {
               <div className="w-8 h-8 rounded-full border-2 border-brand/20 border-t-brand animate-spin" />
             </div>
             <div className="text-xs text-text-2">Searching the selected {unit?.chapterTitle ?? 'source'}…</div>
+          </div>
+        )}
+
+        {/* Connection/send failure — distinct from a refusal: this is a real problem, not the
+            product working correctly, so it's allowed to look like one (unlike a refusal card,
+            which stays deliberately calm and never red). */}
+        {askError && !isAsking && (
+          <div className="bg-surface border border-error/30 rounded-2xl p-6 animate-fade-up">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-error-bg text-error flex-shrink-0">
+                <WifiOff className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-bold text-navy">Couldn&apos;t send your question</h3>
+                <p className="text-[13px] text-navy-2 mt-1 leading-relaxed">{askError}</p>
+                <button
+                  type="button"
+                  onClick={() => handleAsk()}
+                  className="mt-3 text-xs font-bold text-brand hover:text-brand-dark transition-colors"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

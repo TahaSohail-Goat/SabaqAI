@@ -9,6 +9,14 @@ import ChatModelSelector from '@/components/app/ChatModelSelector';
 import EmptyState from '@/components/app/EmptyState';
 import type { ChatResponse, TranscribeResponse } from '@/lib/types';
 import { DEFAULT_CHAT_MODEL_ID, resolveChatModel } from '@/lib/chat/models';
+import { loadPageProgress, savePageProgress } from '@/lib/persist/page-progress';
+
+const PROGRESS_KEY = 'chat';
+
+interface ChatProgress {
+  activeConversationId: string | null;
+  draft: string;
+}
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -22,8 +30,19 @@ interface DisplayMessage {
 }
 
 export default function ChatPage() {
-  const { board, classLevel } = useScope();
+  const { board, classLevel, user } = useScope();
 
+  // Scoped by account so a shared device never surfaces one student's open conversation or
+  // unsent draft for whoever's signed in next; logout also clears this key outright (see
+  // Sidebar/IdleLogoutWatcher).
+  const progressScope = user?.id ?? 'anon';
+
+  // Both start at the same empty defaults the page always had — deliberately NOT read from
+  // localStorage here. This component is server-rendered before it's hydrated, and a lazy
+  // useState initializer that reads localStorage runs on the client only, so it would return
+  // different content than the server-rendered HTML on the very first client render — a
+  // hydration mismatch. Restoring happens in the mount effect below instead, which (like
+  // ScopeContext's own localStorage restore) only ever runs client-side, after hydration.
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -54,6 +73,26 @@ export default function ChatPage() {
   useEffect(() => {
     refreshConversations();
   }, []);
+
+  // Restores whichever conversation was open (and any unsent draft) before a refresh or
+  // navigating away and back — the messages themselves come from the server (the actual
+  // source of truth for anything already sent) via loadConversation, this just re-points the
+  // view at the right thread instead of landing back on a blank "start a conversation" screen.
+  // Client-only and mount-only by construction (an effect never runs during SSR), so this
+  // can't cause a hydration mismatch the way reading localStorage in a state initializer would.
+  useEffect(() => {
+    const restored = loadPageProgress<ChatProgress>(PROGRESS_KEY, progressScope);
+    if (restored?.draft) setDraft(restored.draft);
+    if (restored?.activeConversationId) loadConversation(restored.activeConversationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only.
+  }, []);
+
+  // Persists which conversation is open and any unsent draft — see
+  // src/lib/persist/page-progress.ts. Sent messages aren't included here at all; they're
+  // already durable server-side once /api/chat returns an X-Conversation-Id.
+  useEffect(() => {
+    savePageProgress<ChatProgress>(PROGRESS_KEY, progressScope, { activeConversationId, draft });
+  }, [progressScope, activeConversationId, draft]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });

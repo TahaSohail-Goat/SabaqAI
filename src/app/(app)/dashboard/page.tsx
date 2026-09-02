@@ -24,7 +24,7 @@ const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const ACTIONS = [
   {
-    href: '/ask',
+    href: '/doubts',
     icon: Search,
     title: 'Ask a question',
     description: 'Get a grounded, cited answer — or an honest refusal.',
@@ -188,7 +188,7 @@ export default function DashboardPage() {
             title="No recent activity"
             message="Questions you ask and quizzes you take will show up here."
             ctaLabel="Ask a question"
-            ctaHref="/ask"
+            ctaHref="/doubts"
           />
         </div>
       </div>
