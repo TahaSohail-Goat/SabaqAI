@@ -39,6 +39,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       // by account id already, but clearing it here too means a shared device never even holds
       // onto it past this point instead of relying solely on the next login's id mismatch.
       clearAllPageProgress();
+      // Un-submitted quiz drafts deliberately survive logout (they're keyed + filtered by
+      // account id, and pruned for the next user on the history page) so a student can resume
+      // them after signing back in.
       router.push('/login');
     } catch (e) {
       console.error(e);
