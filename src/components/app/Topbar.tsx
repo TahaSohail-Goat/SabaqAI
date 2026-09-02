@@ -17,7 +17,6 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/quiz/history': { title: 'Quiz history', subtitle: 'Every quiz you’ve submitted, with the solved paper.' },
   '/syllabus': { title: 'Syllabus', subtitle: 'What Sabaq AI actually knows, chapter by chapter.' },
   '/explore': { title: 'Explore', subtitle: 'Fly through your subjects — pick a book to open it.' },
-  '/eval': { title: 'Evaluation', subtitle: 'Internal — retrieval accuracy and refusal safety.' },
   '/settings': { title: 'Settings', subtitle: 'Your profile, study scope, and appearance.' },
 };
 
