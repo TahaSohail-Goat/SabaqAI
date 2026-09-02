@@ -41,6 +41,12 @@ After applying, run `supabase/tests/001_schema_torture.sql` (22 assertions, self
   RLS policy**: deny by default, read only through the service role. The correct answer can never
   reach the browser before submission, structurally.
 - **quiz_attempts / quiz_attempt_answers** — submissions, one atomic row per answered question.
+- **quiz_drafts** (0015) — in-progress (generated-but-ungraded) quizzes, parked so they survive
+  logout / device change. One row per `user + board + class + subject + chapter` (unique). Holds
+  the sealed token + the browser-safe `questions` jsonb + `answers` jsonb — deliberately not
+  normalized: it's a serialized working-set with a one-sitting lifespan, deleted on submit (when
+  the quiz becomes real `quizzes`/`quiz_attempts` rows) or when regenerated / discarded. Never
+  feeds mastery or stats. Owner-only RLS.
 
 ## Read model
 

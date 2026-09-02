@@ -29,6 +29,19 @@ export interface PlanDay {
   items: PlanItem[];
 }
 
+/** A graded quiz the student has submitted since this plan was created, on a chapter inside the
+ *  plan's subject + chapter range — i.e. real practice done toward this specific plan, tracked
+ *  separately from the app-wide quiz history. */
+export interface PlanQuizAttempt {
+  id: string;
+  chapterNo: number;
+  chapterTitle: string | null;
+  score: number;
+  total: number;
+  answered: number;
+  submittedAt: string;
+}
+
 export interface PlanDetail {
   id: string;
   subject: string;
@@ -40,6 +53,7 @@ export interface PlanDetail {
   expired: boolean;
   days: PlanDay[];
   skipped: { chapterNo: number; chapterTitle: string | null; reason: string }[];
+  quizAttempts: PlanQuizAttempt[];
 }
 
 // Weakest-evidence-first: a confirmed poor score outranks "never attempted" (evidence beats
@@ -134,13 +148,51 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     const { data: plan, error: planError } = await admin
       .from('exam_plans')
-      .select('id, user_id, board_code, class_level, subject_code, from_chapter_no, to_chapter_no, exam_date, reserve_buffer_day')
+      .select('id, user_id, board_code, class_level, subject_code, from_chapter_no, to_chapter_no, exam_date, reserve_buffer_day, created_at')
       .eq('id', id)
       .maybeSingle();
 
     if (planError || !plan || plan.user_id !== user.id) {
       return NextResponse.json({ error: 'This plan could not be found.' }, { status: 404 });
     }
+
+    // Quizzes done toward this plan: the student's graded attempts since the plan was created,
+    // on a chapter within its subject + range. Attributed by scope, not by a stored plan id —
+    // no schema change, and it counts any real practice on an in-scope chapter, whether or not
+    // it was launched from the plan's "Practice quiz" link.
+    const { data: attemptRows, error: attemptsError } = await admin
+      .from('quiz_attempts')
+      .select('id, score, total, answered, submitted_at, quizzes(chapters(chapter_no, chapter_title, subject_code))')
+      .eq('user_id', user.id)
+      .gte('submitted_at', plan.created_at)
+      .order('submitted_at', { ascending: false });
+
+    if (attemptsError) console.error('Plan detail: quiz_attempts query failed:', attemptsError.message);
+
+    const quizAttempts: PlanQuizAttempt[] = (attemptRows ?? [])
+      .map((r: any) => {
+        const quiz = Array.isArray(r.quizzes) ? r.quizzes[0] : r.quizzes;
+        const ch = quiz ? (Array.isArray(quiz.chapters) ? quiz.chapters[0] : quiz.chapters) : null;
+        if (!ch) return null;
+        return {
+          id: r.id as string,
+          chapterNo: ch.chapter_no as number,
+          chapterTitle: (ch.chapter_title ?? null) as string | null,
+          subjectCode: ch.subject_code as string,
+          score: r.score as number,
+          total: r.total as number,
+          answered: r.answered as number,
+          submittedAt: r.submitted_at as string,
+        };
+      })
+      .filter(
+        (a): a is PlanQuizAttempt & { subjectCode: string } =>
+          a !== null &&
+          a.subjectCode === plan.subject_code &&
+          a.chapterNo >= plan.from_chapter_no &&
+          a.chapterNo <= plan.to_chapter_no
+      )
+      .map(({ subjectCode: _subjectCode, ...rest }) => rest);
 
     const daysRemaining = daysUntil(plan.exam_date);
 
@@ -156,6 +208,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         expired: true,
         days: [],
         skipped: [],
+        quizAttempts,
       });
     }
 
@@ -231,6 +284,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       expired: false,
       days,
       skipped,
+      quizAttempts,
     });
   } catch (error) {
     console.error('Plan detail API error:', error);

@@ -170,7 +170,7 @@ async function gradeAll(
 
 export async function POST(req: NextRequest) {
   try {
-    const { quizToken, answers } = await req.json();
+    const { quizToken, answers, draftId } = await req.json();
 
     if (typeof quizToken !== 'string' || !quizToken) {
       return NextResponse.json({ error: 'quizToken is required.' }, { status: 400 });
@@ -245,6 +245,18 @@ export async function POST(req: NextRequest) {
         }));
         await persistAttempt(admin, quizId, user.id, attemptResults);
         saved = true;
+
+        // The quiz is now real normalized rows (quizzes/quiz_attempts) — drop its parked draft
+        // so it moves from "in progress" to "completed" everywhere. Best-effort + ownership-
+        // scoped; a stale draft would otherwise just expire on its own.
+        if (typeof draftId === 'string' && draftId) {
+          const { error: draftDeleteError } = await admin
+            .from('quiz_drafts')
+            .delete()
+            .eq('id', draftId)
+            .eq('user_id', user.id);
+          if (draftDeleteError) console.warn('Quiz grade: quiz_drafts cleanup failed:', draftDeleteError.message);
+        }
       } else {
         console.warn('Quiz grading: quiz persistence failed — this attempt will not be saved to history.');
       }

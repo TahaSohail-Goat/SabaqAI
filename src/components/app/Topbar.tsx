@@ -14,6 +14,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/doubts': { title: 'Doubts', subtitle: 'Grounded answers with page citations, or an honest refusal.' },
   '/chat': { title: 'Chat', subtitle: 'Open conversation with Gemini — not bound to your syllabus.' },
   '/quiz': { title: 'Quiz', subtitle: 'Board-pattern questions generated from your chapters.' },
+  '/quiz/history': { title: 'Quiz history', subtitle: 'Every quiz you’ve submitted, with the solved paper.' },
   '/syllabus': { title: 'Syllabus', subtitle: 'What Sabaq AI actually knows, chapter by chapter.' },
   '/explore': { title: 'Explore', subtitle: 'Fly through your subjects — pick a book to open it.' },
   '/eval': { title: 'Evaluation', subtitle: 'Internal — retrieval accuracy and refusal safety.' },

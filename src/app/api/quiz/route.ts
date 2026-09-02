@@ -326,14 +326,96 @@ Return strictly a JSON array of objects in this shape:
     : validateText(parsed, chunks, type, type === 'short' ? SHORT_MAX_SCORE : LONG_MAX_SCORE);
 }
 
-/** Builds the response for a freshly generated quiz. Deliberately does NOT touch quizzes/
- *  quiz_questions/etc — nothing about this quiz is recorded in the database yet. The quiz only
- *  gets persisted for real when the student actually submits an attempt (/api/quiz/grade),
- *  which is what the sealed token here carries everything necessary for. Generating a quiz and
- *  never answering it should leave no trace of a "quiz taken." */
-function respondWithQuiz(
+const MAX_DRAFTS_PER_USER = 20;
+
+/** Parks a freshly generated quiz as a resumable draft (quiz_drafts) for a logged-in student,
+ *  so it survives logout and shows up on another device. Best-effort: a failure here never
+ *  blocks the quiz response — the student can still take it right now, it just won't be
+ *  resumable elsewhere, same resilience posture as persistQuiz(). NOT a "quiz taken" record:
+ *  the row is deleted on submit (/api/quiz/grade) or when this chapter is regenerated. */
+async function parkDraft(
+  ctx: {
+    admin: SupabaseClient | null;
+    userId: string | null;
+    board: string;
+    classLevel: number;
+    subject: string;
+    chapterNo: number;
+    chapterTitle: string;
+    partial: boolean;
+    effectiveCounts: { mcq: number; short: number; long: number };
+  },
+  quizToken: string,
+  publicQuestions: PublicQuizQuestion[]
+): Promise<string | null> {
+  const { admin, userId } = ctx;
+  if (!admin || !userId) return null;
+
+  try {
+    const { data, error } = await admin
+      .from('quiz_drafts')
+      .upsert(
+        {
+          user_id: userId,
+          board_code: ctx.board,
+          class_level: ctx.classLevel,
+          subject_code: ctx.subject,
+          chapter_no: ctx.chapterNo,
+          chapter_title: ctx.chapterTitle,
+          quiz_token: quizToken,
+          questions: publicQuestions,
+          answers: {},
+          is_partial: ctx.partial,
+          effective_counts: ctx.effectiveCounts,
+          generated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,board_code,class_level,subject_code,chapter_no' }
+      )
+      .select('id')
+      .single();
+
+    if (error || !data) {
+      console.warn('Quiz: quiz_drafts upsert failed:', error?.message);
+      return null;
+    }
+
+    // Keep the parked-draft list bounded per student.
+    const { data: extra } = await admin
+      .from('quiz_drafts')
+      .select('id')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .range(MAX_DRAFTS_PER_USER, MAX_DRAFTS_PER_USER + 50);
+    if (extra && extra.length > 0) {
+      await admin.from('quiz_drafts').delete().in('id', extra.map((r) => r.id));
+    }
+
+    return data.id as string;
+  } catch (err) {
+    console.warn('Quiz: quiz_drafts upsert threw:', err);
+    return null;
+  }
+}
+
+/** Builds the response for a freshly generated quiz. Does NOT touch quizzes/quiz_questions/etc
+ *  — the quiz is only persisted as real normalized rows when the student submits an attempt
+ *  (/api/quiz/grade), which the sealed token carries everything necessary for. It IS parked as
+ *  a disposable quiz_drafts row (see parkDraft) so a logged-in student can resume it later. */
+async function respondWithQuiz(
   questions: QuizQuestionData[],
-  ctx: { chapterId: string | null },
+  ctx: {
+    chapterId: string | null;
+    admin: SupabaseClient | null;
+    userId: string | null;
+    board: string;
+    classLevel: number;
+    subject: string;
+    chapterNo: number;
+    chapterTitle: string;
+    partial: boolean;
+    effectiveCounts: { mcq: number; short: number; long: number };
+  },
   extra: Record<string, unknown>
 ) {
   const tokenQuestions: QuizTokenQuestion[] = questions.map((q) =>
@@ -366,7 +448,23 @@ function respondWithQuiz(
     ({ correctIndex: _correctIndex, explanation: _explanation, modelAnswer: _modelAnswer, rubric: _rubric, ...rest }) => rest
   );
 
-  return NextResponse.json({ questions: publicQuestions, quizToken, ...extra });
+  const draftId = await parkDraft(
+    {
+      admin: ctx.admin,
+      userId: ctx.userId,
+      board: ctx.board,
+      classLevel: ctx.classLevel,
+      subject: ctx.subject,
+      chapterNo: ctx.chapterNo,
+      chapterTitle: ctx.chapterTitle,
+      partial: ctx.partial,
+      effectiveCounts: ctx.effectiveCounts,
+    },
+    quizToken,
+    publicQuestions
+  );
+
+  return NextResponse.json({ questions: publicQuestions, quizToken, draftId, ...extra });
 }
 
 export async function POST(req: NextRequest) {
@@ -485,14 +583,30 @@ export async function POST(req: NextRequest) {
 
     const requestedTotal = CHAPTER_PROFILE.mcq + CHAPTER_PROFILE.short + CHAPTER_PROFILE.long;
     const partial = counts.partial || allQuestions.length < requestedTotal;
+    const effectiveCounts = { mcq: mcqQuestions.length, short: shortQuestions.length, long: longQuestions.length };
 
-    return respondWithQuiz(allQuestions, { chapterId }, {
-      chapterNo,
-      subject,
-      partial,
-      requestedCounts: CHAPTER_PROFILE,
-      effectiveCounts: { mcq: mcqQuestions.length, short: shortQuestions.length, long: longQuestions.length },
-    });
+    return respondWithQuiz(
+      allQuestions,
+      {
+        chapterId,
+        admin,
+        userId: user?.id ?? null,
+        board,
+        classLevel,
+        subject,
+        chapterNo,
+        chapterTitle,
+        partial,
+        effectiveCounts,
+      },
+      {
+        chapterNo,
+        subject,
+        partial,
+        requestedCounts: CHAPTER_PROFILE,
+        effectiveCounts,
+      }
+    );
   } catch (error) {
     console.error('Quiz API error:', error);
     return NextResponse.json({ error: 'Failed to generate quiz' }, { status: 500 });

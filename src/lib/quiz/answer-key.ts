@@ -63,7 +63,9 @@ interface Payload {
 const ALGORITHM = 'aes-256-gcm';
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
-const TOKEN_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours — a quiz session, not a day
+// 2 hours — a quiz session, not a day. Exported so the draft routes can flag a stored quiz
+// whose token has aged past the point it can still be graded.
+export const TOKEN_TTL_MS = 2 * 60 * 60 * 1000;
 
 let ephemeralSecret: string | null = null;
 
