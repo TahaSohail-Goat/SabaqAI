@@ -1,13 +1,17 @@
 'use client';
 
-import React, { Suspense, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { RefreshCw, CheckCircle2, XCircle, BookOpen, FileQuestion, Sparkles } from 'lucide-react';
+import { RefreshCw, CheckCircle2, XCircle, BookOpen, FileQuestion, Sparkles, History, ArrowDown, X } from 'lucide-react';
 import { useScope } from '@/components/app/ScopeContext';
 import EmptyState from '@/components/app/EmptyState';
 import SelectField from '@/components/app/SelectField';
+import QuizResultsSummary from '@/components/app/QuizResultsSummary';
 import { SUBJECT_LABELS } from '@/lib/subjects';
-import { loadPageProgress, savePageProgress } from '@/lib/persist/page-progress';
+import { loadPageProgress, savePageProgress, clearPageProgress } from '@/lib/persist/page-progress';
+import { getQuizDraft, saveQuizDraftAnswers, deleteQuizDraft } from '@/lib/quiz/drafts-api';
+import { summarizeAttempt, type AttemptItem } from '@/lib/quiz/feedback';
 
 type QuestionType = 'mcq' | 'short' | 'long';
 
@@ -74,6 +78,9 @@ interface QuizProgress {
   isQuizSubmitted: boolean;
   quizToken: string | null;
   quizGrade: QuizGrade | null;
+  /** ms — when the quiz was generated, for the draft-registry staleness hint. Absent on
+   *  progress saved before this field existed. */
+  generatedAt?: number | null;
 }
 
 function QuizPageInner() {
@@ -92,6 +99,13 @@ function QuizPageInner() {
   // over restoring whatever quiz was saved from a previous, unrelated visit to this page, not
   // get silently overridden by it.
   const arrivedViaLink = linkedSubject !== null && linkedChapterNo !== null;
+  // The history / plan pages' "Resume" button links here with ?draft=<id> (plus the same
+  // ?subject=&chapterNo= so selectedSubject initialises right) to reopen one specific parked,
+  // un-submitted quiz from the server (src/lib/quiz/drafts-api.ts). Loaded async in the
+  // deep-link effect below, so like arrivedViaLink it pre-settles the restore path.
+  const draftParam = searchParams.get('draft');
+  const arrivedViaDraft = draftParam !== null;
+  const isDeepLink = arrivedViaLink || arrivedViaDraft;
 
   // Scoped by account + board/class only — not the page-local selectedSubject state below,
   // since that's exactly the field the restore effect corrects, and part of what's saved.
@@ -127,6 +141,9 @@ function QuizPageInner() {
   const [quizGrade, setQuizGrade] = useState<QuizGrade | null>(null);
   const [gradeError, setGradeError] = useState<string | null>(null);
   const [isGrading, setIsGrading] = useState(false);
+  // When the current quiz was generated — carried into the draft registry so the history page
+  // can flag a quiz whose grading token has aged past its 2h TTL.
+  const [generatedAt, setGeneratedAt] = useState<number | null>(null);
 
   // Tracks the last scope (subject+board+class) this effect actually ran for, to tell "the
   // student really changed subject" apart from "React re-invoked this same mount's effect a
@@ -142,7 +159,7 @@ function QuizPageInner() {
   // continuing on the next render once selectedSubject actually matches what was saved.
   // Starts pre-settled (skips the restore branch entirely) when a full Practice Quiz deep link
   // brought us here — see arrivedViaLink above. Otherwise starts false, same as always.
-  const hasRestoredRef = useRef(arrivedViaLink);
+  const hasRestoredRef = useRef(isDeepLink);
   // A STATE mirror of hasRestoredRef's final value, purely to gate the persist effect further
   // down. It has to be state, not the ref: the persist effect needs to know, from its OWN
   // render's closure, whether that render's quizQuestions/etc are pre- or post-restore. Reading
@@ -154,7 +171,17 @@ function QuizPageInner() {
   // quiz needs a subject correction first, which takes an extra render — the persist effect's
   // one intervening write, using that render's pre-correction blanks, silently destroyed the
   // saved attempt before the corrected render ever got to read it).
-  const [restoreSettled, setRestoreSettled] = useState(arrivedViaLink);
+  const [restoreSettled, setRestoreSettled] = useState(isDeepLink);
+  // The server draft id backing the current in-progress quiz (from /api/quiz on generate, or
+  // from getQuizDraft on resume). Autosave PATCHes answers to it; submit/start-over delete it.
+  const [serverDraftId, setServerDraftId] = useState<string | null>(null);
+
+  // A quiz was restored from a previous visit and is still unsubmitted — drives the visible
+  // "Resume" banner. The quiz state itself is already restored silently by the effect below;
+  // this is only the affordance that tells the student it happened and lets them jump to where
+  // they left off or start over.
+  const [resumedInProgress, setResumedInProgress] = useState(false);
+  const [resumeDismissed, setResumeDismissed] = useState(false);
 
   const generateQuiz = async () => {
     if (selectedChapter === null || quizLoading) return;
@@ -167,6 +194,9 @@ function QuizPageInner() {
     setIsQuizSubmitted(false);
     setQuizGrade(null);
     setGradeError(null);
+    setResumedInProgress(false);
+    setResumeDismissed(false);
+    setServerDraftId(null);
     try {
       const res = await fetch('/api/quiz', {
         method: 'POST',
@@ -189,6 +219,8 @@ function QuizPageInner() {
       setQuizToken(data.quizToken ?? null);
       setIsPartial(!!data.partial);
       setEffectiveCounts(data.effectiveCounts ?? null);
+      setGeneratedAt(Date.now());
+      setServerDraftId(data.draftId ?? null);
     } catch (err) {
       console.error('Quiz generation error:', err);
       setQuizError('Could not reach the server. Check your connection and try again.');
@@ -211,6 +243,9 @@ function QuizPageInner() {
 
     let restored: QuizProgress | null = null;
     if (!hasRestoredRef.current) {
+      // The single "your last quiz on this page" entry (page-progress). A ?draft= deep link
+      // pre-settles hasRestoredRef so this branch is skipped entirely — that quiz is loaded
+      // from the server in the deep-link effect below.
       const saved = loadPageProgress<QuizProgress>(PROGRESS_KEY, progressScope);
       if (!saved) {
         // Nothing to restore, ever — stop checking on every future run, and let the persist
@@ -239,7 +274,11 @@ function QuizPageInner() {
         setIsQuizSubmitted(saved.isQuizSubmitted);
         setQuizToken(saved.quizToken);
         setQuizGrade(saved.quizGrade);
+        setGeneratedAt(saved.generatedAt ?? null);
         setRestoreSettled(true);
+        if (saved.hasGenerated && !saved.isQuizSubmitted && saved.quizQuestions.length > 0) {
+          setResumedInProgress(true);
+        }
       }
     } else if (isRealScopeChange) {
       setSelectedChapter(null);
@@ -251,6 +290,9 @@ function QuizPageInner() {
       setIsQuizSubmitted(false);
       setQuizToken(null);
       setQuizGrade(null);
+      setGeneratedAt(null);
+      setResumedInProgress(false);
+      setResumeDismissed(false);
     }
 
     const params = new URLSearchParams({ board, classLevel: String(classLevel), subject: selectedSubject });
@@ -291,7 +333,7 @@ function QuizPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `progressScope` is only read
     // inside the `!hasRestoredRef.current` branch, which by construction only ever runs
     // before that ref flips true; it doesn't need to be reactive here.
-  }, [selectedSubject, board, classLevel, linkedSubject, linkedChapterNo]);
+  }, [selectedSubject, board, classLevel, linkedSubject, linkedChapterNo, draftParam]);
 
   // Persists the in-progress quiz attempt so a refresh or navigating away and back restores
   // it — see src/lib/persist/page-progress.ts. Excludes `quizLoading`/`quizError`/`gradeError`/
@@ -311,6 +353,7 @@ function QuizPageInner() {
       isQuizSubmitted,
       quizToken,
       quizGrade,
+      generatedAt,
     });
   }, [
     restoreSettled,
@@ -325,7 +368,63 @@ function QuizPageInner() {
     isQuizSubmitted,
     quizToken,
     quizGrade,
+    generatedAt,
   ]);
+
+  // Debounced autosave of partial answers to the server draft (quiz_drafts) so an un-submitted
+  // quiz can be resumed after logout or on another device. The draft row itself is created by
+  // /api/quiz on generation (or already exists when resumed) — this only syncs the answers.
+  useEffect(() => {
+    if (!serverDraftId || isQuizSubmitted || !hasGenerated) return;
+    const t = setTimeout(() => {
+      saveQuizDraftAnswers(serverDraftId, selectedAnswers);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [serverDraftId, isQuizSubmitted, hasGenerated, selectedAnswers]);
+
+  // Deep-link entry, one-shot:
+  //   ?draft=<id>          → load that specific parked quiz from the server and resume it.
+  //   ?subject=&chapterNo= → the Revision Planner's "Practice quiz" — generate now, instead of
+  //                          leaving the student on a Generate button.
+  const didAutoActOnLinkRef = useRef(false);
+  useEffect(() => {
+    if (!isDeepLink || didAutoActOnLinkRef.current) return;
+    if (chaptersLoading || quizLoading || hasGenerated) return;
+    // For a plain (no-draft) link, wait until the linked scope has actually resolved.
+    if (!arrivedViaDraft && (selectedSubject !== linkedSubject || selectedChapter !== linkedChapterNo)) return;
+
+    didAutoActOnLinkRef.current = true;
+
+    if (arrivedViaDraft && draftParam) {
+      let cancelled = false;
+      getQuizDraft(draftParam).then((d) => {
+        if (cancelled) return;
+        if (!d) {
+          // Draft gone (submitted elsewhere / discarded) — fall back to a normal fresh page.
+          setRestoreSettled(true);
+          return;
+        }
+        setSelectedSubject(d.subject);
+        setSelectedChapter(d.chapterNo);
+        setQuizQuestions(d.questions as QuizQuestion[]);
+        setSelectedAnswers(d.answers as Record<number, number | string>);
+        setQuizToken(d.quizToken);
+        setIsPartial(d.isPartial);
+        setEffectiveCounts(d.effectiveCounts);
+        setGeneratedAt(new Date(d.generatedAt).getTime());
+        setServerDraftId(d.id);
+        setHasGenerated(true);
+        setResumedInProgress(true);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    generateQuiz();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- generateQuiz is stable enough for
+    // this one-shot guarded call; re-running on its identity would defeat didAutoActOnLinkRef.
+  }, [isDeepLink, arrivedViaDraft, draftParam, chaptersLoading, quizLoading, hasGenerated, selectedSubject, selectedChapter, linkedSubject, linkedChapterNo]);
 
   // Grading happens on the server — the browser never held the answer key/rubric. This is also
   // the ONLY point the quiz is ever recorded: generation never writes a DB row, so a quiz the
@@ -347,7 +446,7 @@ function QuizPageInner() {
       const res = await fetch('/api/quiz/grade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quizToken, answers: answersById }),
+        body: JSON.stringify({ quizToken, answers: answersById, draftId: serverDraftId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -356,6 +455,8 @@ function QuizPageInner() {
       }
       setQuizGrade(data);
       setIsQuizSubmitted(true);
+      // The grade route deleted the parked draft (it's a completed attempt now) — stop autosave.
+      setServerDraftId(null);
     } catch {
       setGradeError('Could not reach the server to grade this quiz. Check your connection.');
     } finally {
@@ -366,12 +467,73 @@ function QuizPageInner() {
   const gradeFor = (questionId: string): GradedQuestion | undefined =>
     quizGrade?.results.find((r) => r.questionId === questionId);
 
-  const answeredCount = Object.values(selectedAnswers).filter(
-    (v) => typeof v === 'number' || (typeof v === 'string' && v.trim().length > 0)
-  ).length;
+  const isAnswered = (v: number | string | undefined) =>
+    typeof v === 'number' || (typeof v === 'string' && v.trim().length > 0);
+
+  const answeredCount = Object.values(selectedAnswers).filter(isAnswered).length;
+
+  // Attempt-level roll-up, computed the same way the history detail route does it (via the
+  // shared summarizeAttempt helper) — shown above the graded questions after submitting.
+  const attemptSummary = useMemo(() => {
+    if (!isQuizSubmitted || !quizGrade) return null;
+    const items: AttemptItem[] = quizQuestions.map((q) => {
+      const g = quizGrade.results.find((r) => r.questionId === q.id);
+      const pointsPossible = g?.pointsPossible ?? (q.questionType === 'mcq' ? 1 : q.maxScore ?? 1);
+      return {
+        questionType: q.questionType,
+        section: q.section || null,
+        page: q.page || null,
+        correct: g?.correct ?? false,
+        pointsAwarded: g?.pointsAwarded ?? 0,
+        pointsPossible,
+        answered: (g?.selectedIndex ?? null) !== null || !!(g?.answerText && g.answerText.trim()),
+      };
+    });
+    return summarizeAttempt(items);
+  }, [isQuizSubmitted, quizGrade, quizQuestions]);
+
+  const firstUnansweredIdx = quizQuestions.findIndex((_q, idx) => !isAnswered(selectedAnswers[idx]));
+
+  const jumpToUnanswered = () => {
+    const idx = firstUnansweredIdx === -1 ? 0 : firstUnansweredIdx;
+    document.getElementById(`quiz-q-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const startOver = () => {
+    clearPageProgress(PROGRESS_KEY);
+    if (serverDraftId) deleteQuizDraft(serverDraftId);
+    setServerDraftId(null);
+    setQuizQuestions([]);
+    setGeneratedAt(null);
+    setHasGenerated(false);
+    setIsPartial(false);
+    setEffectiveCounts(null);
+    setSelectedAnswers({});
+    setIsQuizSubmitted(false);
+    setQuizToken(null);
+    setQuizGrade(null);
+    setQuizError(null);
+    setGradeError(null);
+    setResumedInProgress(false);
+    setResumeDismissed(false);
+  };
+
+  const showResumeBanner =
+    resumedInProgress && !resumeDismissed && !isQuizSubmitted && hasGenerated && quizQuestions.length > 0;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* Toolbar — history lives on its own page, reachable only from here (not the sidebar) */}
+      <div className="flex justify-end">
+        <Link
+          href="/quiz/history"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-2 hover:bg-border text-navy-2 text-xs font-semibold rounded-lg transition"
+        >
+          <History className="w-3.5 h-3.5" />
+          Quiz history
+        </Link>
+      </div>
+
       {/* Subject + chapter pickers */}
       <div className="bg-surface border border-border rounded-xl p-4 flex flex-wrap gap-4">
         <SelectField id="quiz-subject" label="Subject" value={selectedSubject} onChange={setSelectedSubject} className="flex-1 min-w-[180px]">
@@ -431,6 +593,47 @@ function QuizPageInner() {
         </div>
       )}
 
+      {showResumeBanner && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-quiz-light border border-quiz-border rounded-lg px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <RefreshCw className="w-4 h-4 text-quiz shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-navy">Picked up your last quiz</p>
+              <p className="text-[11px] text-text-2">
+                {answeredCount}/{quizQuestions.length} answered — carry on where you left off.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {firstUnansweredIdx !== -1 && (
+              <button
+                type="button"
+                onClick={jumpToUnanswered}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-brand hover:bg-brand-dark text-white text-xs font-semibold rounded-lg transition"
+              >
+                <ArrowDown className="w-3.5 h-3.5" />
+                Jump to where you left off
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={startOver}
+              className="px-3 py-1.5 bg-surface-2 hover:bg-border text-navy-2 text-xs font-medium rounded-lg transition"
+            >
+              Start over
+            </button>
+            <button
+              type="button"
+              onClick={() => setResumeDismissed(true)}
+              title="Dismiss"
+              className="p-1.5 rounded-lg text-text-2 hover:bg-surface-hover hover:text-navy transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* States: loading chapters, no chapters ingested, not yet generated, loading quiz, quiz error, or the quiz itself */}
       {chaptersLoading ? (
         <div className="bg-surface border border-border rounded-xl p-12 text-center space-y-3">
@@ -460,13 +663,15 @@ function QuizPageInner() {
         />
       ) : (
         <div className="space-y-4">
+          {attemptSummary && <QuizResultsSummary summary={attemptSummary} />}
+
           {quizQuestions.map((q, qIdx) => {
             const selectedOpt = selectedAnswers[qIdx];
             const graded = gradeFor(q.id);
             const isCorrect = graded?.correct ?? false;
 
             return (
-              <div key={q.id || qIdx} className="bg-surface border border-border rounded-xl p-5 space-y-4">
+              <div key={q.id || qIdx} id={`quiz-q-${qIdx}`} className="bg-surface border border-border rounded-xl p-5 space-y-4 scroll-mt-20">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2.5">
                     <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-surface-2 text-brand border border-border-strong">

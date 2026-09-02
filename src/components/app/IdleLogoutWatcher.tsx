@@ -25,6 +25,7 @@ export default function IdleLogoutWatcher() {
         // session server-side regardless of whether this call succeeds.
       }
       clearAllPageProgress();
+      // Quiz drafts survive logout on purpose — see Sidebar.handleLogout.
       router.push('/login?reason=inactivity');
       router.refresh();
     };

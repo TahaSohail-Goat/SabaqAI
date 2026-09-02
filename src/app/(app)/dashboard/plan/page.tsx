@@ -2,7 +2,7 @@
 
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { CalendarClock, Flag, Moon, Plus, Trash2, ChevronLeft, RefreshCw, Award, Sparkles } from 'lucide-react';
+import { CalendarClock, Flag, Moon, Plus, Trash2, ChevronLeft, RefreshCw, Award, Sparkles, ArrowRight, Play, X } from 'lucide-react';
 import { useScope } from '@/components/app/ScopeContext';
 import EmptyState from '@/components/app/EmptyState';
 import SectionHeader from '@/components/app/SectionHeader';
@@ -11,6 +11,7 @@ import SelectField from '@/components/app/SelectField';
 import MasteryBadge from '@/components/app/MasteryBadge';
 import ActionBadge from '@/components/app/ActionBadge';
 import { SUBJECT_LABELS } from '@/lib/subjects';
+import { listQuizDrafts, deleteQuizDraft, type QuizDraftRow } from '@/lib/quiz/drafts-api';
 import type { PlanSummary } from '@/app/api/dashboard/plan/route';
 import type { PlanAction, PlanDetail, PlanItem } from '@/app/api/dashboard/plan/[id]/route';
 
@@ -29,6 +30,22 @@ function urgencyClass(daysRemaining: number): string {
 
 function formatDate(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function formatTimestamp(iso: string | number): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+/** Full-scope resume link — see the arrivedViaLink comment in the quiz page. */
+function draftResumeHref(d: QuizDraftRow): string {
+  return `/quiz?draft=${encodeURIComponent(d.id)}&subject=${encodeURIComponent(d.subjectCode)}&chapterNo=${d.chapterNo}`;
+}
+
+function quizScorePill(score: number, total: number): string {
+  const pct = total > 0 ? (score / total) * 100 : 0;
+  if (pct >= 70) return 'bg-brand-light text-brand-dark';
+  if (pct >= 40) return 'bg-quiz-light text-quiz';
+  return 'bg-error-bg text-error';
 }
 
 interface GroupedPlanItem {
@@ -82,21 +99,42 @@ function useHorizontalScroll<T extends HTMLElement>() {
       e.preventDefault();
     };
 
+    // Only start a real drag (and only then capture the pointer) once the pointer has moved
+    // past a small threshold. Capturing on pointerdown unconditionally re-targets the click
+    // compat-event to this container, which swallows clicks on links/buttons inside the
+    // timeline (the "Practice quiz" link never navigated).
+    const DRAG_THRESHOLD = 5;
+    let pointerId: number | null = null;
     let dragging = false;
     let startX = 0;
     let startScrollLeft = 0;
     const onPointerDown = (e: PointerEvent) => {
-      dragging = true;
+      pointerId = e.pointerId;
+      dragging = false;
       startX = e.clientX;
       startScrollLeft = el.scrollLeft;
-      el.setPointerCapture(e.pointerId);
     };
     const onPointerMove = (e: PointerEvent) => {
-      if (!dragging) return;
-      el.scrollLeft = startScrollLeft - (e.clientX - startX);
+      if (pointerId === null) return;
+      const dx = e.clientX - startX;
+      if (!dragging) {
+        if (Math.abs(dx) <= DRAG_THRESHOLD) return;
+        dragging = true;
+        el.setPointerCapture(pointerId);
+      }
+      el.scrollLeft = startScrollLeft - dx;
+      e.preventDefault();
     };
     const onPointerUp = () => {
+      if (dragging && pointerId !== null) {
+        try {
+          el.releasePointerCapture(pointerId);
+        } catch {
+          // capture may already be gone (pointercancel etc) — harmless
+        }
+      }
       dragging = false;
+      pointerId = null;
     };
 
     el.addEventListener('wheel', onWheel, { passive: false });
@@ -519,6 +557,7 @@ function DetailView({
           title="This exam has passed"
           message={`Its exam date (${formatDate(detail.examDate)}) is in the past.`}
         />
+        <PlanQuizHistory detail={detail} />
         <button
           type="button"
           onClick={() => onDelete(detail.id)}
@@ -606,6 +645,8 @@ function DetailView({
         ))}
       </div>
 
+      <PlanQuizHistory detail={detail} />
+
       <button
         type="button"
         onClick={() => onDelete(detail.id)}
@@ -614,6 +655,132 @@ function DetailView({
         <Trash2 className="w-3.5 h-3.5" />
         Delete this plan
       </button>
+    </div>
+  );
+}
+
+/** This plan's own quiz track, distinct from the app-wide /quiz/history: quizzes still in
+ *  progress (parked server-side, so cross-device) on top, then graded attempts the student has
+ *  submitted toward this plan (in-scope chapters, since the plan was created). */
+function PlanQuizHistory({ detail }: { detail: PlanDetail }) {
+  const attempts = detail.quizAttempts;
+  const [drafts, setDrafts] = useState<QuizDraftRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listQuizDrafts().then((all) => {
+      if (cancelled) return;
+      setDrafts(
+        all.filter(
+          (d) =>
+            d.subjectCode === detail.subject &&
+            d.chapterNo >= detail.fromChapterNo &&
+            d.chapterNo <= detail.toChapterNo
+        )
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [detail.subject, detail.fromChapterNo, detail.toChapterNo]);
+
+  const discardDraft = (id: string) => {
+    deleteQuizDraft(id);
+    setDrafts((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  const empty = attempts.length === 0 && drafts.length === 0;
+
+  return (
+    <div className="space-y-2.5">
+      <SectionHeader
+        title="Quizzes for this plan"
+        subtitle="In-progress and graded quizzes on this plan's chapters, since you created it."
+      />
+
+      {empty ? (
+        <div className="bg-surface-muted border border-border rounded-xl p-4 text-xs text-text-2">
+          None yet — use the <span className="font-semibold text-navy-2">Practice quiz</span> links in the schedule above to start one.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {drafts.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-text-2 uppercase tracking-wider">
+                In progress ({drafts.length})
+              </p>
+              {drafts.map((d) => {
+                const stale = d.expired;
+                return (
+                  <div
+                    key={d.id}
+                    className="flex items-center justify-between gap-3 bg-surface border border-border rounded-xl p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-navy truncate">
+                        Ch {d.chapterNo}
+                        {d.chapterTitle ? `: ${d.chapterTitle}` : ''}
+                      </p>
+                      <p className="text-[11px] text-text-2">
+                        {d.answeredCount}/{d.totalQuestions} answered · started {formatTimestamp(d.generatedAt)}
+                        {stale && <span className="text-quiz"> · session expired</span>}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Link
+                        href={draftResumeHref(d)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand hover:bg-brand-dark text-white text-[11px] font-semibold rounded-lg transition"
+                      >
+                        <Play className="w-3 h-3" />
+                        Resume
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => discardDraft(d.id)}
+                        title="Discard this draft"
+                        className="p-1.5 rounded-lg text-text-2 hover:bg-error-bg hover:text-error transition"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {attempts.length > 0 && (
+            <div className="space-y-2">
+              {drafts.length > 0 && (
+                <p className="text-[10px] font-bold text-text-2 uppercase tracking-wider">Completed ({attempts.length})</p>
+              )}
+              {attempts.map((a) => (
+                <Link
+                  key={a.id}
+                  href={`/quiz/history/${a.id}`}
+                  className="group flex items-center justify-between gap-3 bg-surface border border-border rounded-xl p-3 hover:shadow-sm transition"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-navy truncate">
+                      Ch {a.chapterNo}
+                      {a.chapterTitle ? `: ${a.chapterTitle}` : ''}
+                    </p>
+                    <p className="text-[11px] text-text-2">
+                      {formatTimestamp(a.submittedAt)} · {a.answered}/{a.total} answered
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${quizScorePill(a.score, a.total)}`}>
+                      {a.score}/{a.total}
+                    </span>
+                    <ArrowRight className="w-3.5 h-3.5 text-text-2 group-hover:text-brand transition" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

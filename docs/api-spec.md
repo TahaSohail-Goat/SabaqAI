@@ -176,6 +176,31 @@ was served instead. Surface that in the UI — don't present fallback content as
 
 `404` if the chapter has no chunks.
 
+For a logged-in student the response also carries **`draftId`** — generation now parks the quiz
+as a resumable `quiz_drafts` row (see below), so it survives logout / device change. This is the
+one place generation writes a row; it's disposable scratch state, deleted on submit.
+
+---
+
+## In-progress quiz drafts
+
+Generated-but-ungraded quizzes, parked server-side (`quiz_drafts`, migration 0015). One row per
+`user + board + class + subject + chapter` — regenerating a chapter replaces its row. Deleted when
+the quiz is submitted (`/api/quiz/grade` with `draftId`) or when the student discards it. Nothing
+here feeds mastery / dashboard stats / completed history — those read `quiz_attempts`, which a
+draft never creates.
+
+- **`GET /api/quiz/drafts`** → `{ drafts: [{ id, subjectCode, chapterNo, chapterTitle,
+  answeredCount, totalQuestions, generatedAt, updatedAt, expired }] }`, newest first. `expired` =
+  the sealed token is past its 2h grading TTL (still resumable for review).
+- **`GET /api/quiz/drafts/[id]`** → full draft for resuming: `{ id, subject, chapterNo,
+  chapterTitle, questions, answers, quizToken, isPartial, effectiveCounts, generatedAt, expired }`.
+  `questions` is the same browser-safe shape `/api/quiz` returns (no answer key). Ownership
+  mismatch → `404`.
+- **`PATCH /api/quiz/drafts/[id]`** — autosave. Body `{ answers }` (`{ "<questionIndex>":
+  <optionIndex | text> }`), replaces the stored answers. `404` if not yours.
+- **`DELETE /api/quiz/drafts/[id]`** — discard. `404` if not yours.
+
 ---
 
 ## `POST /api/quiz/grade` — submit and grade
