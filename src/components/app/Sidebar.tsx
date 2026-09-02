@@ -23,6 +23,7 @@ import {
 import NavItem from './NavItem';
 import SabaqLogoBadge from '@/components/SabaqLogoBadge';
 import { useScope } from './ScopeContext';
+import { clearAllPageProgress } from '@/lib/persist/page-progress';
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
@@ -34,6 +35,10 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
+      // The in-progress question/quiz/chat draft each page persists to localStorage is scoped
+      // by account id already, but clearing it here too means a shared device never even holds
+      // onto it past this point instead of relying solely on the next login's id mismatch.
+      clearAllPageProgress();
       router.push('/login');
     } catch (e) {
       console.error(e);
