@@ -21,6 +21,7 @@ interface Chapter {
 }
 
 type View = 'list' | 'create' | 'detail';
+type ScopePreset = 'single' | 'half' | 'full' | 'custom';
 
 function urgencyClass(daysRemaining: number): string {
   if (daysRemaining <= 2) return 'bg-error-bg text-error';
@@ -163,6 +164,7 @@ export default function PlanPage() {
   const [formChapters, setFormChapters] = useState<Chapter[]>([]);
   const [formFrom, setFormFrom] = useState<number | null>(null);
   const [formTo, setFormTo] = useState<number | null>(null);
+  const [formScope, setFormScope] = useState<ScopePreset>('single');
   const [formDate, setFormDate] = useState<string>(profile?.examDate ?? '');
   const [formBuffer, setFormBuffer] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
@@ -189,6 +191,7 @@ export default function PlanPage() {
     setFormChapters([]);
     setFormFrom(null);
     setFormTo(null);
+    setFormScope('single');
     const params = new URLSearchParams({ board, classLevel: String(classLevel), subject: formSubject });
     fetch(`/api/quiz/scope?${params}`)
       .then((res) => res.json())
@@ -207,12 +210,14 @@ export default function PlanPage() {
     setFormSubject(enrolledSubjects[0] ?? '');
     setFormDate(profile?.examDate ?? '');
     setFormBuffer(true);
+    setFormScope('single');
     setFormError(null);
     setView('create');
   };
 
-  const applyPreset = (preset: 'single' | 'half' | 'full') => {
-    if (formChapters.length === 0) return;
+  const selectScope = (preset: ScopePreset) => {
+    setFormScope(preset);
+    if (preset === 'custom' || formChapters.length === 0) return;
     const min = formChapters[0].chapterNo;
     const max = formChapters[formChapters.length - 1].chapterNo;
     if (preset === 'single') {
@@ -320,6 +325,7 @@ export default function PlanPage() {
           setFormFrom={setFormFrom}
           formTo={formTo}
           setFormTo={setFormTo}
+          formScope={formScope}
           formDate={formDate}
           setFormDate={setFormDate}
           formBuffer={formBuffer}
@@ -327,7 +333,7 @@ export default function PlanPage() {
           minDate={minDate}
           formError={formError}
           creating={creating}
-          onApplyPreset={applyPreset}
+          onSelectScope={selectScope}
           onSubmit={submitCreate}
         />
       )}
@@ -410,6 +416,7 @@ function CreateView({
   setFormFrom,
   formTo,
   setFormTo,
+  formScope,
   formDate,
   setFormDate,
   formBuffer,
@@ -417,7 +424,7 @@ function CreateView({
   minDate,
   formError,
   creating,
-  onApplyPreset,
+  onSelectScope,
   onSubmit,
 }: {
   enrolledSubjects: string[];
@@ -428,6 +435,7 @@ function CreateView({
   setFormFrom: (v: number) => void;
   formTo: number | null;
   setFormTo: (v: number) => void;
+  formScope: ScopePreset;
   formDate: string;
   setFormDate: (v: string) => void;
   formBuffer: boolean;
@@ -435,7 +443,7 @@ function CreateView({
   minDate: string;
   formError: string | null;
   creating: boolean;
-  onApplyPreset: (preset: 'single' | 'half' | 'full') => void;
+  onSelectScope: (preset: ScopePreset) => void;
   onSubmit: () => void;
 }) {
   return (
@@ -455,28 +463,31 @@ function CreateView({
           <div className="space-y-1.5">
             <p className="text-xs font-bold text-text-2 uppercase tracking-wide">Scope</p>
             <div className="flex flex-wrap gap-2">
-              <PresetButton label="Single chapter" onClick={() => onApplyPreset('single')} />
-              <PresetButton label="Half book" onClick={() => onApplyPreset('half')} />
-              <PresetButton label="Full book" onClick={() => onApplyPreset('full')} />
+              <PresetButton label="Single chapter" active={formScope === 'single'} onClick={() => onSelectScope('single')} />
+              <PresetButton label="Half book" active={formScope === 'half'} onClick={() => onSelectScope('half')} />
+              <PresetButton label="Full book" active={formScope === 'full'} onClick={() => onSelectScope('full')} />
+              <PresetButton label="Custom" active={formScope === 'custom'} onClick={() => onSelectScope('custom')} />
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <SelectField id="plan-from" label="From chapter" value={String(formFrom ?? '')} onChange={(v) => setFormFrom(Number(v))} className="flex-1">
-              {formChapters.map((c) => (
-                <option key={c.chapterNo} value={c.chapterNo}>
-                  Ch {c.chapterNo}{c.chapterTitle ? `: ${c.chapterTitle}` : ''}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField id="plan-to" label="To chapter" value={String(formTo ?? '')} onChange={(v) => setFormTo(Number(v))} className="flex-1">
-              {formChapters.map((c) => (
-                <option key={c.chapterNo} value={c.chapterNo}>
-                  Ch {c.chapterNo}{c.chapterTitle ? `: ${c.chapterTitle}` : ''}
-                </option>
-              ))}
-            </SelectField>
-          </div>
+          {formScope === 'custom' && (
+            <div className="flex gap-4 animate-fade-up">
+              <SelectField id="plan-from" label="From chapter" value={String(formFrom ?? '')} onChange={(v) => setFormFrom(Number(v))} className="flex-1">
+                {formChapters.map((c) => (
+                  <option key={c.chapterNo} value={c.chapterNo}>
+                    Ch {c.chapterNo}{c.chapterTitle ? `: ${c.chapterTitle}` : ''}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField id="plan-to" label="To chapter" value={String(formTo ?? '')} onChange={(v) => setFormTo(Number(v))} className="flex-1">
+                {formChapters.map((c) => (
+                  <option key={c.chapterNo} value={c.chapterNo}>
+                    Ch {c.chapterNo}{c.chapterTitle ? `: ${c.chapterTitle}` : ''}
+                  </option>
+                ))}
+              </SelectField>
+            </div>
+          )}
         </>
       )}
 
@@ -515,12 +526,17 @@ function CreateView({
   );
 }
 
-function PresetButton({ label, onClick }: { label: string; onClick: () => void }) {
+function PresetButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-2 border border-border-strong text-navy-2 hover:bg-border transition cursor-pointer"
+      aria-pressed={active}
+      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+        active
+          ? 'bg-brand border-brand text-white shadow-sm'
+          : 'bg-surface-2 border-border-strong text-navy-2 hover:bg-border'
+      }`}
     >
       {label}
     </button>
