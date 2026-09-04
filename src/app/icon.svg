@@ -8,21 +8,14 @@
 
   <rect width="64" height="64" rx="18" fill="url(#bg)"/>
 
-  <!-- Book + atom glyph — open book on the left, an atom on the right page (syllabus +
-       science, grounded together). Mirrors src/components/SabaqLogoMark.tsx exactly, scaled
-       1.5x from its native 24x24 viewBox and centered. -->
-  <g transform="translate(14,14) scale(1.5)" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round" fill="none">
+  <!-- Ribbon "S" + amber spark glyph — mirrors src/components/SabaqLogoMark.tsx exactly,
+       scaled from its native 100x100 viewBox down to fit inside the 64x64 badge. -->
+  <g transform="translate(11.5,11.5) scale(0.41)">
     <path
-      d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"
-      stroke-width="1.6"
+      d="M72,26 C72,15 61,9 50,9 C37,9 26,17 26,28 C26,40 39,43 50,47 C63,51 74,55 74,70 C74,83 63,91 50,91 C39,91 28,86 28,75"
+      stroke="#FFFFFF" stroke-width="13" stroke-linecap="round" fill="none"
     />
-    <path d="M4.5 7.5h4M4.5 10.5h4M4.5 13.5h3" stroke-width="1.3"/>
-    <g transform="translate(17 10.5)" stroke-width="1.1">
-      <ellipse rx="3" ry="1.2"/>
-      <ellipse rx="3" ry="1.2" transform="rotate(60)"/>
-      <ellipse rx="3" ry="1.2" transform="rotate(120)"/>
-    </g>
-    <circle cx="17" cy="10.5" r="0.9" fill="#FFFFFF" stroke="none"/>
+    <circle cx="72" cy="26" r="7.5" fill="#F2B84B"/>
   </g>
 
   <!-- "Ai" badge — matches SabaqLogoBadge.tsx's white pill overlapping the top-right corner. -->
