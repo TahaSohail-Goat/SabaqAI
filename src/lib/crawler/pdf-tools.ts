@@ -65,17 +65,22 @@ export function rasterizePdfToPng(pdfBuf: Buffer, dpi: number): { dir: string; p
   const pngPrefix = path.join(dir, 'page');
   fs.writeFileSync(tmpPdf, pdfBuf);
 
-  // Generous 30-min timeout — measured directly against a real 222-page, 75MB scanned
-  // textbook: still only ~half done at 10 minutes. A shorter timeout silently kills the
-  // process mid-run, which spawnSync reports as status !== 0 with empty stderr — genuinely
-  // misleading, since it looks like pdftoppm failed when it was actually still working.
-  const result = spawnSync('pdftoppm', ['-png', '-r', String(dpi), tmpPdf, pngPrefix], { encoding: 'utf8', timeout: 30 * 60_000 });
+  // 90-min timeout. A 30-min ceiling (this function's original value) turned out not to be
+  // "generous" at all: directly measured against FBISE's real Physics 9 textbook (221 pages,
+  // 75MB, AES-256 encrypted — poppler must decrypt every page before rasterizing it, and this
+  // scan's embedded page images are unusually large/complex, ~15 sec/page at 150 DPI) —
+  // pdftoppm was still running at the full 30-minute mark, extrapolating to ~56 minutes just
+  // for rasterization, before OCR even starts. A shorter timeout silently kills the process
+  // mid-run, which spawnSync reports as status !== 0 with empty stderr — genuinely misleading,
+  // since it looks like pdftoppm failed when it was actually still working.
+  const TIMEOUT_MS = 90 * 60_000;
+  const result = spawnSync('pdftoppm', ['-png', '-r', String(dpi), tmpPdf, pngPrefix], { encoding: 'utf8', timeout: TIMEOUT_MS });
   if (result.status !== 0) {
     const killedByTimeout = result.signal != null;
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
     throw new Error(
       killedByTimeout
-        ? 'pdftoppm was killed after exceeding its timeout (30 min) — this book may be larger/slower than expected.'
+        ? `pdftoppm was killed after exceeding its timeout (${TIMEOUT_MS / 60_000} min) — this book may be larger/slower than expected.`
         : `pdftoppm failed: ${result.stderr?.trim() || 'unknown error'}`
     );
   }
@@ -110,13 +115,26 @@ export function rasterizePageRangeToJpeg(pdfBuf: Buffer, pageFrom: number, pageT
     const jpgPrefix = path.join(dir, 'page');
     fs.writeFileSync(tmpPdf, pdfBuf);
 
+    // 20-min timeout, not the original 5 — the same slow-PDF characteristics that forced
+    // rasterizePdfToPng's timeout up to 90 min (AES-256 encryption, unusually large embedded
+    // scan images — see that function's comment) apply just as much to a single chapter's
+    // page range here. At the measured ~15 sec/page (150 DPI; this call's own DPI is usually
+    // lower, so somewhat faster in practice), even one ~30-40 page chapter could clear 5
+    // minutes on a book like FBISE's Physics 9 — and unlike the whole-book raster, a timeout
+    // here would fail one specific chapter's rebuild deep into an otherwise-successful ingest.
+    const TIMEOUT_MS = 20 * 60_000;
     const result = spawnSync(
       'pdftoppm',
       ['-jpeg', '-jpegopt', `quality=${quality}`, '-r', String(dpi), '-f', String(pageFrom), '-l', String(pageTo), tmpPdf, jpgPrefix],
-      { encoding: 'utf8', timeout: 5 * 60_000 }
+      { encoding: 'utf8', timeout: TIMEOUT_MS }
     );
     if (result.status !== 0) {
-      throw new Error(`pdftoppm failed while rasterizing pages ${pageFrom}-${pageTo}: ${result.stderr?.trim() || 'unknown error'}`);
+      const killedByTimeout = result.signal != null;
+      throw new Error(
+        killedByTimeout
+          ? `pdftoppm was killed after exceeding its timeout (${TIMEOUT_MS / 60_000} min) while rasterizing pages ${pageFrom}-${pageTo}.`
+          : `pdftoppm failed while rasterizing pages ${pageFrom}-${pageTo}: ${result.stderr?.trim() || 'unknown error'}`
+      );
     }
 
     const jpgFiles = fs.readdirSync(dir).filter((f) => f.endsWith('.jpg')).sort();

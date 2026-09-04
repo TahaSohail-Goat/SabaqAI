@@ -35,7 +35,12 @@ jobs:
   crawl-and-ingest:
     name: Crawl FBISE PDFs and ingest into Supabase
     runs-on: ubuntu-latest
-    timeout-minutes: 120  # OCR can be slow; 2 hours is a safe ceiling
+    # OCR can be slow, and 2 hours turned out not to be a safe ceiling for the full manifest:
+    # Physics 9 alone (221 pages, AES-256 encrypted, unusually large embedded scan images) was
+    # directly measured needing up to ~90 min just to rasterize before OCR even starts (see
+    # pdf-tools.ts's own rasterizePdfToPng timeout comment) — a full run also covers 4 more
+    # textbooks plus ~180 flat documents on top of that one book.
+    timeout-minutes: 240
 
     steps:
       - name: Checkout repository
@@ -50,12 +55,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Install system Tesseract for faster OCR (Tesseract.js falls back to
-      # its bundled WASM binary if this is absent, but the native binary is ~5x faster).
-      - name: Install system Tesseract OCR
+      # Tesseract for OCR (scanned textbooks/bundles) and poppler-utils for pdftotext/pdftoppm
+      # (src/lib/crawler/pdf-tools.ts shells out to both directly — every textbook or bundle
+      # this crawler touches needs pdftoppm to rasterize pages before OCR can run at all, and
+      # flat documents need pdftotext for direct-text extraction before falling back to OCR).
+      - name: Install system Tesseract OCR and poppler-utils
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y tesseract-ocr tesseract-ocr-urd
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-urd poppler-utils
 
       - name: Build crawl flags
         id: flags
@@ -74,7 +81,10 @@ jobs:
 
       - name: Run FBISE crawler
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # getServiceRoleClient() (src/lib/supabase/admin.ts) reads NEXT_PUBLIC_SUPABASE_URL,
+          # not SUPABASE_URL — the old name here meant requireServiceRoleClient() would throw
+          # on the very first line of every crawl run in CI, before touching a single source.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           EMBEDDING_API_KEY: ${{ secrets.EMBEDDING_API_KEY }}
           # NODE_ENV is not set to production so tsx can resolve devDependencies.
