@@ -38,7 +38,7 @@ export interface SourceDocument {
   subject: string;
   chapterNo: number;
   chapterTitle: string;
-  sourceType: 'textbook' | 'past_paper' | 'marking_scheme' | 'model_paper';
+  sourceType: 'textbook' | 'past_paper' | 'model_paper';
   language: 'en' | 'ur';
   sections: SourceSection[];
 }
@@ -71,7 +71,7 @@ export interface PreparedDocument {
   subject: string;
   chapterNo: number;
   chapterTitle: string;
-  sourceType: 'textbook' | 'past_paper' | 'marking_scheme' | 'model_paper';
+  sourceType: 'textbook' | 'past_paper' | 'model_paper';
   language: 'en' | 'ur';
   sections: PreparedSection[];
 }

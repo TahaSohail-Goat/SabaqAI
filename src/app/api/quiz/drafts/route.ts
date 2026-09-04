@@ -13,6 +13,8 @@ import { TOKEN_TTL_MS } from '@/lib/quiz/answer-key';
 
 export interface QuizDraftRow {
   id: string;
+  boardCode: string;
+  classLevel: number;
   subjectCode: string;
   chapterNo: number;
   chapterTitle: string | null;
@@ -43,7 +45,7 @@ export async function GET() {
 
     const { data, error } = await admin
       .from('quiz_drafts')
-      .select('id, subject_code, chapter_no, chapter_title, questions, answers, generated_at, updated_at')
+      .select('id, board_code, class_level, subject_code, chapter_no, chapter_title, questions, answers, generated_at, updated_at')
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false });
 
@@ -55,6 +57,8 @@ export async function GET() {
     const now = Date.now();
     const drafts: QuizDraftRow[] = (data ?? []).map((row: any) => ({
       id: row.id,
+      boardCode: row.board_code,
+      classLevel: row.class_level,
       subjectCode: row.subject_code,
       chapterNo: row.chapter_no,
       chapterTitle: row.chapter_title || null,

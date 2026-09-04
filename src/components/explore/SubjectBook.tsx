@@ -184,7 +184,7 @@ export interface SubjectBookHandle {
   coverPivot: THREE.Group;
 }
 
-export type ExplorePhase = 'idle' | 'flying' | 'opening' | 'done';
+export type ExplorePhase = 'idle' | 'flying' | 'opening' | 'revealing' | 'done';
 
 interface SubjectBookProps {
   subjectCode: string;
@@ -237,10 +237,22 @@ export default function SubjectBook({
   }, [subjectCode]);
 
   useFrame((_, delta) => {
-    if (!orbitRef.current) return;
-    // Frozen once a flight targets any book (the whole scene settles), and under reduced motion.
-    if (reducedMotion || phase !== 'idle') return;
-    orbitRef.current.rotation.y += delta * orbitSpeed;
+    if (!orbitRef.current || !bookRef.current) return;
+    // Orbit revolution frozen once a flight targets any book (the whole scene settles), and
+    // under reduced motion.
+    if (!reducedMotion && phase === 'idle') {
+      orbitRef.current.rotation.y += delta * orbitSpeed;
+    }
+    // Counter the orbit's own spin so the book's local frame — and so its front cover, which
+    // hinges open around a LOCAL axis (see coverPivotRef below) — always faces the same fixed
+    // world direction, regardless of where the book currently sits along its orbit or what its
+    // initialAngle was. Without this, the cover swings toward useExploreFlight's fixed
+    // world-space camera-approach direction only by coincidence, whenever a book's current
+    // orbital angle happens to line up with it, and opens sideways/away from the camera the
+    // rest of the time. Runs every frame unconditionally (not just while the orbit itself is
+    // actively turning) so a book frozen mid-flight, or one that never orbits at all under
+    // reduced motion, still lands on the correct counter-rotation from the very first frame.
+    bookRef.current.rotation.y = -orbitRef.current.rotation.y;
   });
 
   const canInteract = phase === 'idle';

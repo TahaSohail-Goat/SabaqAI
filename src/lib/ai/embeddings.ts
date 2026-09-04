@@ -21,6 +21,14 @@ export interface EmbedOptions {
   model?: string;
   dimensions?: number;
   signal?: AbortSignal;
+  /** Jina's asymmetric retrieval mode — 'retrieval.passage' for ingested chunks,
+   *  'retrieval.query' for the incoming question. Previously omitted entirely, which silently
+   *  fell back to a generic embedding mode: two texts that are genuinely related but phrased
+   *  differently (a paraphrased or broader question vs. the textbook's exact wording) score
+   *  a real cosine similarity lower than they should, which is what made retrieval look like
+   *  it "only worked for keyword-matching questions." Required, not defaulted, so a caller
+   *  can't silently fall back into the same bug — pick the right one explicitly. */
+  task: 'retrieval.passage' | 'retrieval.query';
 }
 
 function config() {
@@ -42,7 +50,7 @@ function config() {
  * Embed many texts, in batches, preserving input order.
  * Throws on any failure — a silent embedding failure corrupts the whole index.
  */
-export async function embedTexts(texts: string[], options: EmbedOptions = {}): Promise<number[][]> {
+export async function embedTexts(texts: string[], options: EmbedOptions): Promise<number[][]> {
   if (texts.length === 0) return [];
 
   const cfg = config();
@@ -59,7 +67,7 @@ export async function embedTexts(texts: string[], options: EmbedOptions = {}): P
         Authorization: `Bearer ${cfg.apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ model, input: batch, dimensions, encoding_format: 'float' }),
+      body: JSON.stringify({ model, input: batch, dimensions, encoding_format: 'float', task: options.task }),
       signal: options.signal,
     });
 
@@ -106,7 +114,7 @@ export async function embedTexts(texts: string[], options: EmbedOptions = {}): P
 }
 
 /** Embed a single text. Used per question at query time — one call, not one per chunk. */
-export async function embedText(text: string, options: EmbedOptions = {}): Promise<number[]> {
+export async function embedText(text: string, options: EmbedOptions): Promise<number[]> {
   const [vector] = await embedTexts([text], options);
   return vector;
 }

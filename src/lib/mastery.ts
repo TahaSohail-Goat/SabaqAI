@@ -83,7 +83,7 @@ export async function computeChapterMastery(
   const { data: attempts, error: attemptsError } = await admin
     .from('quiz_attempts')
     .select(
-      'quizzes(chapter_id, chapters(chapter_no, chapter_title, subject_code, chapter_sources(source_type))), quiz_attempt_answers(selected_option_index, answer_text, is_correct)'
+      'quizzes(chapter_id, chapters(chapter_no, chapter_title, subject_code, board_code, class_level, chapter_sources(source_type))), quiz_attempt_answers(selected_option_index, answer_text, is_correct)'
     )
     .eq('user_id', userId);
 
@@ -96,6 +96,12 @@ export async function computeChapterMastery(
     const quiz = Array.isArray(attempt.quizzes) ? attempt.quizzes[0] : attempt.quizzes;
     const chapter = quiz ? (Array.isArray(quiz.chapters) ? quiz.chapters[0] : quiz.chapters) : null;
     if (!chapter || !subjects.includes(chapter.subject_code)) continue;
+    // A student's board/class can change over time (a real profile edit, or progressing a
+    // grade) — chapter_no is only unique WITHIN one board+class+subject, so an old attempt
+    // from a different board/class must never be merged in here under today's chapter_no
+    // numbering. chapterUniverse itself is already scoped to today's board+classLevel (the
+    // query above); this guards the fallback-merge path below, which isn't.
+    if (chapter.board_code !== board || chapter.class_level !== classLevel) continue;
 
     const key = `${chapter.subject_code}::${chapter.chapter_no}`;
 

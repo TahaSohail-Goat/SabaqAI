@@ -17,9 +17,9 @@ export interface RetrievalInput {
   board: string;
   classLevel: number;
   subject: string;
-  /** Narrows to one source (a book, past papers, model papers, marking schemes) and/or one
-   *  specific chapter/paper within it. Board+class+subject stay mandatory regardless — this
-   *  only ever narrows further, never replaces that filter (AGENTS.md invariant 6). */
+  /** Narrows to one source (a book, past papers, model papers) and/or one specific
+   *  chapter/paper within it. Board+class+subject stay mandatory regardless — this only
+   *  ever narrows further, never replaces that filter (AGENTS.md invariant 6). */
   sourceType?: string;
   chapterNo?: number;
 }
@@ -63,7 +63,7 @@ export async function retrieve(input: RetrievalInput): Promise<RetrievedChunk[]>
 
   if (supabase) {
     // Embed the question once. Chunk vectors are already stored — never re-embed the corpus.
-    const queryVector = await embedText(normQuery);
+    const queryVector = await embedText(normQuery, { task: 'retrieval.query' });
 
     const { data, error } = await supabase.rpc('match_content_chunks', {
       query_embedding: queryVector,

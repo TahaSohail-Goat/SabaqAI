@@ -14,13 +14,11 @@ import {
   EyeOff,
   Camera,
   GraduationCap,
-  BookMarked,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useScope } from '@/components/app/ScopeContext';
 import type { Profile } from '@/lib/auth/get-current-user';
 import PasswordStrengthMeter from '@/components/PasswordStrengthMeter';
-import { SUBJECTS } from '@/lib/subjects';
 
 interface CurrentUser {
   id: string;
@@ -135,7 +133,7 @@ export default function SettingsPage() {
   // Renamed on import — this file already has its own local `classLevel`/`setClassLevel` for
   // the form input, distinct from ScopeContext's "active scope" class level that Ask/Quiz/
   // Syllabus/Chat/Dashboard actually read from (see setScopeClassLevel's use in saveClass).
-  const { language, setLanguage, updateProfile, setClassLevel: setScopeClassLevel } = useScope();
+  const { updateProfile, setClassLevel: setScopeClassLevel } = useScope();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [theme, setTheme] = useState<Theme | null>(null);
   const [board, setBoard] = useState('');
@@ -160,12 +158,6 @@ export default function SettingsPage() {
   const [classError, setClassError] = useState<string | null>(null);
   const [classSuccess, setClassSuccess] = useState(false);
 
-  // Subjects
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [subjectsSaving, setSubjectsSaving] = useState(false);
-  const [subjectsError, setSubjectsError] = useState<string | null>(null);
-  const [subjectsSuccess, setSubjectsSuccess] = useState(false);
-
   // Avatar
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -183,7 +175,6 @@ export default function SettingsPage() {
           setOriginalUsername(profile.username || '');
           setClassLevel(profile.classLevel ?? null);
           setBoard(profile.board || '');
-          setSubjects(profile.subjects ?? []);
           setAvatarUrl(profile.avatarUrl ?? null);
         }
       })
@@ -271,32 +262,6 @@ export default function SettingsPage() {
       setClassError(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
       setClassSaving(false);
-    }
-  };
-
-  const toggleSubject = (code: string) => {
-    setSubjects((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
-  };
-
-  const saveSubjects = async () => {
-    setSubjectsSaving(true);
-    setSubjectsError(null);
-    setSubjectsSuccess(false);
-    try {
-      const res = await fetch('/api/auth/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subjects }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not save your subjects.');
-      updateProfile({ subjects });
-      setSubjectsSuccess(true);
-      setTimeout(() => setSubjectsSuccess(false), 3000);
-    } catch (err) {
-      setSubjectsError(err instanceof Error ? err.message : 'Something went wrong.');
-    } finally {
-      setSubjectsSaving(false);
     }
   };
 
@@ -391,7 +356,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Profile */}
-      <SectionCard title="Profile" description="Your photo, username, class, board, and subjects.">
+      <SectionCard title="Profile" description="Your photo, username, class, and board.">
         {user ? (
           <div className="space-y-5">
             <div className="flex items-center gap-4">
@@ -501,35 +466,6 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-
-            <FieldRow
-              label="Subjects"
-              saving={subjectsSaving}
-              error={subjectsError}
-              success={subjectsSuccess}
-              successMessage="Subjects saved."
-              onSave={saveSubjects}
-              saveDisabled={subjects.length === 0}
-            >
-              <div className="flex flex-wrap gap-2">
-                {SUBJECTS.map((s) => {
-                  const selected = subjects.includes(s.code);
-                  return (
-                    <button
-                      key={s.code}
-                      type="button"
-                      onClick={() => toggleSubject(s.code)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                        selected ? 'bg-brand text-white border-brand' : 'bg-surface-2 text-navy-2 border-border hover:border-brand/40'
-                      }`}
-                    >
-                      <BookMarked className="w-3 h-3" />
-                      {s.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </FieldRow>
           </div>
         ) : (
           <p className="text-xs text-text-2">You're not signed in — settings here apply to this device only.</p>
@@ -557,30 +493,6 @@ export default function SettingsPage() {
             }`}
           >
             <Moon className="w-3.5 h-3.5" /> Dark
-          </button>
-        </div>
-      </SectionCard>
-
-      {/* Language */}
-      <SectionCard title="Language" description="Sets how Ask expects your questions and which language Chat replies in.">
-        <div className="inline-flex rounded-xl border border-border bg-surface-2/60 p-1 gap-1">
-          <button
-            type="button"
-            onClick={() => setLanguage('en')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              language === 'en' ? 'bg-brand text-white' : 'text-text-2 hover:text-navy'
-            }`}
-          >
-            English
-          </button>
-          <button
-            type="button"
-            onClick={() => setLanguage('ur')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              language === 'ur' ? 'bg-brand text-white' : 'text-text-2 hover:text-navy'
-            }`}
-          >
-            اردو
           </button>
         </div>
       </SectionCard>

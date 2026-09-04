@@ -1,9 +1,9 @@
 // GET /api/ask/options — what a student can pick from before asking a question: which
-// source (book / past papers / model papers / marking schemes) and which specific
-// chapter or paper within it. Always returns all four source types, even with an empty
-// units array, so /ask can show an honest "nothing ingested yet" state per category
-// instead of hiding it — this app refuses rather than guesses, and a dropdown that hides
-// an empty category is a milder version of the same dishonesty.
+// source (book / past papers / model papers) and which specific chapter or paper within
+// it. Always returns all three source types, even with an empty units array, so /ask can
+// show an honest "nothing ingested yet" state per category instead of hiding it — this
+// app refuses rather than guesses, and a dropdown that hides an empty category is a
+// milder version of the same dishonesty.
 //
 // Not sensitive data (same reasoning as /api/syllabus) — no auth required.
 
@@ -16,7 +16,7 @@ const DEFAULT_BOARD = 'FBISE';
 const DEFAULT_CLASS_LEVEL = 10;
 const DEFAULT_SUBJECT = 'physics';
 
-const SOURCE_TYPES: AskSourceType[] = ['textbook', 'past_paper', 'model_paper', 'marking_scheme'];
+const SOURCE_TYPES: AskSourceType[] = ['textbook', 'past_paper', 'model_paper'];
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
