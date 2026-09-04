@@ -1,8 +1,8 @@
 import React from 'react';
 import SabaqLogoMark from './SabaqLogoMark';
 
-// The full SabaqAI lockup mark: green squircle + book/atom glyph + a white "Ai" badge
-// overlapping the top-right corner — matches the app icon supplied in public/Logo.png.
+// The full SabaqAI lockup mark: green squircle + the ribbon "S" glyph + a white "Ai" badge
+// overlapping the top-right corner — matches the app icon at src/app/icon.svg.
 export default function SabaqLogoBadge({
   size = 40,
   className = '',
