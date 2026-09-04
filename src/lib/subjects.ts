@@ -18,6 +18,8 @@ export const SUBJECTS = [
 
 export const ALL_SUBJECT_CODES: string[] = SUBJECTS.map((s) => s.code);
 
+export type SubjectCode = (typeof SUBJECTS)[number]['code'];
+
 export const SUBJECT_LABELS: Record<string, string> = Object.fromEntries(
   SUBJECTS.map((s) => [s.code, s.label])
 );

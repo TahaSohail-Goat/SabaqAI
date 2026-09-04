@@ -7,7 +7,7 @@
 //   2. Not configured       -> a keyword-ranked fallback over the small hardcoded corpus, so the
 //      frontend is workable locally without keys. It is NOT the product and says so loudly.
 
-import type { RetrievedChunk } from '../types';
+import { displayChapterTitle, type RetrievedChunk } from '../types';
 import { INITIAL_SYLLABUS_CHUNKS } from '../syllabus-data';
 import { getServiceRoleClient } from '../supabase/admin';
 import { embedText } from './embeddings';
@@ -99,7 +99,7 @@ export async function retrieve(input: RetrievalInput): Promise<RetrievedChunk[]>
     return ((data ?? []) as MatchRow[]).slice(0, maxChunks).map((row) => ({
       id: row.id,
       chapterNo: row.chapter_no,
-      chapterTitle: row.chapter_title,
+      chapterTitle: displayChapterTitle(row.source_type, row.chapter_no, row.chapter_title, input.subject),
       section: row.section,
       pageFrom: row.page_from,
       pageTo: row.page_to,

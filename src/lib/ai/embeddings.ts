@@ -21,6 +21,12 @@ export interface EmbedOptions {
   model?: string;
   dimensions?: number;
   signal?: AbortSignal;
+  /** Opt-in retry/backoff for 429 (rate limit) responses — off by default (maxAttempts
+   *  effectively 1), since a live question-embedding call (guardrail/retrieval) shouldn't add
+   *  latency a waiting student feels for a failure that's usually rare at that low a call
+   *  volume. The crawler's bulk ingestion calls pass this explicitly (crawler redesign,
+   *  Phase 1 — a full re-crawl makes far more calls in a shorter window than any prior run). */
+  retry?: { maxAttempts: number; baseDelayMs: number };
 }
 
 function config() {
@@ -38,6 +44,56 @@ function config() {
   };
 }
 
+type EmbeddingBatchPayload = { data?: { embedding?: number[]; index?: number }[] };
+
+/** Posts one batch, retrying only on HTTP 429 and only when options.retry says to — every
+ *  other failure (4xx/5xx, network error) still throws immediately on the first attempt,
+ *  unchanged from before this existed. */
+async function fetchEmbeddingBatch(
+  cfg: ReturnType<typeof config>,
+  model: string,
+  batch: string[],
+  dimensions: number,
+  options: EmbedOptions,
+  batchIndex: number
+): Promise<EmbeddingBatchPayload> {
+  const maxAttempts = options.retry?.maxAttempts ?? 1;
+  const baseDelayMs = options.retry?.baseDelayMs ?? 1000;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const response = await fetch(`${cfg.baseUrl}/embeddings`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${cfg.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ model, input: batch, dimensions, encoding_format: 'float' }),
+      signal: options.signal,
+    });
+
+    if (response.ok) {
+      return (await response.json()) as EmbeddingBatchPayload;
+    }
+
+    const canRetry = response.status === 429 && attempt < maxAttempts;
+    if (!canRetry) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(
+        `Embeddings failed (${response.status} ${response.statusText}) ` +
+        `on batch ${batchIndex + 1}: ${detail.slice(0, 400)}`
+      );
+    }
+
+    const delayMs = baseDelayMs * 2 ** (attempt - 1);
+    console.error(`[embeddings] 429 rate-limited on batch ${batchIndex + 1}, attempt ${attempt}/${maxAttempts} — retrying in ${delayMs}ms.`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
+  // Unreachable — the loop above always either returns or throws — but keeps TS satisfied
+  // that every code path returns a value.
+  throw new Error('Embeddings retry loop exited without a result.');
+}
+
 /**
  * Embed many texts, in batches, preserving input order.
  * Throws on any failure — a silent embedding failure corrupts the whole index.
@@ -52,28 +108,7 @@ export async function embedTexts(texts: string[], options: EmbedOptions = {}): P
 
   for (let i = 0; i < texts.length; i += MAX_BATCH) {
     const batch = texts.slice(i, i + MAX_BATCH);
-
-    const response = await fetch(`${cfg.baseUrl}/embeddings`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${cfg.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ model, input: batch, dimensions, encoding_format: 'float' }),
-      signal: options.signal,
-    });
-
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      throw new Error(
-        `Embeddings failed (${response.status} ${response.statusText}) ` +
-        `on batch ${i / MAX_BATCH + 1}: ${detail.slice(0, 400)}`
-      );
-    }
-
-    const payload = (await response.json()) as {
-      data?: { embedding?: number[]; index?: number }[];
-    };
+    const payload = await fetchEmbeddingBatch(cfg, model, batch, dimensions, options, i / MAX_BATCH);
 
     if (!payload.data || payload.data.length !== batch.length) {
       throw new Error(

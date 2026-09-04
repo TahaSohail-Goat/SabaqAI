@@ -130,6 +130,7 @@ async function main(): Promise<void> {
         subject: source.subject,
         sourceType: source.sourceType,
         chapterNo,
+        language: source.language,
       });
       await uploadSourcePdf(admin, storagePath, pdfBytes);
 

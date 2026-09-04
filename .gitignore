@@ -23,6 +23,11 @@ data/.crawl-state.json
 # code change (e.g. tuning chapter detection) is pure waste. Machine-local, not for VCS — can
 # get large and is trivially regenerable.
 data/.ocr-cache/
+# Crawler redesign, Phase 1: cached downloaded PDF bytes, keyed by URL — some source hosts
+# (taleem360) intermittently rate-limit a URL just downloaded successfully moments earlier,
+# and re-fetching a 40-70MB textbook just to re-run detection logic against unchanged bytes
+# is pure waste, same reasoning as the OCR cache above. Machine-local, not for VCS.
+data/.pdf-cache/
 
 # Tesseract language data — downloaded at runtime by tesseract.js, not for VCS
 *.traineddata

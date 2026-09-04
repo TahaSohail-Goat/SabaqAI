@@ -1,0 +1,62 @@
+[
+  {
+    "id": "fbise-9-physics-textbook",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "physics",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/9th-class-physics-federal-board-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 9 Physics textbook (National Book Foundation, National Curriculum 2022-23). Scanned/image-only PDF, ~75MB, 222 pages, no usable text layer — requires OCR. Pilot textbook for the multi-chapter, page-tracked ingestion path."
+  },
+  {
+    "id": "fbise-9-chemistry-textbook",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "chemistry",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/federal-board-9th-class-chemistry-text-book-2025-pdf"
+    ],
+    "comment": "Real FBISE Class 9 Chemistry textbook (National Book Foundation, National Curriculum 2025-26). Verified working link, ~74MB."
+  },
+  {
+    "id": "fbise-9-biology-textbook",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "biology",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/9th-class-biology-new-snc-federal-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 9 Biology textbook (National Book Foundation, New SNC/National Curriculum, sessions 2024-25 to 2026-27). Verified working link (HTTP 200, Content-Length ~47.9MB) before adding."
+  },
+  {
+    "id": "fbise-9-mathematics-textbook",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "mathematics",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/9th-class-math-text-book-federal-board-pdf"
+    ],
+    "comment": "Real FBISE Class 9 Mathematics textbook (National Book Foundation, New SNC/National Curriculum 2022-23, 2025 edition). Verified working link (HTTP 200 after the taleem360 -> Google Drive redirect chain, ~40.35MB) before adding. This is the book whose Chapter 1 the old crawler silently lost — see Phase 1 of the crawler redesign plan."
+  },
+  {
+    "id": "fbise-10-mathematics-textbook",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "mathematics",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/10th-class-maths-federal-board-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 10 Mathematics textbook (National Book Foundation, New SNC/National Curriculum 2022-23, 2025 edition). Verified working link (HTTP 200 after the taleem360 -> Google Drive redirect chain, ~45.31MB) before adding."
+  }
+]
