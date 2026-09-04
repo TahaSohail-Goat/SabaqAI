@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X, ChevronLeft, ChevronRight, BookOpen, ShieldCheck } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
+// The legacy build (not the default 'pdfjs-dist' entry) — this component's top-level import
+// still executes once during Next's server-side prerender pass even though it's client-only,
+// and the default build assumes a browser and warns/misbehaves under Node.
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { AskOptionsResponse, AskUnit } from '@/lib/types';
 

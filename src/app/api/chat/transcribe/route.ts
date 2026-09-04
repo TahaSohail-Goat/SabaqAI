@@ -4,8 +4,8 @@ import { transcribeAudio } from '@/lib/ai/transcription';
 import type { TranscribeResponse } from '@/lib/types';
 
 // Same login-required posture as /api/chat: a real API call against attacker-controlled binary
-// uploads, gated here (not just by the page's middleware guard, which skips everything under
-// /api/ — see src/middleware.ts).
+// uploads, gated here (not just by the page's proxy guard, which skips everything under
+// /api/ — see src/proxy.ts).
 const MAX_AUDIO_BYTES = 20 * 1024 * 1024; // 20MB — comfortably covers a multi-minute voice note
 
 function errorResponse(message: string, status: number) {

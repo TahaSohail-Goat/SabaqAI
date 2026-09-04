@@ -1,4 +1,4 @@
-// Next.js middleware — runs on every request before the page renders.
+// Next.js proxy (formerly "middleware") — runs on every request before the page renders.
 //
 // Two jobs:
 //   1. Refresh the Supabase session cookie on every request so it doesn't
@@ -20,7 +20,7 @@ const AUTH_ONLY_ROUTES = ['/login', '/signup'];
 // Routes accessible by anyone regardless of auth state (no redirect either way)
 const PUBLIC_ROUTES = ['/forgot-password', '/reset-password'];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Skip middleware for API routes and static assets
