@@ -259,7 +259,7 @@ export default function SyllabusPdfReader({ pdfUrl, title }: SyllabusPdfReaderPr
   );
 
   const subline =
-    numPages > 0 ? `${numPages} pages — scroll to read` : 'The real source PDF — not a reconstruction.';
+    numPages > 0 ? `${numPages} pages. Scroll to read.` : 'The real source PDF, not a reconstruction.';
 
   if (expanded) {
     return (

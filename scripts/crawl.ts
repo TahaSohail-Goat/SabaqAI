@@ -441,7 +441,7 @@ function textToSourceDocument(
     classLevel: source.classLevel,
     subject: source.subject,
     chapterNo,
-    chapterTitle: `${sourceLabel}${yearLabel} — ${source.subject.replace(/_/g, ' ')}`,
+    chapterTitle: `${sourceLabel}${yearLabel} · ${source.subject.replace(/_/g, ' ')}`,
     sourceType: source.sourceType,
     language: source.language,
     sections,

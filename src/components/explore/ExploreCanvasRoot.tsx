@@ -113,11 +113,18 @@ export default function ExploreCanvasRoot(props: ExploreCanvasRootProps) {
   const maxRadius = BASE_RADIUS + Math.max(0, props.enrolledSubjects.length - 1) * RADIUS_STEP;
   const cameraDistance = Math.max(9, maxRadius * 0.85);
 
+  // No reason to keep rendering the 3D scene once it's fully hidden behind the opaque "Happy
+  // Learning" overlay — it would otherwise render every frame for the entire held reveal for
+  // nothing visible, and that wasted work is exactly what was dragging gsap's tween timing off
+  // (see useExploreFlight's lagSmoothing note) in the first place.
+  const rendering = props.phase !== 'revealing' && props.phase !== 'done';
+
   return (
     <Canvas
       dpr={[1, 1.5]}
       gl={{ antialias: true, powerPreference: 'high-performance', alpha: false }}
       camera={{ position: [0, cameraDistance * 0.4, cameraDistance], fov: 50 }}
+      frameloop={rendering ? 'always' : 'never'}
     >
       <SceneContents {...props} />
     </Canvas>

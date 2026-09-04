@@ -44,6 +44,8 @@ export interface PlanQuizAttempt {
 
 export interface PlanDetail {
   id: string;
+  board: string;
+  classLevel: number;
   subject: string;
   fromChapterNo: number;
   toChapterNo: number;
@@ -83,7 +85,16 @@ function daysUntil(dateStr: string): number {
 function addDaysIso(offset: number): string {
   const d = todayMidnight();
   d.setDate(d.getDate() + offset);
-  return d.toISOString().slice(0, 10);
+  // NOT d.toISOString().slice(0, 10) — todayMidnight() is local midnight, and converting that
+  // to UTC before slicing can roll the calendar date back by one whenever the server process
+  // runs in a positive UTC offset (would silently mislabel every day in the schedule by one).
+  // daysUntil() above is safe as-is (it only ever compares two Date timestamps directly, no
+  // string conversion), but this one produces the actual date strings shown to the student, so
+  // it has to extract the local Y/M/D directly instead.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function pct(accuracy: number | null): string {
@@ -109,30 +120,30 @@ function sessionsForChapter(chapterNo: number, chapterTitle: string | null, band
   switch (band) {
     case 'needs_work':
       return [
-        { chapterNo, chapterTitle, band, accuracy, action: 'study', rationale: `${p} on your last attempt — worth a full re-read before quizzing again.` },
+        { chapterNo, chapterTitle, band, accuracy, action: 'study', rationale: `${p} on your last attempt. Worth a full re-read before quizzing again.` },
         { chapterNo, chapterTitle, band, accuracy, action: 'quiz', rationale: 'Retake it to confirm the re-study helped.' },
-        { chapterNo, chapterTitle, band, accuracy, action: 'quiz', rationale: 'One more spaced retake — this is what makes it stick.' },
+        { chapterNo, chapterTitle, band, accuracy, action: 'quiz', rationale: 'One more spaced retake. This is what makes it stick.' },
       ];
     case 'not_started':
       return [
-        { chapterNo, chapterTitle, band, accuracy, action: 'study', rationale: 'Never attempted — start here.' },
+        { chapterNo, chapterTitle, band, accuracy, action: 'study', rationale: 'Never attempted. Start here.' },
         { chapterNo, chapterTitle, band, accuracy, action: 'quiz', rationale: 'First real check on this chapter.' },
         { chapterNo, chapterTitle, band, accuracy, action: 'quiz', rationale: 'A spaced follow-up quiz to lock it in.' },
       ];
     case 'insufficient_data':
       return [
-        { chapterNo, chapterTitle, band, accuracy, action: 'study', rationale: 'Only a few questions answered so far — build a fuller picture.' },
+        { chapterNo, chapterTitle, band, accuracy, action: 'study', rationale: 'Only a few questions answered so far. Build a fuller picture.' },
         { chapterNo, chapterTitle, band, accuracy, action: 'quiz', rationale: 'A proper first check on this chapter.' },
       ];
     case 'getting_there':
       return [
-        { chapterNo, chapterTitle, band, accuracy, action: 'quiz', rationale: `${p} so far — review your mistakes and try again.` },
+        { chapterNo, chapterTitle, band, accuracy, action: 'quiz', rationale: `${p} so far. Review your mistakes and try again.` },
         { chapterNo, chapterTitle, band, accuracy, action: 'quiz', rationale: 'A spaced review to keep it fresh before the exam.' },
       ];
     case 'strong':
     default:
       return [
-        { chapterNo, chapterTitle, band, accuracy, action: 'review', rationale: `${p} already — just a quick refresher.` },
+        { chapterNo, chapterTitle, band, accuracy, action: 'review', rationale: `${p} already. Just a quick refresher.` },
       ];
   }
 }
@@ -162,7 +173,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     // it was launched from the plan's "Practice quiz" link.
     const { data: attemptRows, error: attemptsError } = await admin
       .from('quiz_attempts')
-      .select('id, score, total, answered, submitted_at, quizzes(chapters(chapter_no, chapter_title, subject_code))')
+      .select('id, score, total, answered, submitted_at, quizzes(chapters(chapter_no, chapter_title, subject_code, board_code, class_level))')
       .eq('user_id', user.id)
       .gte('submitted_at', plan.created_at)
       .order('submitted_at', { ascending: false });
@@ -179,6 +190,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           chapterNo: ch.chapter_no as number,
           chapterTitle: (ch.chapter_title ?? null) as string | null,
           subjectCode: ch.subject_code as string,
+          boardCode: ch.board_code as string,
+          classLevel: ch.class_level as number,
           score: r.score as number,
           total: r.total as number,
           answered: r.answered as number,
@@ -186,19 +199,28 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         };
       })
       .filter(
-        (a): a is PlanQuizAttempt & { subjectCode: string } =>
+        (a): a is PlanQuizAttempt & { subjectCode: string; boardCode: string; classLevel: number } =>
           a !== null &&
           a.subjectCode === plan.subject_code &&
+          // chapter_no is only unique within one board+class+subject — without this, an old
+          // attempt from a different board/class (a real profile edit, or progressing a grade)
+          // could match this plan's chapter range purely by numeric coincidence and get counted
+          // as practice toward a chapter it was never actually for. Same bug class fixed in
+          // src/lib/mastery.ts's attempts fallback path.
+          a.boardCode === plan.board_code &&
+          a.classLevel === plan.class_level &&
           a.chapterNo >= plan.from_chapter_no &&
           a.chapterNo <= plan.to_chapter_no
       )
-      .map(({ subjectCode: _subjectCode, ...rest }) => rest);
+      .map(({ subjectCode: _subjectCode, boardCode: _boardCode, classLevel: _classLevel, ...rest }) => rest);
 
     const daysRemaining = daysUntil(plan.exam_date);
 
     if (daysRemaining < 0) {
       return NextResponse.json<PlanDetail>({
         id: plan.id,
+        board: plan.board_code,
+        classLevel: plan.class_level,
         subject: plan.subject_code,
         fromChapterNo: plan.from_chapter_no,
         toChapterNo: plan.to_chapter_no,
@@ -275,6 +297,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json<PlanDetail>({
       id: plan.id,
+      board: plan.board_code,
+      classLevel: plan.class_level,
       subject: plan.subject_code,
       fromChapterNo: plan.from_chapter_no,
       toChapterNo: plan.to_chapter_no,

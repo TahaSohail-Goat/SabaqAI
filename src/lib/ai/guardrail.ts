@@ -7,8 +7,11 @@
 
 import type { RetrievedChunk, GuardrailResult } from '../types';
 
-const PASS_TOP1 = Number(process.env.PASS_TOP1 ?? 0.62);
-const BORDERLINE_TOP1 = Number(process.env.BORDERLINE_TOP1 ?? 0.52);
+// Calibrated 2026-09-04 against real scores from correctly task-typed embeddings (Jina's
+// retrieval.passage/retrieval.query — see src/lib/ai/embeddings.ts). See .env's comment above
+// these same values for the specific false-refusal case that motivated the change.
+const PASS_TOP1 = Number(process.env.PASS_TOP1 ?? 0.55);
+const BORDERLINE_TOP1 = Number(process.env.BORDERLINE_TOP1 ?? 0.45);
 const SUPPORT_SCORE = Number(process.env.SUPPORT_SCORE ?? 0.5);
 
 export function evaluateConfidence(chunks: RetrievedChunk[]): GuardrailResult {

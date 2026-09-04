@@ -193,7 +193,7 @@ export default function DoubtsPage() {
           {optionsError && (
             <div className="flex items-center gap-2 rounded-xl bg-error-bg text-error text-xs font-medium px-3 py-2">
               <WifiOff className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>Couldn&apos;t load your chapters and papers — check your connection and reload the page.</span>
+              <span>Couldn&apos;t load your chapters and papers. Check your connection and reload the page.</span>
             </div>
           )}
           <AskSubjectSelector value={subject} subjects={enrolledSubjects} onChange={setSubject} />
@@ -207,6 +207,11 @@ export default function DoubtsPage() {
                 setUnit(null);
                 setAskResult(null);
                 setAskError(null);
+                // Otherwise a citation from the PREVIOUS chapter's PDF stays "active" and gets
+                // re-applied against the newly selected chapter's page offset once its own PDF
+                // loads — pageFrom re-basing on a citation that doesn't belong to this chapter
+                // produces a nonsense local page number (e.g. "129 / 10").
+                setSelectedCitation(null);
               }}
             />
             {sourceType ? (
@@ -218,6 +223,7 @@ export default function DoubtsPage() {
                   setUnit(u);
                   setAskResult(null);
                   setAskError(null);
+                  setSelectedCitation(null);
                 }}
               />
             ) : (
@@ -387,7 +393,7 @@ export default function DoubtsPage() {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-navy">Question refused</h3>
-                    <p className="text-[11px] text-text-2 mt-0.5">The AI was intentionally skipped rather than guess.</p>
+                    <p className="text-[11px] text-text-2 mt-0.5">Skipped intentionally rather than guess.</p>
                   </div>
                 </div>
 

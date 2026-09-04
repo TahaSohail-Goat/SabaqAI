@@ -287,18 +287,23 @@ export default function PlanPage() {
   const minDate = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
+    // NOT d.toISOString().slice(0, 10) — that converts to UTC first, which silently rolls the
+    // date back by one for anyone in a positive UTC offset (Pakistan is +5, this app's entire
+    // audience) during the first few hours after local midnight: "tomorrow" in their own
+    // timezone reads back as "today" in UTC. That let the date picker offer a date the server's
+    // own (correctly local) validation then rejected as not far enough in the future.
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }, []);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between animate-fade-up">
-        <div>
-          <h2 className="font-display text-2xl font-semibold tracking-tight text-navy">Revision plan</h2>
-          <p className="text-xs text-text-2 mt-1.5">
-            A computed schedule, not a generated one — every day traces back to your real scores.
-          </p>
-        </div>
+        <p className="text-xs text-text-2 max-w-md">
+          A computed schedule, not a generated one. Every day traces back to your real scores.
+        </p>
         {view !== 'list' && (
           <button
             type="button"
@@ -378,7 +383,7 @@ function ListView({
         <EmptyState
           icon={CalendarClock}
           title="No plans yet"
-          message="Pick a subject, a chapter range, and an exam date — get a day-by-day schedule that focuses on your weak chapters first."
+          message="Pick a subject, a chapter range, and an exam date to get a day-by-day schedule that focuses on your weak chapters first."
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -457,7 +462,7 @@ function CreateView({
       </SelectField>
 
       {formChapters.length === 0 ? (
-        <p className="text-xs text-text-2">No ingested textbook chapters for this subject yet.</p>
+        <p className="text-xs text-text-2">No textbook chapters are available for this subject yet.</p>
       ) : (
         <>
           <div className="space-y-1.5">
@@ -587,12 +592,20 @@ function DetailView({
   }
 
   const totalActions = detail.days.reduce((sum, d) => sum + d.items.length, 0);
+  // Not toChapterNo - fromChapterNo + 1 — that's the size of the NUMBER range, which silently
+  // overcounts if any chapter number in it doesn't actually exist (a real gap, or a chapter
+  // that was removed). The union of every chapter that actually got scheduled (or was reported
+  // skipped) is the true count of real chapters this plan covers.
+  const chaptersCovered = new Set<number>([
+    ...detail.days.flatMap((d) => d.items.map((i) => i.chapterNo)),
+    ...detail.skipped.map((s) => s.chapterNo),
+  ]).size;
 
   return (
     <div className="space-y-5 animate-fade-up">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard icon={CalendarClock} label="Days until exam" value={String(Math.max(detail.daysRemaining, 0))} />
-        <StatCard icon={Flag} label="Chapters covered" value={`${detail.toChapterNo - detail.fromChapterNo + 1}`} />
+        <StatCard icon={Flag} label="Chapters covered" value={String(chaptersCovered)} />
         <StatCard icon={Award} label="Study/quiz sessions" value={String(totalActions)} />
       </div>
 
@@ -601,7 +614,7 @@ function DetailView({
           <p className="font-semibold">Not everything fit in the time you have:</p>
           {detail.skipped.map((s) => (
             <p key={s.chapterNo}>
-              Ch {s.chapterNo}{s.chapterTitle ? `: ${s.chapterTitle}` : ''} — {s.reason}
+              Ch {s.chapterNo}{s.chapterTitle ? `: ${s.chapterTitle}` : ''}. {s.reason}
             </p>
           ))}
         </div>
@@ -625,7 +638,7 @@ function DetailView({
             </div>
 
             {day.isExamDay ? (
-              <p className="text-[11px] font-semibold text-brand-dark">Exam day — good luck!</p>
+              <p className="text-[11px] font-semibold text-brand-dark">Exam day. Good luck!</p>
             ) : day.isBufferDay ? (
               <p className="text-[11px] text-text-2">Rest &amp; light review. No new material today.</p>
             ) : day.items.length === 0 ? (
@@ -689,6 +702,8 @@ function PlanQuizHistory({ detail }: { detail: PlanDetail }) {
       setDrafts(
         all.filter(
           (d) =>
+            d.boardCode === detail.board &&
+            d.classLevel === detail.classLevel &&
             d.subjectCode === detail.subject &&
             d.chapterNo >= detail.fromChapterNo &&
             d.chapterNo <= detail.toChapterNo
@@ -698,7 +713,7 @@ function PlanQuizHistory({ detail }: { detail: PlanDetail }) {
     return () => {
       cancelled = true;
     };
-  }, [detail.subject, detail.fromChapterNo, detail.toChapterNo]);
+  }, [detail.board, detail.classLevel, detail.subject, detail.fromChapterNo, detail.toChapterNo]);
 
   const discardDraft = (id: string) => {
     deleteQuizDraft(id);
@@ -716,7 +731,7 @@ function PlanQuizHistory({ detail }: { detail: PlanDetail }) {
 
       {empty ? (
         <div className="bg-surface-muted border border-border rounded-xl p-4 text-xs text-text-2">
-          None yet — use the <span className="font-semibold text-navy-2">Practice quiz</span> links in the schedule above to start one.
+          None yet. Use the <span className="font-semibold text-navy-2">Practice quiz</span> links in the schedule above to start one.
         </div>
       ) : (
         <div className="space-y-3">

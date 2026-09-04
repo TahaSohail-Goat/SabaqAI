@@ -170,7 +170,7 @@ async function main(): Promise<void> {
     // Embed. One vector per chunk, computed once, stored — never recomputed per question.
     console.log(`\n${file}: embedding ${toWrite} chunk(s)…`);
     const flat = sectionsToWrite.flatMap((s) => s.chunks);
-    const vectors = await embedTexts(flat.map((c) => c.content));
+    const vectors = await embedTexts(flat.map((c) => c.content), { task: 'retrieval.passage' });
     console.log(`  Embedded at ${vectors[0]?.length ?? 0} dimensions.`);
 
     let cursor = 0;

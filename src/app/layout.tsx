@@ -10,7 +10,7 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: 'Sabaq AI — Syllabus-Grounded Pakistani Board Tutor',
+  title: 'SabaqAI',
   description: 'AI tutor grounded in verified PCTB textbooks with confidence guardrails, page citations, and adaptive quizzes.',
 };
 
