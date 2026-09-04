@@ -42,7 +42,9 @@ function main() {
   check('all 5 manifest files parse and validate against their schemas', true);
 
   // 2. Exact counts.
-  check('exactly 5 textbook entries', manifest.textbooks.length === 5, `got ${manifest.textbooks.length}`);
+  // 8, not the original 5 — Class 10 Physics/Chemistry/Biology were added 2026-09-04 after
+  // auditing found SSC-II science textbooks were silently absent (only Math 10 existed).
+  check('exactly 8 textbook entries', manifest.textbooks.length === 8, `got ${manifest.textbooks.length}`);
   check('exactly 33 model_paper entries', manifest.modelPapers.length === 33, `got ${manifest.modelPapers.length}`);
   // 83/61, not the naive 7 subjects x 4 classes x 3 years = 84: real gaps on fbise.edu.pk's
   // own "Old Question Paper.php" clean matrix (a few "#" placeholder links, and a block of
@@ -91,9 +93,22 @@ function main() {
   );
 
   const missingFromNew = [...oldTuples].filter((t) => !newTuples.has(t));
-  const extraInNew = [...newTuples].filter((t) => !oldTuples.has(t));
+  let extraInNew = [...newTuples].filter((t) => !oldTuples.has(t));
+
+  // Phase 1 grew textbook coverage past the original 5: the old crawl-sources.json never had
+  // Class 10 Physics/Chemistry/Biology at all — SSC-II science was silently missing until this
+  // was caught 2026-09-04 (see textbooks.json's own comments on these 3 entries). Their tuples
+  // are the only allowed "extra" ones in an otherwise-exact round-trip.
+  const knownNewTextbookIds = new Set(['fbise-10-physics-textbook', 'fbise-10-chemistry-textbook', 'fbise-10-biology-textbook']);
+  const knownNewTuples = new Set(
+    flat
+      .filter((e) => knownNewTextbookIds.has(e.id))
+      .flatMap((e) => e.candidateUrls.map((url) => tupleOf({ board: e.board, classLevel: e.classLevel, subject: e.subject, sourceType: e.sourceType, year: 'year' in e ? e.year : null }, url)))
+  );
+  extraInNew = extraInNew.filter((t) => !knownNewTuples.has(t));
+
   check('every old crawl-sources.json tuple exists in the new manifest', missingFromNew.length === 0, missingFromNew.join('; '));
-  check('the new manifest introduces no unexpected tuples beyond the old one', extraInNew.length === 0, extraInNew.join('; '));
+  check('the new manifest introduces no unexpected tuples beyond the old one plus the 3 known Class-10-science additions', extraInNew.length === 0, extraInNew.join('; '));
 
   console.log('='.repeat(60));
   if (failures > 0) {

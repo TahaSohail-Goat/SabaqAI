@@ -58,5 +58,41 @@
       "https://www.taleem360.com/download/10th-class-maths-federal-board-text-book-pdf"
     ],
     "comment": "Real FBISE Class 10 Mathematics textbook (National Book Foundation, New SNC/National Curriculum 2022-23, 2025 edition). Verified working link (HTTP 200 after the taleem360 -> Google Drive redirect chain, ~45.31MB) before adding."
+  },
+  {
+    "id": "fbise-10-physics-textbook",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "physics",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/10th-class-physics-federal-text-book-2025-pdf"
+    ],
+    "comment": "Real FBISE Class 10 Physics textbook (National Book Foundation, New SNC 2025 edition). Found 2026-09-04 while auditing SSC coverage: the manifest previously had 4 Class-9 science/math books plus only Math for Class 10, missing Physics/Chemistry/Biology 10 entirely. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1bW9AErPoi_-VgkoQ_2Z1SuQBgdVUWCC1)."
+  },
+  {
+    "id": "fbise-10-chemistry-textbook",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "chemistry",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/fbise-10th-class-chemistry-snc-textbook-2025-pdf"
+    ],
+    "comment": "Real FBISE Class 10 Chemistry textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-04 alongside Physics 10/Biology 10 to close the same SSC-II science gap. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1suXFXf-r6pf-burAwVcdJmT_JegLxUZy). Note: taleem360 also lists an older, undated \"10th Class Chemistry Federal Text Book PDF\" entry - this one (the 2025 SNC edition) was chosen to match the curriculum vintage of the other 6 textbooks already in this file."
+  },
+  {
+    "id": "fbise-10-biology-textbook",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "biology",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/federal-board-10th-class-biology-text-book-2025-pdf"
+    ],
+    "comment": "Real FBISE Class 10 Biology textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-04 alongside Physics 10/Chemistry 10 to close the same SSC-II science gap. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1wrXJU9D7dPN6UB6uPgB1A-1tOAMwK1r6)."
   }
 ]
