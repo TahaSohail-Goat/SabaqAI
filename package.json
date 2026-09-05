@@ -32,6 +32,7 @@
     "pdfjs-dist": "^6.3.289",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "sharp": "^0.35.4",
     "simplex-noise": "^4.0.3",
     "tailwind-merge": "^3.6.0",
     "three": "^0.185.1",

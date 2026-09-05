@@ -1,0 +1,1136 @@
+[
+  {
+    "id": "fbise-9-biology-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "biology",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/BIO%20I%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/BIO%20I%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-biology-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "biology",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_I_1ST_2023/Biology.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-biology-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "biology",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Biology%209%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/Biology%209%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-chemistry-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "chemistry",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/CHEMISTRY%20I%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/CHEMISTRY%20I%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-chemistry-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "chemistry",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_I_1ST_2023/Chemistry.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-chemistry-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "chemistry",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Chemistry%20241011-1%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Chemistry%20241011-2%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-computer_science-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "computer_science",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/COMPUTER%20SC%20I%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/COMPUTER%20SC%20I%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-computer_science-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "computer_science",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_I_1ST_2023/Computer%20Science.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-computer_science-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "computer_science",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Computer%20Science%209%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Computer%20Science%209%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-english-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "english",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/Eng-I%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/Eng-I%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-english-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "english",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_I_1ST_2023/English%20Compulsory.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-english-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "english",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Englsih%20Comp%20241001-1%20sub(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Englsih%20Comp%20241001-2%20sub.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-mathematics-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "mathematics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/MATH%20I%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/MATH%20I%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-mathematics-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "mathematics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_I_1ST_2023/Mathematics.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-mathematics-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "mathematics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Mathematics%20Science%20241013-2%20BC(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Mathematics%20Science%20241013-1BC(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-physics-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "physics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/PHYSICS%20I%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/PHYSICS%20I%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-physics-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "physics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_I_1ST_2023/Physics.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-physics-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "physics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Physics%209th%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Physics%209th%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-urdu-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "urdu",
+    "sourceType": "past_paper",
+    "language": "ur",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/Urdu%20I%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_I_1ST_2022/Urdu%20I%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-urdu-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "urdu",
+    "sourceType": "past_paper",
+    "language": "ur",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_I_1ST_2023/Urdu%20Compulsory.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-9-urdu-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "urdu",
+    "sourceType": "past_paper",
+    "language": "ur",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Urdu%20Comp%20241003-1%20sub(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Urdu%20Comp%20241003-2%20sub(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-biology-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "biology",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/BIO%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/BIO%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-biology-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "biology",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_II_1ST_2023/Biology.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-biology-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "biology",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Biology%202322003-1%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Biology%202322003%20-2%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-chemistry-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "chemistry",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/CHEMISTRY%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/CHEMISTRY%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-chemistry-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "chemistry",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_II_1ST_2023/Chemistry.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-chemistry-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "chemistry",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Chemistry%2010%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Chemistry%2010%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-computer_science-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "computer_science",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/COMPUTER%20SC%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/COMPUTER%20SC%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-computer_science-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "computer_science",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_II_1ST_2023/Computer%20Science.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-computer_science-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "computer_science",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Computer%20Science%20242015-2%20Subjective%20-%20Final%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Computer%20Science%20242015-1%20Subjective%20-%20Final%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-english-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "english",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/ENGLISH%20COMP%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/ENGLISH%20COMP%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-english-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "english",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_II_1ST_2023/ENG1023.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-english-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "english",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/English%20242002-1%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/English%20242002-2%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-mathematics-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "mathematics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/MATH%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/MATH%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-mathematics-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "mathematics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_II_1ST_2023/Mathematics.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-mathematics-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "mathematics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/MathScience%2010%20B.pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/MathScience%2010%20D.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-physics-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "physics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/PHYSICS.pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/PHYSICS%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-physics-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "physics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_II_1ST_2023/Phsycis.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-physics-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "physics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Physics%20242057-2%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Physics%20242057-1%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-urdu-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "urdu",
+    "sourceType": "past_paper",
+    "language": "ur",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/SSC_II_1ST_2022/URDU%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/URDU%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-urdu-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "urdu",
+    "sourceType": "past_paper",
+    "language": "ur",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/SSC_II_1ST_2023/Urdu.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-10-urdu-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "urdu",
+    "sourceType": "past_paper",
+    "language": "ur",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Urdu%2010%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/SSC_I_1ST_2024/question_papers/Urdu%2010%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-biology-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "biology",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/BIOLOGY%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/BIOLOGY%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-biology-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "biology",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_I_1ST_2023/Biology.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-biology-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "biology",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Biology%20243013-2(B)%20BC.pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Biology%20243013-1(D)%20BC.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-chemistry-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "chemistry",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/CHEMISTRY%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/CHEMISTRY%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-chemistry-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "chemistry",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_I_1ST_2023/Chemistry.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-chemistry-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "chemistry",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Chemistry-1%20(B)%20BC.pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Chemistry%20-1%20(D)%20BC.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-computer_science-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "computer_science",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/COMPUTER%20SC%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/COMPUTER%20SC%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-computer_science-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "computer_science",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_I_1ST_2023/Computer%20Science.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-computer_science-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "computer_science",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Computer%20Science%20243012-2%20(B)%20BC.pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Computer%20Science%20243012-1%20(D)%20BC.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-english-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "english",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/ENGLISH%20COMP%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/ENGLISH%20COM%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-english-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "english",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_I_1ST_2023/English%20Compulsory.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-english-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "english",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/English%20Comp.(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/English%20Comp.%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-mathematics-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "mathematics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/MATH%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/MATH%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-mathematics-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "mathematics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_I_1ST_2023/Mathematics.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-mathematics-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "mathematics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Mathematics%20243009-1%20B.pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Mathematics%20243009-2%20D.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-physics-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "physics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/PHYSICS%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/PHYSICS%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-physics-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "physics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_I_1ST_2023/Physics.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-urdu-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "urdu",
+    "sourceType": "past_paper",
+    "language": "ur",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/URDU%20COM%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_I_1ST%20_2022/URDU%20COM%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-urdu-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "urdu",
+    "sourceType": "past_paper",
+    "language": "ur",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_I_1ST_2023/Urdu%20Compulsory.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-11-urdu-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "urdu",
+    "sourceType": "past_paper",
+    "language": "ur",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Urdu%20Comp%20243002-2%20B.pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Urdu%20Comp%20243002-1%20D.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-biology-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "biology",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/BIOLOGY%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/BIOLOGY%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-biology-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "biology",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_II_1ST_2023/Biology%20HSSC.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-biology-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "biology",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Biology%20244013-2%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Biology%20244013-1%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-chemistry-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "chemistry",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/CHEMISTRY%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/CHEMISTRY%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-chemistry-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "chemistry",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_II_1ST_2023/Chemistry%20HSSC.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-chemistry-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "chemistry",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Chemistry%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Chemistry%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-computer_science-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "computer_science",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/COMPUTER%20SC%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/COMPUTER%20SC%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-computer_science-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "computer_science",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_II_1ST_2023/Computer%20Science.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-computer_science-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "computer_science",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Computer%20Science%20244011-2%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Computer%20Science%20244011-1%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-english-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "english",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/ENGLISH%20COMP%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/ENGLISH%20COMP%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-english-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "english",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_II_1ST_2023/English%20Compulsory.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-english-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "english",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/English%20Comp%20244001-1%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/English%20Comp%20244001-2%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-mathematics-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "mathematics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/MATH%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/MATH%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-mathematics-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "mathematics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_II_1ST_2023/Mathematics%20HSSC.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-mathematics-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "mathematics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Mathematics%20244009-1%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Mathematics%20244009-2%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-physics-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "physics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/PHYSICS%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/PHYSICS%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-physics-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "physics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_II_1ST_2023/Physics%20HSSC.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-physics-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "physics",
+    "sourceType": "past_paper",
+    "language": "en",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Physics%20244007-2%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Physics%20244007-1%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-urdu-past_paper-2022",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "urdu",
+    "sourceType": "past_paper",
+    "language": "ur",
+    "year": 2022,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/URDU%20COM%20(L).pdf",
+      "https://www.fbise.edu.pk/OLD_QUESTION_PAPER_2022/HSSC_II_1ST%20_2022/URDU%20COMP%20(HA).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2022 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-urdu-past_paper-2023",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "urdu",
+    "sourceType": "past_paper",
+    "language": "ur",
+    "year": 2023,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2023/HSSC_II_1ST_2023/Urdu%20Compulsory.pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2023 matrix), Local/Hard-Area variants as fallback candidates."
+  },
+  {
+    "id": "fbise-12-urdu-past_paper-2024",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "urdu",
+    "sourceType": "past_paper",
+    "language": "ur",
+    "year": 2024,
+    "candidateUrls": [
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Urdu%20Comp%20244004-1%20(B).pdf",
+      "https://www.fbise.edu.pk/Old%20Question%20Paper/2024/HSSC_I_1ST_2024/question_papers/Urdu%20Comp%20244004-2%20(D).pdf"
+    ],
+    "comment": "Scraped from https://fbise.edu.pk/Old Question Paper.php (2024 matrix), Local/Hard-Area variants as fallback candidates."
+  }
+]

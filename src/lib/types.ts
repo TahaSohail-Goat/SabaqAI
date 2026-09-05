@@ -93,6 +93,30 @@ export interface Citation {
 // honest "nothing ingested yet" state instead of hiding a category outright.
 export type AskSourceType = 'textbook' | 'past_paper' | 'model_paper';
 
+// Flat (non-textbook) documents key their `chapters` row on year, not a real chapter number
+// (src/lib/crawler/structure/flat-document.ts) — so a past paper and a marking scheme for the
+// same board/class/subject/year share one `chapters` row and its one `chapter_title` column.
+// Whichever source type was ingested more recently for that year overwrites the stored title
+// for BOTH. Every read path that surfaces a title for a non-textbook source (the options
+// picker in src/app/api/ask/options/route.ts, and citation display via
+// src/lib/ai/retrieval.ts) must derive the label from (sourceType, chapterNo, subject) through
+// this one function instead of trusting the stored column — textbooks are exempt since their
+// title is genuinely per-chapter and never collides.
+const FLAT_SOURCE_LABEL: Record<Exclude<AskSourceType, 'textbook'>, string> = {
+  past_paper: 'Past Paper',
+  model_paper: 'Model Paper',
+};
+
+export function displayChapterTitle(
+  sourceType: AskSourceType,
+  chapterNo: number,
+  storedTitle: string | null,
+  subject: string,
+): string | null {
+  if (sourceType === 'textbook') return storedTitle;
+  return `${FLAT_SOURCE_LABEL[sourceType]} ${chapterNo} — ${subject.replace(/_/g, ' ')}`;
+}
+
 export interface AskUnit {
   chapterNo: number;
   chapterTitle: string | null;

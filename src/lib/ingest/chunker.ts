@@ -185,13 +185,21 @@ function tailOverlap(text: string, overlap: number): string {
  * yields two rows, while a re-extraction of the same page yields one. Content is normalised
  * first so trivial whitespace differences don't defeat deduplication — re-running ingestion
  * must never duplicate rows (`content_chunks` has a unique constraint on this).
+ *
+ * Includes sourceType and language too (crawler redesign, Phase 1) — content_chunks.content_hash
+ * is unique across the WHOLE table, not scoped per section/source, so without this a marking
+ * scheme and its own past paper sharing boilerplate text (e.g. "Time Allowed: 2 hours") would
+ * silently collide: the second one ingested would `on conflict do nothing` and that chunk would
+ * stay attached to whichever source ingested it first, showing the wrong sourceType on its
+ * citation. Low-risk before this redesign (only textbook+model_paper existed); real risk the
+ * moment past papers and marking schemes exist for the same chapters.
  */
 export function hashChunk(
-  doc: Pick<SourceDocument, 'board' | 'classLevel' | 'subject' | 'chapterNo'>,
+  doc: Pick<SourceDocument, 'board' | 'classLevel' | 'subject' | 'chapterNo' | 'sourceType' | 'language'>,
   content: string,
 ): string {
   const normalised = content.toLowerCase().replace(/\s+/g, ' ').trim();
-  const identity = `${doc.board}|${doc.classLevel}|${doc.subject}|${doc.chapterNo}|${normalised}`;
+  const identity = `${doc.board}|${doc.classLevel}|${doc.subject}|${doc.chapterNo}|${doc.sourceType}|${doc.language}|${normalised}`;
   return createHash('sha256').update(identity).digest('hex');
 }
 

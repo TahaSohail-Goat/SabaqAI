@@ -35,7 +35,12 @@ jobs:
   crawl-and-ingest:
     name: Crawl FBISE PDFs and ingest into Supabase
     runs-on: ubuntu-latest
-    timeout-minutes: 120  # OCR can be slow; 2 hours is a safe ceiling
+    # OCR can be slow, and 2 hours turned out not to be a safe ceiling for the full manifest:
+    # Physics 9 alone (221 pages, AES-256 encrypted, unusually large embedded scan images) was
+    # directly measured needing up to ~90 min just to rasterize before OCR even starts (see
+    # pdf-tools.ts's own rasterizePdfToPng timeout comment) — a full run also covers 4 more
+    # textbooks plus ~180 flat documents on top of that one book.
+    timeout-minutes: 240
 
     steps:
       - name: Checkout repository
@@ -50,12 +55,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Install system Tesseract for faster OCR (Tesseract.js falls back to
-      # its bundled WASM binary if this is absent, but the native binary is ~5x faster).
-      - name: Install system Tesseract OCR
+      # Tesseract for OCR (scanned textbooks/bundles) and poppler-utils for pdftotext/pdftoppm
+      # (src/lib/crawler/pdf-tools.ts shells out to both directly — every textbook or bundle
+      # this crawler touches needs pdftoppm to rasterize pages before OCR can run at all, and
+      # flat documents need pdftotext for direct-text extraction before falling back to OCR).
+      - name: Install system Tesseract OCR and poppler-utils
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y tesseract-ocr tesseract-ocr-urd
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-urd poppler-utils
+
+      # data/.crawl-state.json is gitignored (it's a local run cache, not source), so a fresh
+      # checkout here never has it — without restoring it first, every single run (scheduled
+      # or manual) would see 0 entries marked "ok" and reprocess the ENTIRE manifest, including
+      # every hand-verified textbook whose chapter boundaries were corrected by reading the
+      # actual OCR directly (see the crawler redesign plan) — the automatic detector gets
+      # several of those wrong, so an unattended re-run would silently overwrite correct data.
+      # Restore-keys falls back to the newest previous cache when this run's own key (always
+      # unique via run_id) inevitably misses, so this always finds the last run's state; the
+      # save step below always writes a new entry so the next run has something newer to find.
+      - name: Restore previous crawl state
+        uses: actions/cache/restore@v4
+        with:
+          path: data/.crawl-state.json
+          key: crawl-state-${{ github.run_id }}
+          restore-keys: |
+            crawl-state-
 
       - name: Build crawl flags
         id: flags
@@ -74,12 +98,26 @@ jobs:
 
       - name: Run FBISE crawler
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # getServiceRoleClient() (src/lib/supabase/admin.ts) reads NEXT_PUBLIC_SUPABASE_URL,
+          # not SUPABASE_URL — the old name here meant requireServiceRoleClient() would throw
+          # on the very first line of every crawl run in CI, before touching a single source.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           EMBEDDING_API_KEY: ${{ secrets.EMBEDDING_API_KEY }}
           # NODE_ENV is not set to production so tsx can resolve devDependencies.
         run: |
           npm run crawl -- ${{ steps.flags.outputs.flags }}
+
+      # Always save, even on failure/timeout — a partially-updated state file (entries that
+      # completed before a later one failed) is still strictly more useful to the next run
+      # than the previous cache, and this is what actually closes the loop with the restore
+      # step above: without this, every run would keep restoring the SAME stale cache forever.
+      - name: Save crawl state for next run
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/.crawl-state.json
+          key: crawl-state-${{ github.run_id }}
 
       # Upload the crawl state file as an artifact so you can inspect it
       # in the Actions UI to see which URLs were processed and their checksums.

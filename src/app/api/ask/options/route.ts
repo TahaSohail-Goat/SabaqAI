@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
 import { getSourcePdfUrl } from '@/lib/storage/source-pdfs';
-import type { AskOptionsResponse, AskSourceOption, AskSourceType } from '@/lib/types';
+import { displayChapterTitle, type AskOptionsResponse, type AskSourceOption, type AskSourceType } from '@/lib/types';
 
 const DEFAULT_BOARD = 'FBISE';
 const DEFAULT_CLASS_LEVEL = 10;
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
         .filter((p): p is number => p != null);
       units.push({
         chapterNo: row.chapter_no,
-        chapterTitle: row.chapter_title,
+        chapterTitle: displayChapterTitle(sourceType, row.chapter_no, row.chapter_title, subject),
         pdfUrl: source.storage_path ? getSourcePdfUrl(admin, source.storage_path) : null,
         pageFrom: pageNumbers.length > 0 ? Math.min(...pageNumbers) : null,
       });
