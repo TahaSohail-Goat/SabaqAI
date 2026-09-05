@@ -23,11 +23,36 @@ export async function rebuildChapterPdf(pdfBuf: Buffer, pageFrom: number, pageTo
   const jpegBuffers = rasterizePageRangeToJpeg(pdfBuf, pageFrom, pageTo, REBUILD_DPI, REBUILD_JPEG_QUALITY);
 
   const doc = await PDFDocument.create();
-  for (const jpegBytes of jpegBuffers) {
-    const jpg = await doc.embedJpg(jpegBytes);
+  for (let i = 0; i < jpegBuffers.length; i++) {
+    const pageNo = pageFrom + i;
+    const jpg = await embedJpgWithRetry(doc, jpegBuffers[i], pdfBuf, pageNo);
     const page = doc.addPage([jpg.width, jpg.height]);
     page.drawImage(jpg, { x: 0, y: 0, width: jpg.width, height: jpg.height });
   }
 
   return Buffer.from(await doc.save());
+}
+
+// pdf-lib's embedJpg occasionally rejects a byte-valid JPEG (correct SOI marker confirmed
+// directly) with "SOI not found in JPEG" for one specific page in an otherwise-clean range —
+// reproduced non-deterministically (the same page rasterizes fine on a later attempt), so this
+// is a flaky rendering artifact for that one page, not a corrupt source page or a real bug in
+// the embedder. Re-rasterizing just the offending single page and retrying the embed a few
+// times resolves it without failing (or silently truncating) the whole chapter over one bad
+// frame.
+async function embedJpgWithRetry(doc: PDFDocument, firstAttempt: Buffer, pdfBuf: Buffer, pageNo: number, maxAttempts = 4) {
+  let jpegBytes = firstAttempt;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await doc.embedJpg(jpegBytes);
+    } catch (err) {
+      if (attempt === maxAttempts) {
+        throw new Error(`Page ${pageNo} would not embed as a valid JPEG after ${maxAttempts} attempts: ${(err as Error).message}`);
+      }
+      console.error(`[pdf-rebuild] Page ${pageNo} failed to embed (attempt ${attempt}/${maxAttempts}: ${(err as Error).message}) — re-rasterizing just this page and retrying.`);
+      [jpegBytes] = rasterizePageRangeToJpeg(pdfBuf, pageNo, pageNo, REBUILD_DPI, REBUILD_JPEG_QUALITY);
+    }
+  }
+  // Unreachable — the loop above always returns or throws — keeps TS satisfied every path returns.
+  throw new Error(`Page ${pageNo}: embed retry loop exited without a result.`);
 }
