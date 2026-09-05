@@ -14,6 +14,7 @@ import {
   EyeOff,
   Camera,
   GraduationCap,
+  Mail,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useScope } from '@/components/app/ScopeContext';
@@ -321,10 +322,37 @@ export default function SettingsPage() {
   };
 
   // Delete account — hard delete, immediate, no grace period (confirmed intentional).
+  // Confirmed with an emailed OTP, not a re-entered password: a Google/social-only account
+  // has no password to re-enter, so every account confirms the same way regardless of how
+  // it signed up. Two steps: send the code, then enter it.
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteOtpSent, setDeleteOtpSent] = useState(false);
+  const [sendingDeleteOtp, setSendingDeleteOtp] = useState(false);
+  const [deleteOtp, setDeleteOtp] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const resetDeleteFlow = () => {
+    setShowDeleteConfirm(false);
+    setDeleteOtpSent(false);
+    setDeleteOtp('');
+    setDeleteError(null);
+  };
+
+  const sendDeleteOtp = async () => {
+    setSendingDeleteOtp(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch('/api/auth/delete-account/send-otp', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not send a verification code.');
+      setDeleteOtpSent(true);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setSendingDeleteOtp(false);
+    }
+  };
 
   const deleteAccount = async () => {
     setDeleting(true);
@@ -333,7 +361,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/auth/delete-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: deletePassword }),
+        body: JSON.stringify({ otp: deleteOtp }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not delete your account.');
@@ -602,34 +630,74 @@ export default function SettingsPage() {
                 This permanently deletes your account and everything tied to it — profile, quizzes, question history. This cannot be undone.
               </p>
               {deleteError && <InlineBanner kind="error">{deleteError}</InlineBanner>}
-              <input
-                type="password"
-                placeholder="Enter your password to confirm"
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-                className="w-full rounded-xl border border-error/40 bg-surface px-3.5 py-2.5 text-sm text-navy focus:border-error focus:ring-2 focus:ring-error/20 focus:outline-none transition-all"
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={deleteAccount}
-                  disabled={deleting || !deletePassword}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-error hover:bg-error/90 disabled:opacity-50 transition-colors"
-                >
-                  {deleting ? 'Deleting...' : 'Yes, permanently delete my account'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowDeleteConfirm(false);
-                    setDeletePassword('');
-                    setDeleteError(null);
-                  }}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-navy-2 hover:bg-surface-hover transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
+
+              {!deleteOtpSent ? (
+                <>
+                  <p className="text-xs text-navy-2 leading-relaxed">
+                    We&apos;ll email a 6-digit code to confirm it&apos;s really you — this works
+                    the same way whether you signed up with a password or with Google.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={sendDeleteOtp}
+                      disabled={sendingDeleteOtp}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-error hover:bg-error/90 disabled:opacity-50 transition-colors"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      {sendingDeleteOtp ? 'Sending code...' : 'Send verification code'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetDeleteFlow}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-navy-2 hover:bg-surface-hover transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-navy-2 leading-relaxed">
+                    Enter the code we just sent to <span className="font-semibold text-navy">{user?.email}</span>.
+                  </p>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder="6-digit code"
+                    value={deleteOtp}
+                    onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="w-full rounded-xl border border-error/40 bg-surface px-3.5 py-2.5 text-sm text-navy tracking-[0.3em] text-center font-semibold focus:border-error focus:ring-2 focus:ring-error/20 focus:outline-none transition-all"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={deleteAccount}
+                      disabled={deleting || deleteOtp.length !== 6}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-error hover:bg-error/90 disabled:opacity-50 transition-colors"
+                    >
+                      {deleting ? 'Deleting...' : 'Yes, permanently delete my account'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={sendDeleteOtp}
+                      disabled={sendingDeleteOtp}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-navy-2 hover:bg-surface-hover disabled:opacity-50 transition-colors"
+                    >
+                      {sendingDeleteOtp ? 'Resending...' : 'Resend code'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetDeleteFlow}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-navy-2 hover:bg-surface-hover transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
