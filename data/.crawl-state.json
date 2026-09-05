@@ -1161,5 +1161,55 @@
     "checksum": "c7316115d79de064bf56e1b3bfd714164f53beffb6ad677934879a7036682974",
     "lastProcessed": "2026-09-05T19:07:05.210Z",
     "status": "ok"
+  },
+  "fbise-12-biology-textbook": {
+    "checksum": "53c1ac052f0039f2b8c4be0736cde13016f2ad1cef33782a79ca19a278472903",
+    "lastProcessed": "2026-09-06T02:25:00.000Z",
+    "status": "ok"
+  },
+  "fbise-11-biology-textbook": {
+    "checksum": "e4f1ed7284c23d6c540a521d946320306ab9507848b63a98a4649e1507e0fe5e",
+    "lastProcessed": "2026-09-06T02:00:00.000Z",
+    "status": "ok"
+  },
+  "fbise-11-physics-textbook": {
+    "checksum": "fc7ffdb7224fcd4fb9292138d6a5924f0cdcabed39956dc4ff0207f292035a53",
+    "lastProcessed": "2026-09-05T20:51:09.570Z",
+    "status": "ok"
+  },
+  "fbise-12-chemistry-textbook": {
+    "checksum": "3155fafe424edc4d1e48213ea68d57c23575d95244a2e9278f8c80a1a5a331be",
+    "lastProcessed": "2026-09-05T20:54:55.744Z",
+    "status": "ok"
+  },
+  "fbise-12-mathematics-textbook": {
+    "checksum": "bd6cc920c3a7e498f4d78622f9cf65ae9b0ff90e27d8189b58dc43dd47ab7632",
+    "lastProcessed": "2026-09-05T20:55:31.719Z",
+    "status": "ok"
+  },
+  "fbise-11-computer_science-textbook": {
+    "checksum": "8de53a6d90e8eeea8979ee25220c18a91fe0c0d99f79d3c13050c1a940d8544e",
+    "lastProcessed": "2026-09-06T02:15:00.000Z",
+    "status": "ok"
+  },
+  "fbise-12-computer_science-textbook": {
+    "checksum": "81afa25eac89d8655138e20c0ece67dfd6de4d7e4edefaf83b0152657538f36c",
+    "lastProcessed": "2026-09-06T02:15:00.000Z",
+    "status": "ok"
+  },
+  "fbise-11-mathematics-textbook": {
+    "checksum": "fcec10b33ffedb8337f7c8c11ccfff32f107ec42bcaad4ab69eaade76a118740",
+    "lastProcessed": "2026-09-06T02:15:00.000Z",
+    "status": "ok"
+  },
+  "fbise-12-physics-textbook": {
+    "checksum": "73f1ba335c8032b809a7efa1c00db2ee1c3f396e20725787a44eb4a4d2352211",
+    "lastProcessed": "2026-09-06T02:15:00.000Z",
+    "status": "ok"
+  },
+  "fbise-11-chemistry-textbook": {
+    "checksum": "32b26aabdb1f7fdbdda8882e8ff9c97f946293367c09f5bcce2cd9629c118b97",
+    "lastProcessed": "2026-09-06T02:15:00.000Z",
+    "status": "ok"
   }
 }

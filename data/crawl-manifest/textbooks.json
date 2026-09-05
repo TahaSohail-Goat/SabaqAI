@@ -118,5 +118,125 @@
       "https://www.taleem360.com/download/10th-class-computer-science-fbise-text-book-pdf"
     ],
     "comment": "Real FBISE Class 10 Computer Science textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 alongside Computer Science 9 to close the same textbook-coverage gap. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1GJFGY9AB6e-mb6B6Ff0vCNKvIo5RVDLT)."
+  },
+  {
+    "id": "fbise-11-physics-textbook",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "physics",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/11th-class-physics-new-federal-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 11 (HSSC-I) Physics textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 to start HSSC textbook coverage (Math/Bio/CS/Chem/Physics, classes 11-12), requested directly by the user after SSC coverage was complete. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1zq6iE7vbL84IgSQ2n2LqqjWn4d0PGpFo)."
+  },
+  {
+    "id": "fbise-11-mathematics-textbook",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "mathematics",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/11th-class-mathematics-fbise-new-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 11 (HSSC-I) Mathematics textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 alongside the rest of the HSSC-I set. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1BodCTyTKRCb2so2q1q-5kqp9Lyba-KoX)."
+  },
+  {
+    "id": "fbise-11-computer_science-textbook",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "computer_science",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/11th-class-computer-science-federal-text-book-2025-pdf"
+    ],
+    "comment": "Real FBISE Class 11 (HSSC-I) Computer Science textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 alongside the rest of the HSSC-I set. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1vmutfJvqR55JUtxWgPnEb0_-C723ngKv)."
+  },
+  {
+    "id": "fbise-11-chemistry-textbook",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "chemistry",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/federal-board-11th-class-chemistry-new-snc-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 11 (HSSC-I) Chemistry textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 alongside the rest of the HSSC-I set. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1fslKSBdnvWfRjgYc4pAjSyb3LrtgllNm)."
+  },
+  {
+    "id": "fbise-11-biology-textbook",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "biology",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/11th-class-federal-board-biology-new-text-book-2025-pdf"
+    ],
+    "comment": "Real FBISE Class 11 (HSSC-I) Biology textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 alongside the rest of the HSSC-I set. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1R9D2FpHB3pbjHWPr5zIUZQyHdyD1aX7u)."
+  },
+  {
+    "id": "fbise-12-physics-textbook",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "physics",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/federal-board-12th-class-physics-text-book-2025-pdf"
+    ],
+    "comment": "Real FBISE Class 12 (HSSC-II) Physics textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 to complete HSSC textbook coverage alongside HSSC-I. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1Rw7rCuAxZpJreNKHuhrXWs31OnF_hr8a). (A separate KPK-board edition also exists on taleem360 under a similarly-named title - not this one, confirmed FBISE/National Book Foundation authorship before adding.)"
+  },
+  {
+    "id": "fbise-12-mathematics-textbook",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "mathematics",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/fbise-12th-class-mathematics-new-text-book-2025-pdf"
+    ],
+    "comment": "Real FBISE Class 12 (HSSC-II) Mathematics textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 alongside the rest of the HSSC-II set. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1JgktWbYsJVKagaytsNG458_V7Lz4xoZl)."
+  },
+  {
+    "id": "fbise-12-computer_science-textbook",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "computer_science",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/12th-class-federal-board-computer-science-text-book-pdf-gvx"
+    ],
+    "comment": "Real FBISE Class 12 (HSSC-II) Computer Science textbook (National Book Foundation). Added 2026-09-06 alongside the rest of the HSSC-II set. Only one FBISE-authored edition was listed (no separate 'New 2025' variant like the other subjects) - credited on taleem360 to a contributor (Touseef Ahmad), not NBF directly, but confirmed as the real FBISE/National Curriculum textbook. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1ggcPOVtM7ZcYWZcaNpdDBYf7WXB1S_KZ)."
+  },
+  {
+    "id": "fbise-12-chemistry-textbook",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "chemistry",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/12th-class-federal-board-chemistry-book-2025-pdf"
+    ],
+    "comment": "Real FBISE Class 12 (HSSC-II) Chemistry textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 alongside the rest of the HSSC-II set. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 14nVs2flz9QdZpdOIP_9WQDFDKGVJ3bHu)."
+  },
+  {
+    "id": "fbise-12-biology-textbook",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "biology",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/federal-board-2nd-year-biology-new-text-book-2025-pdf"
+    ],
+    "comment": "Real FBISE Class 12 (HSSC-II) Biology textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 alongside the rest of the HSSC-II set. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1XPihVQJwZTtFUmBbBBm2-7PMajGJxNUm)."
   }
 ]
