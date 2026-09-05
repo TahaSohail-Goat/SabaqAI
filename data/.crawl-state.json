@@ -1151,5 +1151,15 @@
     "checksum": "a6a56d5bfaf71a1907466032ce24dd72d8f42e7886102755a11600e1c694d595",
     "lastProcessed": "2026-09-05T14:56:32.659Z",
     "status": "ok"
+  },
+  "fbise-10-computer_science-textbook": {
+    "checksum": "d43ab26d4ae5275eb369251a183d802adadc1f7df648d556d6eaa6b59c1cee23",
+    "lastProcessed": "2026-09-05T19:07:05.210Z",
+    "status": "ok"
+  },
+  "fbise-9-computer_science-textbook": {
+    "checksum": "c7316115d79de064bf56e1b3bfd714164f53beffb6ad677934879a7036682974",
+    "lastProcessed": "2026-09-05T19:07:05.210Z",
+    "status": "ok"
   }
 }
