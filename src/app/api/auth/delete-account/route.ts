@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Enter the code we emailed you to confirm account deletion.' }, { status: 400 });
     }
 
-    const result = verifyOtp(deleteAccountOtpKey(user.email.toLowerCase().trim()), otp.trim());
+    const result = await verifyOtp(deleteAccountOtpKey(user.email.toLowerCase().trim()), otp.trim());
     switch (result) {
       case 'expired':
         return NextResponse.json({ error: 'This code has expired. Please request a new one.' }, { status: 400 });

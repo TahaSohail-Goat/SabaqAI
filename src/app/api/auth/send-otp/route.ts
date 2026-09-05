@@ -10,14 +10,10 @@
 // can still test the flow without a mail account.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateOtp, storeOtp } from '@/lib/email/otp-store';
+import { generateOtp, storeOtp, secondsUntilResendAllowed } from '@/lib/email/otp-store';
 import { sendEmail, buildOtpEmail } from '@/lib/email/mailer';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
 import { findUserByEmail } from '@/lib/auth/find-user';
-
-// Simple rate-limit: one OTP request per email per 60 seconds.
-const lastSent = new Map<string, number>();
-const RESEND_COOLDOWN_MS = 60_000;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Username, not a display name: short handle, no spaces — matches what the signup
@@ -65,10 +61,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Rate-limit resends
-    const last = lastSent.get(key);
-    if (last && Date.now() - last < RESEND_COOLDOWN_MS) {
-      const waitSec = Math.ceil((RESEND_COOLDOWN_MS - (Date.now() - last)) / 1000);
+    // Rate-limit resends — one OTP request per email per 60 seconds, tracked in auth_otps so
+    // the limit actually holds across serverless instances (see otp-store.ts).
+    const waitSec = await secondsUntilResendAllowed(key);
+    if (waitSec > 0) {
       return NextResponse.json(
         { error: `Please wait ${waitSec}s before requesting another code.` },
         { status: 429 }
@@ -106,8 +102,7 @@ export async function POST(req: NextRequest) {
     }
 
     const code = generateOtp();
-    storeOtp(key, code);
-    lastSent.set(key, Date.now());
+    await storeOtp(key, code);
 
     const sent = await sendEmail(
       key,

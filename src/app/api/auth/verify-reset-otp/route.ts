@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const key = String(email).trim().toLowerCase();
-    const result = peekOtp(resetOtpKey(key), String(otp).trim());
+    const result = await peekOtp(resetOtpKey(key), String(otp).trim());
 
     switch (result) {
       case 'expired':

@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     const key = email.toLowerCase().trim();
-    const result = verifyOtp(key, otp.trim());
+    const result = await verifyOtp(key, otp.trim());
 
     switch (result) {
       case 'expired':

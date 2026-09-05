@@ -12,13 +12,10 @@
 // whether an email is registered; accepted tradeoff per explicit product decision.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateOtp, storeOtp, resetOtpKey } from '@/lib/email/otp-store';
+import { generateOtp, storeOtp, resetOtpKey, secondsUntilResendAllowed } from '@/lib/email/otp-store';
 import { sendEmail, buildPasswordResetEmail } from '@/lib/email/mailer';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
 import { findUserByEmail } from '@/lib/auth/find-user';
-
-const lastSent = new Map<string, number>();
-const RESEND_COOLDOWN_MS = 60_000;
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,16 +26,20 @@ export async function POST(req: NextRequest) {
 
     const key = email.trim().toLowerCase();
 
-    const last = lastSent.get(key);
-    if (last && Date.now() - last < RESEND_COOLDOWN_MS) {
-      const waitSec = Math.ceil((RESEND_COOLDOWN_MS - (Date.now() - last)) / 1000);
+    // Rate-limit resends, tracked in auth_otps so the limit holds across serverless instances
+    // (see otp-store.ts). The old in-memory version started this clock unconditionally, before
+    // the account-existence check below; the clock is now the stored code's own created_at, so
+    // it only starts once a code is actually issued. No behaviour worth keeping is lost: an
+    // unknown address still 404s below without an email being sent, so the thing this limit
+    // exists to protect — the SMTP account's quota — is untouched either way, and address
+    // enumeration was already an accepted tradeoff here (see the file comment).
+    const waitSec = await secondsUntilResendAllowed(resetOtpKey(key));
+    if (waitSec > 0) {
       return NextResponse.json(
         { error: `Please wait ${waitSec}s before requesting another code.` },
         { status: 429 }
       );
     }
-    // Set unconditionally, before the existence check below — see the file comment.
-    lastSent.set(key, Date.now());
 
     const admin = getServiceRoleClient();
     if (!admin) {
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
     }
 
     const code = generateOtp();
-    storeOtp(resetOtpKey(key), code);
+    await storeOtp(resetOtpKey(key), code);
 
     const sent = await sendEmail(key, 'Reset your SabaqAI password', buildPasswordResetEmail(code));
     if (!sent) {

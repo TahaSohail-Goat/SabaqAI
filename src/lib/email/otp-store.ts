@@ -1,23 +1,32 @@
-// In-memory OTP store keyed by email.
+// Email verification codes, stored in Postgres (auth_otps, migration 0017).
 //
-// This is intentionally simple: it works correctly for a single-server deployment
-// (local dev, single Vercel instance). For multi-instance production, swap the
-// Map for a Supabase table with a TTL column and call storeOtp / verifyOtp via
-// the service-role client instead.
+// This used to be a module-level Map. That works on a single long-lived server and breaks on
+// Vercel, where every serverless instance gets its own copy: a code minted on instance A simply
+// does not exist when the verify request lands on instance B, so a correct code is rejected —
+// intermittently, which is harder to diagnose than a consistent failure. All three OTP flows
+// (signup, password reset, account deletion) were affected. See 0017_auth_otps.sql.
 //
-// The store never persists to disk — a server restart clears all pending OTPs,
-// which is a safe failure: the user just needs to request a new code.
+// The four state functions are async now; everything else about the contract is unchanged, so
+// callers only gained an `await`. Codes remain single-use, 2-minute TTL, 5 wrong attempts max.
+//
+// If Supabase isn't configured the store fails closed — verification returns 'invalid' rather
+// than letting anything through.
+
+import { getServiceRoleClient } from '@/lib/supabase/admin';
 
 const OTP_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const MAX_ATTEMPTS = 5;
+const RESEND_COOLDOWN_MS = 60_000;
 
-interface OtpEntry {
+export type OtpResult = 'valid' | 'expired' | 'invalid' | 'too_many_attempts';
+
+interface OtpRow {
+  key: string;
   code: string;
-  expiry: number; // Date.now() + TTL
+  expires_at: string;
   attempts: number;
+  created_at: string;
 }
-
-// Module-level singleton. Next.js dev mode HMR can reset this — fine for dev.
-const store = new Map<string, OtpEntry>();
 
 /** Generate a cryptographically random 6-digit OTP string. */
 export function generateOtp(): string {
@@ -26,7 +35,7 @@ export function generateOtp(): string {
 }
 
 /** Namespaces a password-reset code separately from a signup code for the same email —
- *  same underlying store, two independent single-use codes that can't collide. */
+ *  same underlying table, two independent single-use codes that can't collide. */
 export function resetOtpKey(email: string): string {
   return `reset:${email}`;
 }
@@ -37,72 +46,113 @@ export function deleteAccountOtpKey(email: string): string {
   return `delete:${email}`;
 }
 
-/** Store an OTP for the given email, overwriting any existing entry. */
-export function storeOtp(email: string, code: string): void {
-  store.set(email.toLowerCase(), {
-    code,
-    expiry: Date.now() + OTP_TTL_MS,
-    attempts: 0,
-  });
+/** Store an OTP for the given key, overwriting any existing entry (and resetting its attempt
+ *  count and cooldown clock, since it's a genuinely new code). */
+export async function storeOtp(key: string, code: string): Promise<void> {
+  const admin = getServiceRoleClient();
+  if (!admin) return;
+
+  const now = Date.now();
+
+  // Sweep expired rows on write. Cheap against auth_otps_expires_idx, and it keeps the table
+  // from accumulating dead codes without needing a scheduled job for it.
+  await admin.from('auth_otps').delete().lt('expires_at', new Date(now).toISOString());
+
+  const { error } = await admin.from('auth_otps').upsert(
+    {
+      key: key.toLowerCase(),
+      code,
+      expires_at: new Date(now + OTP_TTL_MS).toISOString(),
+      attempts: 0,
+      created_at: new Date(now).toISOString(),
+    },
+    { onConflict: 'key' }
+  );
+
+  if (error) {
+    console.error('otp-store: storeOtp failed:', error.message);
+  }
+}
+
+// Shared by verifyOtp and peekOtp — identical checks, differing only in whether a correct code
+// is consumed. Returning the row lets verifyOtp delete it by key afterwards.
+async function checkOtp(key: string, code: string): Promise<OtpResult> {
+  const admin = getServiceRoleClient();
+  if (!admin) return 'invalid'; // fail closed
+
+  const normalized = key.toLowerCase();
+  const { data, error } = await admin
+    .from('auth_otps')
+    .select('key, code, expires_at, attempts, created_at')
+    .eq('key', normalized)
+    .maybeSingle<OtpRow>();
+
+  if (error) {
+    console.error('otp-store: lookup failed:', error.message);
+    return 'invalid';
+  }
+  if (!data) return 'invalid';
+
+  if (Date.now() > new Date(data.expires_at).getTime()) {
+    await admin.from('auth_otps').delete().eq('key', normalized);
+    return 'expired';
+  }
+
+  if (data.attempts >= MAX_ATTEMPTS) {
+    await admin.from('auth_otps').delete().eq('key', normalized);
+    return 'too_many_attempts';
+  }
+
+  if (data.code !== code) {
+    await admin
+      .from('auth_otps')
+      .update({ attempts: data.attempts + 1 })
+      .eq('key', normalized);
+    return 'invalid';
+  }
+
+  return 'valid';
 }
 
 /** Validate the OTP. Deletes the entry on success (single-use). */
-export function verifyOtp(
-  email: string,
-  code: string
-): 'valid' | 'expired' | 'invalid' | 'too_many_attempts' {
-  const key = email.toLowerCase();
-  const entry = store.get(key);
+export async function verifyOtp(key: string, code: string): Promise<OtpResult> {
+  const result = await checkOtp(key, code);
 
-  if (!entry) return 'invalid';
-
-  if (Date.now() > entry.expiry) {
-    store.delete(key);
-    return 'expired';
+  if (result === 'valid') {
+    const admin = getServiceRoleClient();
+    if (admin) await admin.from('auth_otps').delete().eq('key', key.toLowerCase());
   }
 
-  // Limit brute-force: max 5 wrong attempts before the entry is discarded.
-  if (entry.attempts >= 5) {
-    store.delete(key);
-    return 'too_many_attempts';
-  }
-
-  if (entry.code !== code) {
-    entry.attempts += 1;
-    return 'invalid';
-  }
-
-  // Success — delete so the same code can't be reused.
-  store.delete(key);
-  return 'valid';
+  return result;
 }
 
-/** Same checks as verifyOtp but doesn't delete the entry on success — lets a caller
- *  confirm a code is right (e.g. to unlock a later step in a UI) without spending its
- *  one-time use. A wrong code still counts against the attempt limit, same as verifyOtp. */
-export function peekOtp(
-  email: string,
-  code: string
-): 'valid' | 'expired' | 'invalid' | 'too_many_attempts' {
-  const key = email.toLowerCase();
-  const entry = store.get(key);
+/** Same checks as verifyOtp but doesn't consume a correct code — lets a caller confirm a code
+ *  is right (e.g. to unlock a later step in a UI) without spending its one-time use. A wrong
+ *  code still counts against the attempt limit, same as verifyOtp. */
+export async function peekOtp(key: string, code: string): Promise<OtpResult> {
+  return checkOtp(key, code);
+}
 
-  if (!entry) return 'invalid';
+/** Seconds a caller must wait before another code may be sent for this key, or 0 if allowed.
+ *
+ *  Replaces the per-route in-memory `lastSent` Maps, which had the same multi-instance bug as
+ *  the code store itself — on Vercel the cooldown simply didn't apply once traffic spread
+ *  across instances, so the real protection here (not burning the SMTP account's quota) wasn't
+ *  actually in force. Derived from the live row's created_at, so no second table is needed. */
+export async function secondsUntilResendAllowed(key: string): Promise<number> {
+  const admin = getServiceRoleClient();
+  if (!admin) return 0;
 
-  if (Date.now() > entry.expiry) {
-    store.delete(key);
-    return 'expired';
-  }
+  const { data, error } = await admin
+    .from('auth_otps')
+    .select('created_at')
+    .eq('key', key.toLowerCase())
+    .maybeSingle<{ created_at: string }>();
 
-  if (entry.attempts >= 5) {
-    store.delete(key);
-    return 'too_many_attempts';
-  }
+  if (error || !data) return 0;
 
-  if (entry.code !== code) {
-    entry.attempts += 1;
-    return 'invalid';
-  }
+  const elapsed = Date.now() - new Date(data.created_at).getTime();
+  if (elapsed >= RESEND_COOLDOWN_MS) return 0;
 
-  return 'valid';
+  return Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
 }

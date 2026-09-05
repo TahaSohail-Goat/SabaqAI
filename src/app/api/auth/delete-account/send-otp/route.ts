@@ -6,11 +6,13 @@
 
 import { NextResponse } from 'next/server';
 import { getCurrentUserAndProfile } from '@/lib/auth/get-current-user';
-import { generateOtp, storeOtp, deleteAccountOtpKey } from '@/lib/email/otp-store';
+import {
+  generateOtp,
+  storeOtp,
+  deleteAccountOtpKey,
+  secondsUntilResendAllowed,
+} from '@/lib/email/otp-store';
 import { sendEmail, buildDeleteAccountEmail } from '@/lib/email/mailer';
-
-const lastSent = new Map<string, number>();
-const RESEND_COOLDOWN_MS = 60_000;
 
 export async function POST() {
   try {
@@ -21,18 +23,18 @@ export async function POST() {
 
     const key = user.email.toLowerCase().trim();
 
-    const last = lastSent.get(key);
-    if (last && Date.now() - last < RESEND_COOLDOWN_MS) {
-      const waitSec = Math.ceil((RESEND_COOLDOWN_MS - (Date.now() - last)) / 1000);
+    // Rate-limit resends, tracked in auth_otps so the limit holds across serverless instances
+    // (see otp-store.ts).
+    const waitSec = await secondsUntilResendAllowed(deleteAccountOtpKey(key));
+    if (waitSec > 0) {
       return NextResponse.json(
         { error: `Please wait ${waitSec}s before requesting another code.` },
         { status: 429 }
       );
     }
-    lastSent.set(key, Date.now());
 
     const code = generateOtp();
-    storeOtp(deleteAccountOtpKey(key), code);
+    await storeOtp(deleteAccountOtpKey(key), code);
 
     const sent = await sendEmail(key, 'Confirm deleting your SabaqAI account', buildDeleteAccountEmail(code));
     if (!sent) {

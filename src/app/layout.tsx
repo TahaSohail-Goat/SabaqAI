@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { Fraunces } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import './globals.css';
 
 const fraunces = Fraunces({
@@ -11,7 +13,7 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: 'SabaqAI',
-  description: 'AI tutor grounded in verified PCTB textbooks with confidence guardrails, page citations, and adaptive quizzes.',
+  description: 'AI tutor grounded in verified FBISE textbooks and past papers, with confidence guardrails, page citations, and adaptive quizzes.',
 };
 
 export default function RootLayout({
@@ -34,6 +36,12 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-page text-navy antialiased selection:bg-brand-light selection:text-brand-dark">
         {children}
+        {/* Both serve their script and beacon from /_vercel/* on this same origin, so the
+            strict CSP in next.config.mjs (default-src 'self', no media-src/connect-src for
+            third parties) already covers them — no policy change needed. Inert outside a
+            Vercel deployment. */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
