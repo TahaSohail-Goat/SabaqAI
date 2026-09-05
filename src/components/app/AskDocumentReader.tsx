@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
-import type { PDFDocumentProxy } from 'pdfjs-dist';
+import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import type { AskDocumentResponse, AskSourceType, AskUnit, Citation } from '@/lib/types';
 
 // Marks an error whose .message is already student-safe (built from /api/ask/document's own
@@ -124,11 +124,26 @@ function PdfDocumentView({ unit, pdfUrl, activeCitation }: { unit: AskUnit; pdfU
 
   // Render the current page onto the canvas. This is the part that actually moves the
   // reader — deterministic, not dependent on any browser's native PDF viewer.
+  //
+  // Two real bugs lived here before: (1) nothing ever cleared a stale `error` from a
+  // previous page, so once any single page render failed for any reason, every later page
+  // showed "Could not render this page." for the rest of the session even though it had
+  // rendered fine internally; (2) the cleanup only flipped a local `cancelled` flag — it
+  // never actually cancelled pdf.js's in-flight render task on the canvas. React Strict
+  // Mode's dev-only double-invoke of effects made this reliably reproducible (page.render()
+  // called twice on the same canvas before the first settles throws "rendering already in
+  // progress"), but the same race is just as reachable in production by a normal fast
+  // double-click on next/previous — and because of bug (1), one such click permanently
+  // breaks the reader until the whole page is reloaded. Fixed by clearing the error up
+  // front and actually cancelling the previous render task, treating that expected
+  // cancellation as a no-op rather than a real failure.
   useEffect(() => {
     const doc = docRef.current;
     const canvas = canvasRef.current;
     if (!doc || !canvas || numPages === 0) return;
+    setError(null);
     let cancelled = false;
+    let renderTask: RenderTask | null = null;
     const clamped = Math.min(Math.max(1, pageNum), numPages);
 
     doc.getPage(clamped).then((page) => {
@@ -143,13 +158,18 @@ function PdfDocumentView({ unit, pdfUrl, activeCitation }: { unit: AskUnit; pdfU
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      page.render({ canvas, canvasContext: ctx, viewport }).promise.catch(() => {
-        if (!cancelled) setError('Could not render this page.');
+      renderTask = page.render({ canvas, canvasContext: ctx, viewport });
+      renderTask.promise.catch((err: unknown) => {
+        // A cancelled render task rejects with RenderingCancelledException — that's this
+        // effect's own cleanup doing its job, not a real failure, so it must never surface.
+        if (cancelled || (err as { name?: string } | null)?.name === 'RenderingCancelledException') return;
+        setError('Could not render this page.');
       });
     });
 
     return () => {
       cancelled = true;
+      renderTask?.cancel();
     };
   }, [pageNum, numPages]);
 

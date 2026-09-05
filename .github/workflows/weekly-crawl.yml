@@ -64,6 +64,23 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y tesseract-ocr tesseract-ocr-urd poppler-utils
 
+      # data/.crawl-state.json is gitignored (it's a local run cache, not source), so a fresh
+      # checkout here never has it — without restoring it first, every single run (scheduled
+      # or manual) would see 0 entries marked "ok" and reprocess the ENTIRE manifest, including
+      # every hand-verified textbook whose chapter boundaries were corrected by reading the
+      # actual OCR directly (see the crawler redesign plan) — the automatic detector gets
+      # several of those wrong, so an unattended re-run would silently overwrite correct data.
+      # Restore-keys falls back to the newest previous cache when this run's own key (always
+      # unique via run_id) inevitably misses, so this always finds the last run's state; the
+      # save step below always writes a new entry so the next run has something newer to find.
+      - name: Restore previous crawl state
+        uses: actions/cache/restore@v4
+        with:
+          path: data/.crawl-state.json
+          key: crawl-state-${{ github.run_id }}
+          restore-keys: |
+            crawl-state-
+
       - name: Build crawl flags
         id: flags
         run: |
@@ -90,6 +107,17 @@ jobs:
           # NODE_ENV is not set to production so tsx can resolve devDependencies.
         run: |
           npm run crawl -- ${{ steps.flags.outputs.flags }}
+
+      # Always save, even on failure/timeout — a partially-updated state file (entries that
+      # completed before a later one failed) is still strictly more useful to the next run
+      # than the previous cache, and this is what actually closes the loop with the restore
+      # step above: without this, every run would keep restoring the SAME stale cache forever.
+      - name: Save crawl state for next run
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/.crawl-state.json
+          key: crawl-state-${{ github.run_id }}
 
       # Upload the crawl state file as an artifact so you can inspect it
       # in the Actions UI to see which URLs were processed and their checksums.
