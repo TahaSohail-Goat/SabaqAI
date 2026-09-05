@@ -6,6 +6,7 @@ import type { ExploreOverviewResponse } from '@/lib/types';
 import type { ExplorePhase } from './SubjectBook';
 import ExploreCanvasRoot from './ExploreCanvasRoot';
 import ExploreFallbackGrid from './ExploreFallbackGrid';
+import StudyReveal from './StudyReveal';
 
 interface ExploreSceneProps {
   enrolledSubjects: string[];
@@ -47,19 +48,19 @@ export default function ExploreScene({ enrolledSubjects, overview, onArrived }: 
     [onArrived]
   );
 
-  // Crossfade to the page background masks the Canvas teardown right before navigation —
+  // Fades to black right as the book finishes opening (timed to land exactly there — see the
+  // 0.6s book-open tween and this same duration below) and holds through the "revealing" phase
+  // (see useExploreFlight's REVEAL_HOLD_SECONDS) before the real page navigation fires —
   // decoupled from gsap/WebGL on purpose (a plain CSS opacity transition, not a tween), so it
   // keeps working even if something upstream stalls.
   useEffect(() => {
     if (phase === 'opening') {
-      const delay = reducedMotion ? 0 : 400;
-      const t = setTimeout(() => setCrossfadeVisible(true), delay);
-      return () => clearTimeout(t);
+      setCrossfadeVisible(true);
     }
     if (phase === 'idle') {
       setCrossfadeVisible(false);
     }
-  }, [phase, reducedMotion]);
+  }, [phase]);
 
   const overviewBySubject = useMemo(() => {
     const map = new Map(overview?.subjects.map((s) => [s.subjectCode, s]) ?? []);
@@ -110,10 +111,30 @@ export default function ExploreScene({ enrolledSubjects, overview, onArrived }: 
 
       <div
         aria-hidden="true"
-        className={`pointer-events-none fixed inset-0 z-50 bg-page transition-opacity ${
-          reducedMotion ? 'duration-150' : 'duration-500'
+        className={`pointer-events-none fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black transition-opacity ${
+          reducedMotion ? 'duration-150' : 'duration-[600ms]'
         } ${crossfadeVisible ? 'opacity-100' : 'opacity-0'}`}
-      />
+      >
+        {(phase === 'revealing' || phase === 'done') && (
+          <div className="relative flex flex-col items-center gap-3">
+            {!reducedMotion && (
+              <>
+                <span className="absolute top-1/2 h-40 w-40 -translate-y-1/2 rounded-full border-2 border-brand/50 animate-reveal-ring" />
+                <span className="absolute top-1/2 h-40 w-40 -translate-y-1/2 rounded-full border-2 border-brand/40 animate-reveal-ring [animation-delay:0.3s]" />
+                <span className="absolute top-1/2 h-40 w-40 -translate-y-1/2 rounded-full border-2 border-brand/30 animate-reveal-ring [animation-delay:0.6s]" />
+              </>
+            )}
+            <StudyReveal reducedMotion={reducedMotion} />
+            <p
+              className={`font-display px-6 text-center text-xl font-semibold tracking-tight text-white/90 sm:text-2xl ${
+                reducedMotion ? '' : 'animate-happy-learning [animation-delay:0.55s]'
+              }`}
+            >
+              <span className={reducedMotion ? '' : 'animate-happy-learning-glow'}>Happy Learning</span>
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

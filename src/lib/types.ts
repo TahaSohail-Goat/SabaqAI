@@ -11,7 +11,7 @@ export interface RetrievedChunk {
   section: string | null;
   pageFrom: number | null;
   pageTo: number | null;
-  sourceType: 'textbook' | 'past_paper' | 'marking_scheme' | 'model_paper';
+  sourceType: 'textbook' | 'past_paper' | 'model_paper';
   content: string;
   score: number; // 1 - cosine distance
 }
@@ -91,7 +91,7 @@ export interface Citation {
 // /api/ask/options — what a student can actually pick from before asking a question. Always
 // returns all four source types, even with an empty units array, so the UI can show an
 // honest "nothing ingested yet" state instead of hiding a category outright.
-export type AskSourceType = 'textbook' | 'past_paper' | 'model_paper' | 'marking_scheme';
+export type AskSourceType = 'textbook' | 'past_paper' | 'model_paper';
 
 // Flat (non-textbook) documents key their `chapters` row on year, not a real chapter number
 // (src/lib/crawler/structure/flat-document.ts) — so a past paper and a marking scheme for the

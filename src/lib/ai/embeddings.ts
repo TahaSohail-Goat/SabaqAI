@@ -21,12 +21,14 @@ export interface EmbedOptions {
   model?: string;
   dimensions?: number;
   signal?: AbortSignal;
+
   /** Opt-in retry/backoff for 429 (rate limit) responses — off by default (maxAttempts
    *  effectively 1), since a live question-embedding call (guardrail/retrieval) shouldn't add
    *  latency a waiting student feels for a failure that's usually rare at that low a call
    *  volume. The crawler's bulk ingestion calls pass this explicitly (crawler redesign,
    *  Phase 1 — a full re-crawl makes far more calls in a shorter window than any prior run). */
   retry?: { maxAttempts: number; baseDelayMs: number };
+
 }
 
 function config() {
@@ -45,6 +47,7 @@ function config() {
 }
 
 type EmbeddingBatchPayload = { data?: { embedding?: number[]; index?: number }[] };
+
 
 /** Posts one batch, retrying only on HTTP 429 and only when options.retry says to — every
  *  other failure (4xx/5xx, network error) still throws immediately on the first attempt,
@@ -67,7 +70,7 @@ async function fetchEmbeddingBatch(
         Authorization: `Bearer ${cfg.apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ model, input: batch, dimensions, encoding_format: 'float' }),
+      body: JSON.stringify({ model, input: batch, dimensions, encoding_format: 'float', task: options.task }),
       signal: options.signal,
     });
 
@@ -141,7 +144,7 @@ export async function embedTexts(texts: string[], options: EmbedOptions = {}): P
 }
 
 /** Embed a single text. Used per question at query time — one call, not one per chunk. */
-export async function embedText(text: string, options: EmbedOptions = {}): Promise<number[]> {
+export async function embedText(text: string, options: EmbedOptions): Promise<number[]> {
   const [vector] = await embedTexts([text], options);
   return vector;
 }

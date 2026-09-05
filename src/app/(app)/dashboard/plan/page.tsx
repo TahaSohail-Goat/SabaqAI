@@ -21,6 +21,7 @@ interface Chapter {
 }
 
 type View = 'list' | 'create' | 'detail';
+type ScopePreset = 'single' | 'half' | 'full' | 'custom';
 
 function urgencyClass(daysRemaining: number): string {
   if (daysRemaining <= 2) return 'bg-error-bg text-error';
@@ -163,6 +164,7 @@ export default function PlanPage() {
   const [formChapters, setFormChapters] = useState<Chapter[]>([]);
   const [formFrom, setFormFrom] = useState<number | null>(null);
   const [formTo, setFormTo] = useState<number | null>(null);
+  const [formScope, setFormScope] = useState<ScopePreset>('single');
   const [formDate, setFormDate] = useState<string>(profile?.examDate ?? '');
   const [formBuffer, setFormBuffer] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
@@ -189,6 +191,7 @@ export default function PlanPage() {
     setFormChapters([]);
     setFormFrom(null);
     setFormTo(null);
+    setFormScope('single');
     const params = new URLSearchParams({ board, classLevel: String(classLevel), subject: formSubject });
     fetch(`/api/quiz/scope?${params}`)
       .then((res) => res.json())
@@ -207,12 +210,14 @@ export default function PlanPage() {
     setFormSubject(enrolledSubjects[0] ?? '');
     setFormDate(profile?.examDate ?? '');
     setFormBuffer(true);
+    setFormScope('single');
     setFormError(null);
     setView('create');
   };
 
-  const applyPreset = (preset: 'single' | 'half' | 'full') => {
-    if (formChapters.length === 0) return;
+  const selectScope = (preset: ScopePreset) => {
+    setFormScope(preset);
+    if (preset === 'custom' || formChapters.length === 0) return;
     const min = formChapters[0].chapterNo;
     const max = formChapters[formChapters.length - 1].chapterNo;
     if (preset === 'single') {
@@ -282,18 +287,23 @@ export default function PlanPage() {
   const minDate = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
+    // NOT d.toISOString().slice(0, 10) — that converts to UTC first, which silently rolls the
+    // date back by one for anyone in a positive UTC offset (Pakistan is +5, this app's entire
+    // audience) during the first few hours after local midnight: "tomorrow" in their own
+    // timezone reads back as "today" in UTC. That let the date picker offer a date the server's
+    // own (correctly local) validation then rejected as not far enough in the future.
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }, []);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between animate-fade-up">
-        <div>
-          <h2 className="font-display text-2xl font-semibold tracking-tight text-navy">Revision plan</h2>
-          <p className="text-xs text-text-2 mt-1.5">
-            A computed schedule, not a generated one — every day traces back to your real scores.
-          </p>
-        </div>
+        <p className="text-xs text-text-2 max-w-md">
+          A computed schedule, not a generated one. Every day traces back to your real scores.
+        </p>
         {view !== 'list' && (
           <button
             type="button"
@@ -320,6 +330,7 @@ export default function PlanPage() {
           setFormFrom={setFormFrom}
           formTo={formTo}
           setFormTo={setFormTo}
+          formScope={formScope}
           formDate={formDate}
           setFormDate={setFormDate}
           formBuffer={formBuffer}
@@ -327,7 +338,7 @@ export default function PlanPage() {
           minDate={minDate}
           formError={formError}
           creating={creating}
-          onApplyPreset={applyPreset}
+          onSelectScope={selectScope}
           onSubmit={submitCreate}
         />
       )}
@@ -372,7 +383,7 @@ function ListView({
         <EmptyState
           icon={CalendarClock}
           title="No plans yet"
-          message="Pick a subject, a chapter range, and an exam date — get a day-by-day schedule that focuses on your weak chapters first."
+          message="Pick a subject, a chapter range, and an exam date to get a day-by-day schedule that focuses on your weak chapters first."
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -410,6 +421,7 @@ function CreateView({
   setFormFrom,
   formTo,
   setFormTo,
+  formScope,
   formDate,
   setFormDate,
   formBuffer,
@@ -417,7 +429,7 @@ function CreateView({
   minDate,
   formError,
   creating,
-  onApplyPreset,
+  onSelectScope,
   onSubmit,
 }: {
   enrolledSubjects: string[];
@@ -428,6 +440,7 @@ function CreateView({
   setFormFrom: (v: number) => void;
   formTo: number | null;
   setFormTo: (v: number) => void;
+  formScope: ScopePreset;
   formDate: string;
   setFormDate: (v: string) => void;
   formBuffer: boolean;
@@ -435,7 +448,7 @@ function CreateView({
   minDate: string;
   formError: string | null;
   creating: boolean;
-  onApplyPreset: (preset: 'single' | 'half' | 'full') => void;
+  onSelectScope: (preset: ScopePreset) => void;
   onSubmit: () => void;
 }) {
   return (
@@ -449,34 +462,37 @@ function CreateView({
       </SelectField>
 
       {formChapters.length === 0 ? (
-        <p className="text-xs text-text-2">No ingested textbook chapters for this subject yet.</p>
+        <p className="text-xs text-text-2">No textbook chapters are available for this subject yet.</p>
       ) : (
         <>
           <div className="space-y-1.5">
             <p className="text-xs font-bold text-text-2 uppercase tracking-wide">Scope</p>
             <div className="flex flex-wrap gap-2">
-              <PresetButton label="Single chapter" onClick={() => onApplyPreset('single')} />
-              <PresetButton label="Half book" onClick={() => onApplyPreset('half')} />
-              <PresetButton label="Full book" onClick={() => onApplyPreset('full')} />
+              <PresetButton label="Single chapter" active={formScope === 'single'} onClick={() => onSelectScope('single')} />
+              <PresetButton label="Half book" active={formScope === 'half'} onClick={() => onSelectScope('half')} />
+              <PresetButton label="Full book" active={formScope === 'full'} onClick={() => onSelectScope('full')} />
+              <PresetButton label="Custom" active={formScope === 'custom'} onClick={() => onSelectScope('custom')} />
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <SelectField id="plan-from" label="From chapter" value={String(formFrom ?? '')} onChange={(v) => setFormFrom(Number(v))} className="flex-1">
-              {formChapters.map((c) => (
-                <option key={c.chapterNo} value={c.chapterNo}>
-                  Ch {c.chapterNo}{c.chapterTitle ? `: ${c.chapterTitle}` : ''}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField id="plan-to" label="To chapter" value={String(formTo ?? '')} onChange={(v) => setFormTo(Number(v))} className="flex-1">
-              {formChapters.map((c) => (
-                <option key={c.chapterNo} value={c.chapterNo}>
-                  Ch {c.chapterNo}{c.chapterTitle ? `: ${c.chapterTitle}` : ''}
-                </option>
-              ))}
-            </SelectField>
-          </div>
+          {formScope === 'custom' && (
+            <div className="flex gap-4 animate-fade-up">
+              <SelectField id="plan-from" label="From chapter" value={String(formFrom ?? '')} onChange={(v) => setFormFrom(Number(v))} className="flex-1">
+                {formChapters.map((c) => (
+                  <option key={c.chapterNo} value={c.chapterNo}>
+                    Ch {c.chapterNo}{c.chapterTitle ? `: ${c.chapterTitle}` : ''}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField id="plan-to" label="To chapter" value={String(formTo ?? '')} onChange={(v) => setFormTo(Number(v))} className="flex-1">
+                {formChapters.map((c) => (
+                  <option key={c.chapterNo} value={c.chapterNo}>
+                    Ch {c.chapterNo}{c.chapterTitle ? `: ${c.chapterTitle}` : ''}
+                  </option>
+                ))}
+              </SelectField>
+            </div>
+          )}
         </>
       )}
 
@@ -515,12 +531,17 @@ function CreateView({
   );
 }
 
-function PresetButton({ label, onClick }: { label: string; onClick: () => void }) {
+function PresetButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-2 border border-border-strong text-navy-2 hover:bg-border transition cursor-pointer"
+      aria-pressed={active}
+      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+        active
+          ? 'bg-brand border-brand text-white shadow-sm'
+          : 'bg-surface-2 border-border-strong text-navy-2 hover:bg-border'
+      }`}
     >
       {label}
     </button>
@@ -571,12 +592,20 @@ function DetailView({
   }
 
   const totalActions = detail.days.reduce((sum, d) => sum + d.items.length, 0);
+  // Not toChapterNo - fromChapterNo + 1 — that's the size of the NUMBER range, which silently
+  // overcounts if any chapter number in it doesn't actually exist (a real gap, or a chapter
+  // that was removed). The union of every chapter that actually got scheduled (or was reported
+  // skipped) is the true count of real chapters this plan covers.
+  const chaptersCovered = new Set<number>([
+    ...detail.days.flatMap((d) => d.items.map((i) => i.chapterNo)),
+    ...detail.skipped.map((s) => s.chapterNo),
+  ]).size;
 
   return (
     <div className="space-y-5 animate-fade-up">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard icon={CalendarClock} label="Days until exam" value={String(Math.max(detail.daysRemaining, 0))} />
-        <StatCard icon={Flag} label="Chapters covered" value={`${detail.toChapterNo - detail.fromChapterNo + 1}`} />
+        <StatCard icon={Flag} label="Chapters covered" value={String(chaptersCovered)} />
         <StatCard icon={Award} label="Study/quiz sessions" value={String(totalActions)} />
       </div>
 
@@ -585,7 +614,7 @@ function DetailView({
           <p className="font-semibold">Not everything fit in the time you have:</p>
           {detail.skipped.map((s) => (
             <p key={s.chapterNo}>
-              Ch {s.chapterNo}{s.chapterTitle ? `: ${s.chapterTitle}` : ''} — {s.reason}
+              Ch {s.chapterNo}{s.chapterTitle ? `: ${s.chapterTitle}` : ''}. {s.reason}
             </p>
           ))}
         </div>
@@ -609,7 +638,7 @@ function DetailView({
             </div>
 
             {day.isExamDay ? (
-              <p className="text-[11px] font-semibold text-brand-dark">Exam day — good luck!</p>
+              <p className="text-[11px] font-semibold text-brand-dark">Exam day. Good luck!</p>
             ) : day.isBufferDay ? (
               <p className="text-[11px] text-text-2">Rest &amp; light review. No new material today.</p>
             ) : day.items.length === 0 ? (
@@ -673,6 +702,8 @@ function PlanQuizHistory({ detail }: { detail: PlanDetail }) {
       setDrafts(
         all.filter(
           (d) =>
+            d.boardCode === detail.board &&
+            d.classLevel === detail.classLevel &&
             d.subjectCode === detail.subject &&
             d.chapterNo >= detail.fromChapterNo &&
             d.chapterNo <= detail.toChapterNo
@@ -682,7 +713,7 @@ function PlanQuizHistory({ detail }: { detail: PlanDetail }) {
     return () => {
       cancelled = true;
     };
-  }, [detail.subject, detail.fromChapterNo, detail.toChapterNo]);
+  }, [detail.board, detail.classLevel, detail.subject, detail.fromChapterNo, detail.toChapterNo]);
 
   const discardDraft = (id: string) => {
     deleteQuizDraft(id);
@@ -700,7 +731,7 @@ function PlanQuizHistory({ detail }: { detail: PlanDetail }) {
 
       {empty ? (
         <div className="bg-surface-muted border border-border rounded-xl p-4 text-xs text-text-2">
-          None yet — use the <span className="font-semibold text-navy-2">Practice quiz</span> links in the schedule above to start one.
+          None yet. Use the <span className="font-semibold text-navy-2">Practice quiz</span> links in the schedule above to start one.
         </div>
       ) : (
         <div className="space-y-3">

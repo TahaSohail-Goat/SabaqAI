@@ -2,8 +2,10 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
+
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
+
 import type { AskDocumentResponse, AskSourceType, AskUnit, Citation } from '@/lib/types';
 
 // Marks an error whose .message is already student-safe (built from /api/ask/document's own
@@ -122,6 +124,13 @@ function PdfDocumentView({ unit, pdfUrl, activeCitation }: { unit: AskUnit; pdfU
     setPageNum(Math.max(1, local));
   }, [activeCitation, unit.pageFrom, pdfUrl]);
 
+  // The page actually rendered below — pageNum can transiently point past the end (a stale
+  // citation re-applied against a different chapter's offset, or simply clicking past the last
+  // page) and clamping only where the page gets rendered would leave the pagination LABEL still
+  // showing the raw, out-of-range value. Deriving one clamped value and using it everywhere below
+  // keeps what's on screen and what the label says in sync.
+  const clampedPage = numPages > 0 ? Math.min(Math.max(1, pageNum), numPages) : pageNum;
+
   // Render the current page onto the canvas. This is the part that actually moves the
   // reader — deterministic, not dependent on any browser's native PDF viewer.
   //
@@ -143,10 +152,12 @@ function PdfDocumentView({ unit, pdfUrl, activeCitation }: { unit: AskUnit; pdfU
     if (!doc || !canvas || numPages === 0) return;
     setError(null);
     let cancelled = false;
+
     let renderTask: RenderTask | null = null;
     const clamped = Math.min(Math.max(1, pageNum), numPages);
 
-    doc.getPage(clamped).then((page) => {
+
+    doc.getPage(clampedPage).then((page) => {
       if (cancelled) return;
       const containerWidth = containerRef.current?.clientWidth || 700;
       const baseViewport = page.getViewport({ scale: 1 });
@@ -171,7 +182,7 @@ function PdfDocumentView({ unit, pdfUrl, activeCitation }: { unit: AskUnit; pdfU
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [pageNum, numPages]);
+  }, [clampedPage, numPages]);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -180,27 +191,27 @@ function PdfDocumentView({ unit, pdfUrl, activeCitation }: { unit: AskUnit; pdfU
           <h4 className="text-sm font-bold text-navy leading-tight truncate">{unit.chapterTitle ?? `Chapter ${unit.chapterNo}`}</h4>
           <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-text-2">
             <ShieldCheck className="w-3.5 h-3.5 text-brand flex-shrink-0" />
-            <span>The real source PDF — not a reconstruction.</span>
+            <span>The real source PDF, not a reconstruction.</span>
           </div>
         </div>
         {numPages > 0 && (
           <div className="flex items-center gap-1 flex-shrink-0">
             <button
               type="button"
-              onClick={() => setPageNum((p) => Math.max(1, p - 1))}
-              disabled={pageNum <= 1}
+              onClick={() => setPageNum(clampedPage - 1)}
+              disabled={clampedPage <= 1}
               aria-label="Previous page"
               className="p-1 rounded-md text-text-2 hover:bg-surface-2 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <span className="text-[11px] font-mono text-text-2 min-w-[52px] text-center">
-              {pageNum} / {numPages}
+              {clampedPage} / {numPages}
             </span>
             <button
               type="button"
-              onClick={() => setPageNum((p) => Math.min(numPages, p + 1))}
-              disabled={pageNum >= numPages}
+              onClick={() => setPageNum(clampedPage + 1)}
+              disabled={clampedPage >= numPages}
               aria-label="Next page"
               className="p-1 rounded-md text-text-2 hover:bg-surface-2 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
             >
@@ -279,7 +290,7 @@ function TextDocumentView({
         // string, or the fixed fallback above) — anything else is a raw exception (dropped
         // connection, invalid JSON) that a student was never meant to read.
         if (!cancelled) {
-          setError(err instanceof DocumentLoadError ? err.message : 'Could not load this document — check your connection and try again.');
+          setError(err instanceof DocumentLoadError ? err.message : 'Could not load this document. Check your connection and try again.');
         }
       })
       .finally(() => {
@@ -321,7 +332,7 @@ function TextDocumentView({
         <h4 className="text-sm font-bold text-navy leading-tight">{doc.chapterTitle ?? `Chapter ${doc.chapterNo}`}</h4>
         <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-text-2">
           <ShieldCheck className="w-3.5 h-3.5 text-brand" />
-          <span>Ingested text — the original PDF hasn&apos;t been uploaded for this source yet.</span>
+          <span>Text version. The original PDF hasn&apos;t been uploaded for this source yet.</span>
         </div>
       </div>
 

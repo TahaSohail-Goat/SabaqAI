@@ -197,6 +197,7 @@ async function processTextbook(
       await uploadSourcePdf(admin, storagePath, chapterPdf);
       console.log(`  Ch.${chapterNo} PDF stored → ${storagePath} (${(chapterPdf.length / 1024 / 1024).toFixed(1)}MB)`);
 
+
       await resetChapterSource(admin, {
         board: entry.board, classLevel: entry.classLevel, subject: entry.subject,
         chapterNo, sourceType: 'textbook', language: entry.language,
@@ -214,6 +215,7 @@ async function processTextbook(
         await admin.from('chapter_sources').update({ storage_path: storagePath })
           .eq('chapter_id', chapterRow.id).eq('source_type', 'textbook').eq('language_code', entry.language);
       }
+
     }
   }
 

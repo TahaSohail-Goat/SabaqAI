@@ -43,7 +43,7 @@ export async function getCurrentUserAndProfile(): Promise<CurrentUserResult> {
     return { user: null, profile: null, configured: true };
   }
 
-  // Same idle/closed-browser enforcement as middleware.ts, for requests middleware never
+  // Same idle/closed-browser enforcement as proxy.ts, for requests the proxy never
   // sees (every /api/ route) — see src/lib/auth/session-activity.ts. Most real activity in
   // this app (chat, quiz grading) happens here, via API calls, not page navigation, so this
   // is also what keeps the activity timestamp from going stale during a long chat session.

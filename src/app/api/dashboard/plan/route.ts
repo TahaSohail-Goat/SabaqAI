@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     const distinctChapters = new Set((chapterRows ?? []).map((r) => r.chapter_no));
     if (distinctChapters.size === 0) {
       return NextResponse.json(
-        { error: 'No ingested textbook chapters exist in that range for this subject.' },
+        { error: 'No textbook chapters are available in that range for this subject yet.' },
         { status: 404 }
       );
     }
