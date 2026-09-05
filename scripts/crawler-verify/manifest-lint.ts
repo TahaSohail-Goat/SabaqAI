@@ -42,10 +42,12 @@ function main() {
   check('all 4 loaded manifest files parse and validate against their schemas', true);
 
   // 2. Exact counts.
-  // 10, not the original 5 — Class 10 Physics/Chemistry/Biology were added 2026-09-04 (SSC-II
-  // science was silently absent), and Computer Science 9+10 were added 2026-09-06 (only
-  // model_paper/past_paper existed for that subject, no textbook at all).
-  check('exactly 10 textbook entries', manifest.textbooks.length === 10, `got ${manifest.textbooks.length}`);
+  // 20, not the original 5 — Class 10 Physics/Chemistry/Biology were added 2026-09-04 (SSC-II
+  // science was silently absent), Computer Science 9+10 were added 2026-09-06 (only
+  // model_paper/past_paper existed for that subject, no textbook at all), and HSSC-I/II
+  // Physics/Mathematics/Computer Science/Chemistry/Biology (classes 11-12, 10 entries) were
+  // added the same day at the user's explicit request to extend textbook coverage past SSC.
+  check('exactly 20 textbook entries', manifest.textbooks.length === 20, `got ${manifest.textbooks.length}`);
   check('exactly 33 model_paper entries', manifest.modelPapers.length === 33, `got ${manifest.modelPapers.length}`);
   // 83/61, not the naive 7 subjects x 4 classes x 3 years = 84: real gaps on fbise.edu.pk's
   // own "Old Question Paper.php" clean matrix (a few "#" placeholder links, and a block of
@@ -105,6 +107,10 @@ function main() {
   const knownNewTextbookIds = new Set([
     'fbise-10-physics-textbook', 'fbise-10-chemistry-textbook', 'fbise-10-biology-textbook',
     'fbise-9-computer_science-textbook', 'fbise-10-computer_science-textbook',
+    'fbise-11-physics-textbook', 'fbise-11-mathematics-textbook', 'fbise-11-computer_science-textbook',
+    'fbise-11-chemistry-textbook', 'fbise-11-biology-textbook',
+    'fbise-12-physics-textbook', 'fbise-12-mathematics-textbook', 'fbise-12-computer_science-textbook',
+    'fbise-12-chemistry-textbook', 'fbise-12-biology-textbook',
   ]);
   const knownNewTuples = new Set(
     flat
@@ -114,7 +120,7 @@ function main() {
   extraInNew = extraInNew.filter((t) => !knownNewTuples.has(t));
 
   check('every old crawl-sources.json tuple exists in the new manifest', missingFromNew.length === 0, missingFromNew.join('; '));
-  check('the new manifest introduces no unexpected tuples beyond the old one plus the 5 known additions', extraInNew.length === 0, extraInNew.join('; '));
+  check('the new manifest introduces no unexpected tuples beyond the old one plus the 15 known additions', extraInNew.length === 0, extraInNew.join('; '));
 
   console.log('='.repeat(60));
   if (failures > 0) {

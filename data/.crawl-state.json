@@ -1161,5 +1161,25 @@
     "checksum": "c7316115d79de064bf56e1b3bfd714164f53beffb6ad677934879a7036682974",
     "lastProcessed": "2026-09-05T19:07:05.210Z",
     "status": "ok"
+  },
+  "fbise-12-physics-textbook": {
+    "checksum": "73f1ba335c8032b809a7efa1c00db2ee1c3f396e20725787a44eb4a4d2352211",
+    "lastProcessed": "2026-09-05T20:28:16.361Z",
+    "status": "ok"
+  },
+  "fbise-11-computer_science-textbook": {
+    "checksum": "8de53a6d90e8eeea8979ee25220c18a91fe0c0d99f79d3c13050c1a940d8544e",
+    "lastProcessed": "2026-09-05T20:28:16.361Z",
+    "status": "ok"
+  },
+  "fbise-12-computer_science-textbook": {
+    "checksum": "81afa25eac89d8655138e20c0ece67dfd6de4d7e4edefaf83b0152657538f36c",
+    "lastProcessed": "2026-09-05T20:28:16.361Z",
+    "status": "ok"
+  },
+  "fbise-11-mathematics-textbook": {
+    "checksum": "fcec10b33ffedb8337f7c8c11ccfff32f107ec42bcaad4ab69eaade76a118740",
+    "lastProcessed": "2026-09-05T20:28:16.361Z",
+    "status": "ok"
   }
 }
