@@ -94,5 +94,29 @@
       "https://www.taleem360.com/download/federal-board-10th-class-biology-text-book-2025-pdf"
     ],
     "comment": "Real FBISE Class 10 Biology textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-04 alongside Physics 10/Chemistry 10 to close the same SSC-II science gap. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1wrXJU9D7dPN6UB6uPgB1A-1tOAMwK1r6)."
+  },
+  {
+    "id": "fbise-9-computer_science-textbook",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "computer_science",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/federal-board-9th-class-computer-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 9 Computer Science textbook (National Book Foundation, New SNC 2025 edition). Found 2026-09-06: only model_paper/past_paper existed for Computer Science 9-10, no textbook at all. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1yymisJEBPYt-wOAo9ZbmXWUMgBDte06z)."
+  },
+  {
+    "id": "fbise-10-computer_science-textbook",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "computer_science",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/10th-class-computer-science-fbise-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 10 Computer Science textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 alongside Computer Science 9 to close the same textbook-coverage gap. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1GJFGY9AB6e-mb6B6Ff0vCNKvIo5RVDLT)."
   }
 ]
