@@ -22,13 +22,18 @@ export interface EmbedOptions {
   dimensions?: number;
   signal?: AbortSignal;
 
+  /** Jina's asymmetric retrieval mode — 'retrieval.passage' for ingested chunks,
+   *  'retrieval.query' for the incoming question. Previously omitted entirely, which silently
+   *  degrades retrieval quality (the model is tuned to embed a query and its matching passage
+   *  differently, not identically) without ever throwing or logging anything. */
+  task?: 'retrieval.passage' | 'retrieval.query';
+
   /** Opt-in retry/backoff for 429 (rate limit) responses — off by default (maxAttempts
    *  effectively 1), since a live question-embedding call (guardrail/retrieval) shouldn't add
    *  latency a waiting student feels for a failure that's usually rare at that low a call
    *  volume. The crawler's bulk ingestion calls pass this explicitly (crawler redesign,
    *  Phase 1 — a full re-crawl makes far more calls in a shorter window than any prior run). */
   retry?: { maxAttempts: number; baseDelayMs: number };
-
 }
 
 function config() {

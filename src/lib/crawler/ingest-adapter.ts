@@ -11,7 +11,7 @@ import { chunkDocument, type SourceDocument, type PreparedDocument } from '../in
 import { embedTexts } from '../ai/embeddings';
 import type { AskSourceType, CrawlerLanguage } from './types';
 
-const VALID_SOURCE_TYPES: AskSourceType[] = ['textbook', 'past_paper', 'model_paper', 'marking_scheme'];
+const VALID_SOURCE_TYPES: AskSourceType[] = ['textbook', 'past_paper', 'model_paper'];
 const VALID_LANGUAGES: CrawlerLanguage[] = ['en', 'ur'];
 
 export class InvalidDocumentError extends Error {}

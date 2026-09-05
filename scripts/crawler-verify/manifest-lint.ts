@@ -39,7 +39,7 @@ function main() {
   //    already enforced here — a throw means this whole script fails loudly, matching
   //    ingest.ts's own "fail before spending quota" philosophy).
   const manifest = loadManifest();
-  check('all 5 manifest files parse and validate against their schemas', true);
+  check('all 4 loaded manifest files parse and validate against their schemas', true);
 
   // 2. Exact counts.
   // 8, not the original 5 — Class 10 Physics/Chemistry/Biology were added 2026-09-04 after
@@ -51,7 +51,9 @@ function main() {
   // 2022 rubrics only published as .docx/.xlsx, which this PDF-only pipeline can't ingest) —
   // see each entry's sibling gap in the scrape notes, not a bug in this count.
   check('exactly 83 past_paper entries (Phase 2 — fbise.edu.pk clean matrix, 2022-2024)', manifest.pastPapers.length === 83, `got ${manifest.pastPapers.length}`);
-  check('exactly 61 marking_scheme entries (Phase 2 — fbise.edu.pk clean matrix, 2022-2024)', manifest.markingSchemes.length === 61, `got ${manifest.markingSchemes.length}`);
+  // marking-schemes.json still exists on disk (61 real entries) but loadManifest() no longer
+  // reads it — a separate PR on main dropped marking_scheme as a source type from the schema
+  // entirely (already applied live), so this manifest's 5th file is intentionally not loaded.
   check('0 bundle entries (not yet populated — Phase 3)', manifest.bundles.length === 0, `got ${manifest.bundles.length}`);
 
   // 3. All ids globally unique.

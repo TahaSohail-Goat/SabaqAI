@@ -50,10 +50,7 @@ export function textToSourceDocument(text: string, source: FlatDocumentSource, c
   }
 
   const yearLabel = source.year ? ` ${source.year}` : '';
-  const sourceLabel =
-    source.sourceType === 'past_paper' ? 'Past Paper' :
-    source.sourceType === 'marking_scheme' ? 'Marking Scheme' :
-    'Model Paper';
+  const sourceLabel = source.sourceType === 'past_paper' ? 'Past Paper' : 'Model Paper';
 
   return {
     board: source.board,

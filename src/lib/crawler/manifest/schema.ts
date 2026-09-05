@@ -39,15 +39,9 @@ export const pastPaperEntrySchema = z.object({
   year: z.number().int(),
 });
 
-export const markingSchemeEntrySchema = z.object({
-  ...baseFields,
-  sourceType: z.literal('marking_scheme'),
-  year: z.number().int(),
-});
-
 export const bundleEntrySchema = z.object({
   ...baseFields,
-  sourceType: z.enum(['past_paper', 'marking_scheme']),
+  sourceType: z.literal('past_paper'),
   year: z.number().int(),
   expectedSubjects: z.array(subjectCodeSchema).min(1),
 });
@@ -55,5 +49,4 @@ export const bundleEntrySchema = z.object({
 export const textbookManifestSchema = z.array(textbookEntrySchema);
 export const modelPaperManifestSchema = z.array(modelPaperEntrySchema);
 export const pastPaperManifestSchema = z.array(pastPaperEntrySchema);
-export const markingSchemeManifestSchema = z.array(markingSchemeEntrySchema);
 export const bundleManifestSchema = z.array(bundleEntrySchema);

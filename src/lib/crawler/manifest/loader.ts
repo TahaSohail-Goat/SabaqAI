@@ -11,7 +11,6 @@ import {
   textbookManifestSchema,
   modelPaperManifestSchema,
   pastPaperManifestSchema,
-  markingSchemeManifestSchema,
   bundleManifestSchema,
 } from './schema';
 import type {
@@ -19,7 +18,6 @@ import type {
   TextbookManifestEntry,
   ModelPaperManifestEntry,
   PastPaperManifestEntry,
-  MarkingSchemeManifestEntry,
   BundleManifestEntry,
 } from '../types';
 
@@ -42,23 +40,26 @@ export interface LoadedManifest {
   textbooks: TextbookManifestEntry[];
   modelPapers: ModelPaperManifestEntry[];
   pastPapers: PastPaperManifestEntry[];
-  markingSchemes: MarkingSchemeManifestEntry[];
   bundles: BundleManifestEntry[];
 }
 
-/** Loads all five manifest files, individually validated. Throws (not returns an error
+/** Loads all four manifest files, individually validated. Throws (not returns an error
  *  object) on the first invalid file — matches scripts/ingest.ts's existing philosophy of
- *  failing before any API quota is spent, not partway through a run. */
+ *  failing before any API quota is spent, not partway through a run.
+ *
+ *  marking-schemes.json still exists on disk (61 real entries) but is deliberately not loaded
+ *  here — a separate PR on main removed marking_scheme as a source type from the schema
+ *  entirely (supabase/migrations/0016_remove_marking_scheme.sql, already applied live), so
+ *  loading it would just produce entries the ingest pipeline can no longer write anywhere. */
 export function loadManifest(): LoadedManifest {
   return {
     textbooks: loadAndValidate('textbooks.json', textbookManifestSchema) as TextbookManifestEntry[],
     modelPapers: loadAndValidate('model-papers.json', modelPaperManifestSchema) as ModelPaperManifestEntry[],
     pastPapers: loadAndValidate('past-papers.json', pastPaperManifestSchema) as PastPaperManifestEntry[],
-    markingSchemes: loadAndValidate('marking-schemes.json', markingSchemeManifestSchema) as MarkingSchemeManifestEntry[],
     bundles: loadAndValidate('bundles.json', bundleManifestSchema) as BundleManifestEntry[],
   };
 }
 
 export function flattenManifest(m: LoadedManifest): ManifestEntry[] {
-  return [...m.textbooks, ...m.modelPapers, ...m.pastPapers, ...m.markingSchemes, ...m.bundles];
+  return [...m.textbooks, ...m.modelPapers, ...m.pastPapers, ...m.bundles];
 }

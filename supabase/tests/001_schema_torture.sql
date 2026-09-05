@@ -2,7 +2,7 @@
 -- Sabaq AI — schema v2 torture tests
 -- =============================================================================
 -- Proves the claims in docs/schema-proposal.md against the LIVE database:
---   structure (24 tables, RLS everywhere), CHECK/FK/UNIQUE enforcement,
+--   structure (31 tables, RLS everywhere), CHECK/FK/UNIQUE enforcement,
 --   ingest_document atomicity + idempotency + force mode, vector search correctness,
 --   the expanded view, and RLS visibility for the anon role.
 --
@@ -34,8 +34,8 @@ begin
   select count(*) into v_tables
   from information_schema.tables
   where table_schema = 'public' and table_type = 'BASE TABLE';
-  if v_tables <> 30 then
-    raise exception 'TEST FAILED: expected 30 tables, found %', v_tables;
+  if v_tables <> 31 then
+    raise exception 'TEST FAILED: expected 31 tables, found %', v_tables;
   end if;
 
   select count(*) into v_fks
@@ -56,7 +56,7 @@ begin
     raise exception 'TEST FAILED: expected >= 15 CHECK constraints, found %', v_checks;
   end if;
 
-  insert into test_results values (1, 'structure: 30 tables, FKs, CHECKs', true);
+  insert into test_results values (1, 'structure: 31 tables, FKs, CHECKs', true);
 end $$;
 
 -- RLS must be ENABLED on every public table — a table without it is a data leak.
@@ -69,7 +69,7 @@ begin
   ) then
     raise exception 'TEST FAILED: at least one public table has RLS disabled';
   end if;
-  insert into test_results values (2, 'RLS enabled on all 30 tables', true);
+  insert into test_results values (2, 'RLS enabled on all 31 tables', true);
 end $$;
 
 -- quiz_answer_keys must have ZERO policies: with RLS on and no policy, the answer key

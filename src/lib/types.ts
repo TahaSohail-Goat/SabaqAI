@@ -105,7 +105,6 @@ export type AskSourceType = 'textbook' | 'past_paper' | 'model_paper';
 const FLAT_SOURCE_LABEL: Record<Exclude<AskSourceType, 'textbook'>, string> = {
   past_paper: 'Past Paper',
   model_paper: 'Model Paper',
-  marking_scheme: 'Marking Scheme',
 };
 
 export function displayChapterTitle(
