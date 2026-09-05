@@ -1,28 +1,17 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { SUBJECT_LABELS } from '@/lib/subjects';
+import { apoapsisOf, orbitParamsFor } from '@/lib/explore/orbits';
 import type { ExploreSubjectSummary } from '@/lib/types';
 import CentralPlanet from './CentralPlanet';
+import NebulaBackdrop from './NebulaBackdrop';
 import SubjectBook, { type SubjectBookHandle, type ExplorePhase } from './SubjectBook';
-import OrbitPath from './OrbitPath';
+import CometTrail from './CometTrail';
 import { useExploreFlight } from './useExploreFlight';
-
-const GOLDEN_ANGLE = 2.399963; // radians — spreads N books with minimal visual overlap
-const BASE_RADIUS = 3.6;
-const RADIUS_STEP = 1.35; // wide enough that adjacent orbit traces never visually merge
-
-// Small, deterministic per-index tilt so orbits read as distinct 3D planes (like a real solar
-// system viewed at an angle) instead of everything sitting flat on one boring disc.
-function tiltFor(index: number): { tiltX: number; tiltZ: number } {
-  return {
-    tiltX: ((index % 3) - 1) * 0.16,
-    tiltZ: ((Math.floor(index / 3) % 3) - 1) * 0.12,
-  };
-}
 
 interface ExploreCanvasRootProps {
   enrolledSubjects: string[];
@@ -54,31 +43,51 @@ function SceneContents({
 
   useExploreFlight({ phase, targetCode, bookRefs, reducedMotion, onPhaseChange, onArrived });
 
-  const maxRadius = BASE_RADIUS + Math.max(0, enrolledSubjects.length - 1) * RADIUS_STEP;
+  // One orbit per subject, plus the mutable anomaly each book shares with its own trail. Built
+  // together so the book and the wake behind it are guaranteed to be reading the same number.
+  const system = useMemo(
+    () =>
+      enrolledSubjects.map((code, i) => {
+        const params = orbitParamsFor(i);
+        return { code, params, anomaly: { value: params.phase } };
+      }),
+    [enrolledSubjects]
+  );
+
+  const maxRadius = system.length ? Math.max(...system.map((s) => apoapsisOf(s.params))) : 4;
 
   return (
     <>
-      <color attach="background" args={['#0A1310']} />
       <ambientLight intensity={0.4} />
+      {/* Under reduced motion the nebula would be a still image that still re-evaluated a
+          full-viewport noise shader every frame — all of the cost, none of the drift it exists
+          for. A flat ground is the honest version of "the same picture every frame". */}
+      {reducedMotion ? (
+        <color attach="background" args={['#0A1310']} />
+      ) : (
+        <NebulaBackdrop radius={maxRadius * 6} reducedMotion={reducedMotion} />
+      )}
       <CentralPlanet reducedMotion={reducedMotion} />
       <Stars radius={maxRadius * 3.5} depth={40} count={reducedMotion ? 1200 : 3200} factor={2.4} fade speed={reducedMotion ? 0 : 0.5} />
 
-      {enrolledSubjects.map((code, i) => {
+      {system.map(({ code, params, anomaly }) => {
         const summary = overviewBySubject.get(code);
-        const radius = BASE_RADIUS + i * RADIUS_STEP;
-        const { tiltX, tiltZ } = tiltFor(i);
         return (
           <group key={code}>
-            <OrbitPath radius={radius} tiltX={tiltX} tiltZ={tiltZ} />
+            <CometTrail
+              subjectCode={code}
+              params={params}
+              anomaly={anomaly}
+              // Scaled with the orbit so distant wakes don't thin out to invisibility.
+              width={0.16 + params.semiMajor * 0.035}
+              reducedMotion={reducedMotion}
+            />
             <SubjectBook
               subjectCode={code}
               label={SUBJECT_LABELS[code] ?? code}
               hasTextbook={summary?.hasTextbook ?? false}
-              orbitRadius={radius}
-              orbitSpeed={0.22 / Math.sqrt(radius)}
-              initialAngle={i * GOLDEN_ANGLE}
-              tiltX={tiltX}
-              tiltZ={tiltZ}
+              params={params}
+              anomaly={anomaly}
               reducedMotion={reducedMotion}
               phase={phase}
               isTarget={targetCode === code}
@@ -100,7 +109,17 @@ function SceneContents({
 
       {!reducedMotion && (
         <EffectComposer>
-          <Bloom intensity={0.65} luminanceThreshold={0.25} luminanceSmoothing={0.3} mipmapBlur />
+          {/* Bloom does the heavy lifting: the trails and the atmosphere rim are additive, so
+              they bleed light exactly where the eye expects it. */}
+          <Bloom intensity={0.8} luminanceThreshold={0.22} luminanceSmoothing={0.32} mipmapBlur />
+          {/* No chromatic aberration here, though it's the obvious next "cinematic" pass to
+              reach for. Tried it: against a starfield of single-pixel points it splits every
+              star into a red/green fringe, which reads as a dead-pixel display rather than a
+              lens. The effect needs large smooth areas to work on, and this scene is mostly
+              tiny bright points on black. */}
+          {/* Gentle — a heavier vignette crushes the nebula at the frame edges, which is
+              exactly where most of it is visible. */}
+          <Vignette eskil={false} offset={0.32} darkness={0.5} />
         </EffectComposer>
       )}
     </>
@@ -109,9 +128,15 @@ function SceneContents({
 
 export default function ExploreCanvasRoot(props: ExploreCanvasRootProps) {
   // Frame the camera further back as more subjects (wider orbits) are shown, so the whole
-  // system stays visible on first render regardless of how many books there are.
-  const maxRadius = BASE_RADIUS + Math.max(0, props.enrolledSubjects.length - 1) * RADIUS_STEP;
-  const cameraDistance = Math.max(9, maxRadius * 0.85);
+  // system stays visible on first render regardless of how many books there are. Measured from
+  // apoapsis, not the semi-major axis — an eccentric orbit swings its book further out than its
+  // "size" suggests, and framing on the average would clip it at the far end of every lap.
+  const outermost = props.enrolledSubjects.length
+    ? apoapsisOf(orbitParamsFor(props.enrolledSubjects.length - 1))
+    : 4;
+  // Sit outside apoapsis, not inside it: framed any closer and the outermost book swings past
+  // the camera once per lap and clips through the foreground.
+  const cameraDistance = Math.max(11, outermost * 1.25);
 
   // No reason to keep rendering the 3D scene once it's fully hidden behind the opaque "Happy
   // Learning" overlay — it would otherwise render every frame for the entire held reveal for
