@@ -23,9 +23,16 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 // in dev. Keeping it out of the production policy is what actually matters.
 const isDev = process.env.NODE_ENV !== 'production';
 
+// @vercel/analytics and @vercel/speed-insights serve their real scripts from /_vercel/* on this
+// same origin in production, which 'self' already covers. In development only, both packages
+// instead load a debug build from va.vercel-scripts.com — so without this the dev console fills
+// with CSP violations for scripts that are perfectly fine in production. Allowed for dev alone;
+// the production policy stays exactly as strict as it was.
+const vercelInsightsHost = isDev ? ' https://va.vercel-scripts.com' : '';
+
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}${vercelInsightsHost}`,
   "style-src 'self' 'unsafe-inline'",
   // Supabase-hosted origin needed here too, not just connect-src — user avatars are plain
   // <img src> tags pointing at the public avatars bucket (see settings/page.tsx, Sidebar.tsx),
