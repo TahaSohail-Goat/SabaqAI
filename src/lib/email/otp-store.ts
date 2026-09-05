@@ -31,6 +31,12 @@ export function resetOtpKey(email: string): string {
   return `reset:${email}`;
 }
 
+/** Namespaces an account-deletion code, same reasoning as resetOtpKey — this is the
+ *  confirmation step for Google-only accounts, which have no password to re-enter. */
+export function deleteAccountOtpKey(email: string): string {
+  return `delete:${email}`;
+}
+
 /** Store an OTP for the given email, overwriting any existing entry. */
 export function storeOtp(email: string, code: string): void {
   store.set(email.toLowerCase(), {
