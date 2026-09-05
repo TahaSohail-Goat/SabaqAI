@@ -6,11 +6,14 @@
     </linearGradient>
   </defs>
 
-  <rect width="64" height="64" rx="18" fill="url(#bg)"/>
+  <circle cx="32" cy="32" r="32" fill="url(#bg)"/>
 
   <!-- Ribbon "S" + amber spark glyph — mirrors src/components/SabaqLogoMark.tsx exactly,
-       scaled from its native 100x100 viewBox down to fit inside the 64x64 badge. -->
-  <g transform="translate(11.5,11.5) scale(0.41)">
+       scaled from its native 100x100 viewBox down to fit inside the circular badge. Scaled
+       smaller than the old squircle version (0.41 -> 0.36): a circle cuts into the corners
+       more, and the spark node sits right in that corner, so it needs the extra margin to
+       clear the rim. -->
+  <g transform="translate(14,14) scale(0.36)">
     <path
       d="M72,26 C72,15 61,9 50,9 C37,9 26,17 26,28 C26,40 39,43 50,47 C63,51 74,55 74,70 C74,83 63,91 50,91 C39,91 28,86 28,75"
       stroke="#FFFFFF" stroke-width="13" stroke-linecap="round" fill="none"
