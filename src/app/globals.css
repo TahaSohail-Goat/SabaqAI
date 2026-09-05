@@ -236,11 +236,73 @@
   animation: reveal-sparkle 1.6s ease-in-out infinite;
 }
 
+/* /explore's study reveal — the animated open-book scene that carries the same held black
+   screen (see src/components/explore/StudyReveal.tsx for why this is hand-drawn SVG and not a
+   video file). Timings are tuned to REVEAL_HOLD_SECONDS: the scene lands and the pages finish
+   writing inside the first ~1.5s, then the turning sheets and rising motes loop so the rest of
+   the hold is never a static frame. */
+@keyframes study-scene-in {
+  0% { opacity: 0; transform: scale(0.86) translateY(16px); }
+  65% { opacity: 1; transform: scale(1.03) translateY(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-study-scene-in {
+  animation: study-scene-in 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* scaleX about the spine: 1 is the sheet lying flat on the right, 0 is edge-on overhead,
+   -1 is flat again on the left — one tween covering a whole page turn. */
+@keyframes study-flip {
+  0% { transform: scaleX(1); opacity: 0; }
+  10% { opacity: 0.95; }
+  50% { transform: scaleX(0.04); opacity: 0.75; }
+  90% { opacity: 0.9; }
+  100% { transform: scaleX(-1); opacity: 0; }
+}
+
+.animate-study-flip {
+  animation: study-flip 3.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes study-write {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+
+.animate-study-write {
+  animation: study-write 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes study-mote {
+  0% { opacity: 0; transform: translateY(0) scale(0.4); }
+  25% { opacity: 0.95; transform: translateY(-10px) scale(1); }
+  100% { opacity: 0; transform: translateY(-44px) scale(0.35); }
+}
+
+.animate-study-mote {
+  animation: study-mote 2.6s ease-out infinite;
+}
+
+@keyframes study-glow {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.07); }
+}
+
+.animate-study-glow {
+  animation: study-glow 3s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-happy-learning,
   .animate-happy-learning-glow,
   .animate-reveal-ring,
-  .animate-reveal-sparkle {
+  .animate-reveal-sparkle,
+  .animate-study-scene-in,
+  .animate-study-flip,
+  .animate-study-write,
+  .animate-study-mote,
+  .animate-study-glow {
     animation: none;
   }
 }

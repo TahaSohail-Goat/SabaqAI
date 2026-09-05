@@ -1,12 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Sparkles } from 'lucide-react';
 import { SUBJECT_LABELS } from '@/lib/subjects';
 import type { ExploreOverviewResponse } from '@/lib/types';
 import type { ExplorePhase } from './SubjectBook';
 import ExploreCanvasRoot from './ExploreCanvasRoot';
 import ExploreFallbackGrid from './ExploreFallbackGrid';
+import StudyReveal from './StudyReveal';
 
 interface ExploreSceneProps {
   enrolledSubjects: string[];
@@ -116,25 +116,22 @@ export default function ExploreScene({ enrolledSubjects, overview, onArrived }: 
         } ${crossfadeVisible ? 'opacity-100' : 'opacity-0'}`}
       >
         {(phase === 'revealing' || phase === 'done') && (
-          <div className="relative flex flex-col items-center gap-4">
+          <div className="relative flex flex-col items-center gap-3">
             {!reducedMotion && (
               <>
-                <span className="absolute h-40 w-40 rounded-full border-2 border-brand/50 animate-reveal-ring" />
-                <span className="absolute h-40 w-40 rounded-full border-2 border-brand/40 animate-reveal-ring [animation-delay:0.3s]" />
-                <span className="absolute h-40 w-40 rounded-full border-2 border-brand/30 animate-reveal-ring [animation-delay:0.6s]" />
+                <span className="absolute top-1/2 h-40 w-40 -translate-y-1/2 rounded-full border-2 border-brand/50 animate-reveal-ring" />
+                <span className="absolute top-1/2 h-40 w-40 -translate-y-1/2 rounded-full border-2 border-brand/40 animate-reveal-ring [animation-delay:0.3s]" />
+                <span className="absolute top-1/2 h-40 w-40 -translate-y-1/2 rounded-full border-2 border-brand/30 animate-reveal-ring [animation-delay:0.6s]" />
               </>
             )}
-            <Sparkles
-              className={`h-8 w-8 text-brand ${reducedMotion ? '' : 'animate-reveal-sparkle'}`}
-              strokeWidth={1.75}
-            />
-            <h2
-              className={`font-display px-6 text-center text-5xl font-bold tracking-tight text-white sm:text-7xl lg:text-8xl ${
-                reducedMotion ? '' : 'animate-happy-learning'
+            <StudyReveal reducedMotion={reducedMotion} />
+            <p
+              className={`font-display px-6 text-center text-xl font-semibold tracking-tight text-white/90 sm:text-2xl ${
+                reducedMotion ? '' : 'animate-happy-learning [animation-delay:0.55s]'
               }`}
             >
               <span className={reducedMotion ? '' : 'animate-happy-learning-glow'}>Happy Learning</span>
-            </h2>
+            </p>
           </div>
         )}
       </div>
