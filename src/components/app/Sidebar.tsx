@@ -84,7 +84,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
         <button
           type="button"
           onClick={onClose}
-          className={`p-1.5 rounded-lg text-text-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
+          className={`p-1.5 rounded-xl text-text-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
             rail ? 'hidden' : 'lg:hidden'
           }`}
           aria-label="Close menu"
@@ -96,7 +96,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
         <button
           type="button"
           onClick={onToggleCollapsed}
-          className={`hidden lg:flex items-center justify-center p-1.5 rounded-lg text-text-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
+          className={`hidden lg:flex items-center justify-center p-1.5 rounded-xl text-text-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
             rail ? '' : 'shrink-0'
           }`}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -108,7 +108,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
 
       {/* Nav */}
       <nav className={`flex-1 overflow-y-auto space-y-6 ${rail ? 'px-2' : 'px-3'}`}>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {!rail && <p className="px-3.5 mb-1.5 text-[10px] font-bold text-text-2 uppercase tracking-wider">Workspace</p>}
           <NavItem href="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onClose} collapsed={rail} exact />
           <NavItem href="/doubts" icon={Search} label="Doubts" onNavigate={onClose} collapsed={rail} />
@@ -118,7 +118,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
           <NavItem href="/explore" icon={Orbit} label="Explore" onNavigate={onClose} collapsed={rail} />
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {!rail && <p className="px-3.5 mb-1.5 text-[10px] font-bold text-text-2 uppercase tracking-wider">Insights</p>}
           <NavItem href="/dashboard/progress" icon={TrendingUp} label="Progress" onNavigate={onClose} collapsed={rail} />
           <NavItem href="/dashboard/plan" icon={CalendarClock} label="Plan" onNavigate={onClose} collapsed={rail} />

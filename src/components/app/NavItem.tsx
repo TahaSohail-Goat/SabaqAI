@@ -30,29 +30,40 @@ export default function NavItem({ href, icon: Icon, label, badge, disabled, onNa
 
   // Disabled items stay legible (AGENTS.md: don't communicate "unavailable" by making text
   // unreadable) — they just carry none of the interactive/active affordances below.
-  const classes = `group relative flex items-center rounded-xl text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
-    collapsed ? 'justify-center p-2.5' : 'gap-3 pl-3.5 pr-3 py-2.5'
+  //
+  // rounded-2xl + this padding, not the old rounded-xl/tighter pair — the whole item reads as
+  // one deliberate pill/chip now, not a table row with a highlight. The active state's contrast
+  // comes entirely from --color-nav-active-* (a fill, not a tint) plus the icon chip below, so
+  // the old left accent bar is gone — it was doing a job the pill and chip now do more clearly.
+  const classes = `group relative flex items-center rounded-2xl text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
+    collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
   } ${
     disabled
       ? 'text-text-2 cursor-not-allowed'
       : active
-      ? 'bg-selected-surface text-selected-text'
+      ? 'bg-nav-active-surface text-nav-active-text'
       : 'text-text-2 hover:bg-surface-hover hover:text-navy'
+  }`;
+
+  // The icon always sits in its own small chip, active or not — inactive items get a soft
+  // surface-muted box so the rail reads as a row of chips even at rest, not bare glyphs. An
+  // active item swaps the pair (chip fills solid with the pill's own TEXT color, the icon takes
+  // the pill's SURFACE color) so the chip stays a distinct nested badge against the fill around
+  // it instead of blending in — this only works as a solid swap, not an opacity tint, because
+  // dark mode's pair is a near-black/near-white extreme that a tint would just wash out.
+  const iconChipClasses = `flex items-center justify-center w-8 h-8 rounded-lg shrink-0 transition-colors ${
+    disabled
+      ? 'text-text-3'
+      : active
+      ? 'bg-nav-active-text text-nav-active-surface'
+      : 'bg-surface-muted text-text-3 group-hover:text-navy-2'
   }`;
 
   const content = (
     <>
-      {active && (
-        <span
-          className={`absolute top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-selected-text/70 ${collapsed ? '-left-1' : 'left-0'}`}
-          aria-hidden="true"
-        />
-      )}
-      <Icon
-        className={`w-[18px] h-[18px] shrink-0 transition-colors ${
-          disabled ? 'text-text-3' : active ? 'text-selected-text' : 'text-text-3 group-hover:text-navy-2'
-        }`}
-      />
+      <span className={iconChipClasses}>
+        <Icon className="w-[18px] h-[18px]" />
+      </span>
       {!collapsed && (
         <>
           <span className="flex-1 truncate">{label}</span>
