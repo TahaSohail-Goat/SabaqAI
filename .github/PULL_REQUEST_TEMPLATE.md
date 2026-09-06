@@ -4,7 +4,7 @@
 
 ## Which step is this?
 
-<!-- If this addresses one of the ordered steps in AGENTS.md / HANDOFF.md
+<!-- If this addresses one of the ordered steps in AGENTS.md
      (provision → ingest → verify retrieval → recalibrate → fix near-miss leak →
      persist quizzes → voice input), name it. Otherwise: N/A. -->
 

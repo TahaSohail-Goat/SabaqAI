@@ -6,8 +6,7 @@ The single source of truth for what the UI looks like, how it behaves dynamicall
 1. `supabase/migrations/0001_init.sql` — every piece of data the UI shows or collects maps to a table/column in this schema. The UI invents nothing.
 2. `docs/SabaqAI_Colortheme.md` and this document for all styling, animations, and behaviors.
 3. `docs/api-spec.md` — every fetch the UI makes.
-4. `public/assets/auth-illustration.png` — the login/signup illustration.
-5. `AGENTS.md` — the UI invariants (citation is primary, refusal is calm, confidence is icon + label, Urdu gets `dir="rtl"`).
+4. `AGENTS.md` — the UI invariants (citation is primary, refusal is calm, confidence is icon + label, Urdu gets `dir="rtl"`).
 
 **Scope: Modern Web Application.** Desktop is the primary design target, prioritizing rich aesthetics (blur effects, smooth transitions, hover-states). Pages should dynamically adjust (responsive grids, fluid typography) but no mobile-app exclusive patterns (bottom sheets, mobile-first breakpoints) are forced on desktop.
 
