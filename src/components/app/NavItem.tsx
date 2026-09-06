@@ -35,15 +35,21 @@ export default function NavItem({ href, icon: Icon, label, badge, disabled, onNa
   // one deliberate pill/chip now, not a table row with a highlight. The active state's contrast
   // comes entirely from --color-nav-active-* (a fill, not a tint) plus the icon chip below, so
   // the old left accent bar is gone — it was doing a job the pill and chip now do more clearly.
-  const classes = `group relative flex items-center rounded-2xl text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
+  const classes = `group relative flex items-center rounded-2xl text-sm font-semibold transition-[background-color,box-shadow,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
     collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
   } ${
     disabled
       ? 'text-text-2 cursor-not-allowed'
       : active
       ? 'bg-nav-active-surface text-nav-active-text'
-      : 'text-text-2 hover:bg-surface-hover hover:text-navy'
+      : 'text-text-2 hover:bg-surface-hover hover:text-navy hover:shadow-sm'
   }`;
+
+  // A soft glow behind the active pill, in the pill's own color — color-mix keeps this correct
+  // in both themes without a second hardcoded value (the light theme's brand green and dark
+  // theme's near-white active surface need very different glows, and this derives both from
+  // the one token already driving the fill itself).
+  const activeGlow = active && !disabled ? { boxShadow: `0 6px 16px -4px color-mix(in srgb, var(--color-nav-active-surface) 45%, transparent)` } : undefined;
 
   // The icon always sits in its own small chip, active or not — inactive items get a soft
   // surface-muted box so the rail reads as a row of chips even at rest, not bare glyphs. An
@@ -94,6 +100,7 @@ export default function NavItem({ href, icon: Icon, label, badge, disabled, onNa
       href={href}
       onClick={onNavigate}
       className={classes}
+      style={activeGlow}
       aria-current={active ? 'page' : undefined}
       title={collapsed ? label : undefined}
     >

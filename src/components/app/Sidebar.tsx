@@ -68,8 +68,9 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
   // desktop collapse preference, since it's a temporary overlay with plenty of width already.
   const renderBody = (rail: boolean) => (
     <div className="flex h-full flex-col bg-surface-elevated">
-      {/* Logo */}
-      <div className={`flex items-center gap-2 pt-6 pb-5 ${rail ? 'flex-col px-2' : 'justify-between px-5'}`}>
+      {/* Logo — border-b gives this row a clear "chrome" edge against the nav below, instead of
+          the two relying on padding alone to read as separate regions. */}
+      <div className={`flex items-center gap-2 pt-6 pb-5 mb-2 border-b border-border ${rail ? 'flex-col px-2' : 'justify-between px-5'}`}>
         <Link
           href="/dashboard"
           className={`flex items-center gap-2.5 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 rounded-lg ${rail ? 'flex-col' : ''}`}
@@ -84,7 +85,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
         <button
           type="button"
           onClick={onClose}
-          className={`p-1.5 rounded-xl text-text-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
+          className={`p-1.5 rounded-xl bg-surface-muted text-text-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
             rail ? 'hidden' : 'lg:hidden'
           }`}
           aria-label="Close menu"
@@ -96,7 +97,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
         <button
           type="button"
           onClick={onToggleCollapsed}
-          className={`hidden lg:flex items-center justify-center p-1.5 rounded-xl text-text-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
+          className={`hidden lg:flex items-center justify-center p-1.5 rounded-xl bg-surface-muted text-text-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
             rail ? '' : 'shrink-0'
           }`}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -157,7 +158,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2.5 px-3 py-2 mt-1 rounded-xl bg-surface-muted">
+            <div className="flex items-center gap-2.5 px-3 py-2 mt-1 rounded-xl bg-surface-muted border border-border hover:border-border-strong transition-colors">
               {profile?.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- avatars are user-uploaded
                 // Supabase Storage URLs, not build-time-known assets next/image can optimize.
