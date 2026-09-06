@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, Sun, Moon } from 'lucide-react';
+import { Menu, Sun, Moon, Settings } from 'lucide-react';
 import { useScope } from './ScopeContext';
 
 type Theme = 'light' | 'dark';
@@ -81,6 +82,23 @@ export default function Topbar({ onOpenSidebar }: TopbarProps) {
         >
           {board} · Class {classLevel}
         </span>
+
+        {/* Quick access to Settings from anywhere — it already lives in the sidebar footer,
+            but that's a scroll/expand away on a collapsed rail; this puts it one click from
+            every page, right beside the other global control (theme). Filled instead of
+            outlined while already on /settings, matching how a NavItem shows "you're here". */}
+        <Link
+          href="/settings"
+          aria-label="Settings"
+          title="Settings"
+          className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
+            pathname === '/settings'
+              ? 'border-brand bg-brand text-white'
+              : 'border-border bg-surface-muted text-navy-2 hover:bg-surface-hover hover:text-navy'
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+        </Link>
 
         <button
           type="button"
