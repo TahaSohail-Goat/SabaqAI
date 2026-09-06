@@ -9,6 +9,7 @@ import {
   ListChecks,
   TrendingUp,
   History,
+  RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useScope } from '@/components/app/ScopeContext';
@@ -16,11 +17,12 @@ import ActionCard from '@/components/app/ActionCard';
 import StatCard from '@/components/app/StatCard';
 import EmptyState from '@/components/app/EmptyState';
 import SectionHeader from '@/components/app/SectionHeader';
-import Badge from '@/components/app/Badge';
 import ChapterMasteryRow from '@/components/app/ChapterMasteryRow';
+import ActivityTrendChart from '@/components/app/dashboard/ActivityTrendChart';
+import MasteryDistributionChart from '@/components/app/dashboard/MasteryDistributionChart';
+import SubjectAccuracyChart from '@/components/app/dashboard/SubjectAccuracyChart';
 import type { ChapterMastery, SubjectMastery } from '@/app/api/dashboard/progress/route';
-
-const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+import type { DashboardStats } from '@/app/api/dashboard/stats/route';
 
 // Time-aware rather than a fixed "Welcome back" every visit — a small touch, but a dashboard
 // that notices what time it is reads as built for the person looking at it, not a template.
@@ -54,16 +56,16 @@ const SECONDARY_ACTIONS = [
 ];
 
 export default function DashboardPage() {
-  // user/profile come from ScopeContext, which the (app) layout resolves server-side before
-  // this page ever renders — so the real name/board/class/subjects are already here on
-  // first paint, no client fetch, no loading flash.
-  const { board, classLevel, subject, user, profile } = useScope();
+  // user comes from ScopeContext, which the (app) layout resolves server-side before this page
+  // ever renders — so the real name is already here on first paint, no client fetch, no
+  // loading flash.
+  const { user } = useScope();
 
   // "—" while loading/unknown, a real number once fetched — even 0 is a genuine count now
   // (qa_log/quiz_attempts are both actually written to, see /api/ask and /api/quiz), not a
   // guess. Asserting "0" before this resolves would still be the invariant-7 violation the
   // original placeholder comment here was written to avoid.
-  const [activityStats, setActivityStats] = useState<{ questionsAsked: number; quizzesTaken: number } | null>(null);
+  const [activityStats, setActivityStats] = useState<DashboardStats | null>(null);
   const [progressSubjects, setProgressSubjects] = useState<SubjectMastery[] | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -85,6 +87,8 @@ export default function DashboardPage() {
       cancelled = true;
     };
   }, []);
+
+  const allChapters: ChapterMastery[] = (progressSubjects ?? []).flatMap((s) => s.chapters);
 
   // Top 3 weakest chapters across all subjects — "weak" means real evidence of struggling
   // (needs_work first, then getting_there, ascending by accuracy), never chapters with no data
@@ -116,24 +120,14 @@ export default function DashboardPage() {
   ];
 
   const firstName = user?.metadata?.full_name?.split(' ')[0];
-  // A signed-in student is enrolled in every seeded subject by default (create-account.ts),
-  // not just the single "active" one ScopeContext tracks for Ask/Quiz — show the real list
-  // here instead of implying they only study one subject. Falls back to the scope default
-  // for anonymous/demo sessions, which have no real profile to read from.
-  const subjectsLabel = profile?.subjects?.length
-    ? profile.subjects.map(titleCase).join(', ')
-    : titleCase(subject);
 
   return (
     <div className="max-w-6xl mx-auto space-y-10">
       {/* Welcome */}
       <div className="animate-fade-up">
-        <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-navy">
+        <h2 className="font-dashboard-display text-2xl sm:text-3xl font-bold tracking-tight text-navy">
           {firstName ? `${greeting()}, ${firstName}.` : `${greeting()}.`}
         </h2>
-        <Badge variant="context" className="mt-3">
-          {board} · Class {classLevel} · {subjectsLabel}
-        </Badge>
       </div>
 
       {/* Primary actions — one wide hero action plus two quieter ones stacked beside it,
@@ -177,6 +171,42 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Analytics — real numbers only, same fetch this page already made for the stat cards
+          and weakest-chapters list above; nothing here re-derives from a different source or
+          shows a plausible-looking placeholder before that data resolves. Three genuinely
+          different chart forms/color jobs (dataviz skill): a time-series area+line pair on a
+          shared count axis, a status-colored stacked bar for mastery's part-of-whole read, and
+          a single-hue ranked bar list where the job is magnitude, not per-subject identity. */}
+      <div className="space-y-4">
+        <SectionHeader title="Analytics" subtitle="Built from your real questions, quizzes, and scores." />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-surface border border-border rounded-2xl p-4 sm:p-5 animate-fade-up">
+            <p className="text-xs font-semibold text-text-2 mb-3">Last 14 days</p>
+            {activityStats ? (
+              <ActivityTrendChart days={activityStats.dailyActivity} />
+            ) : (
+              <ChartLoading height={190} />
+            )}
+          </div>
+          <div className="bg-surface border border-border rounded-2xl p-4 sm:p-5 animate-fade-up" style={{ animationDelay: '80ms' }}>
+            <p className="text-xs font-semibold text-text-2 mb-3">Chapter mastery</p>
+            {progressSubjects ? (
+              <MasteryDistributionChart chapters={allChapters} />
+            ) : (
+              <ChartLoading height={140} />
+            )}
+          </div>
+          <div className="bg-surface border border-border rounded-2xl p-4 sm:p-5 lg:col-span-2 animate-fade-up" style={{ animationDelay: '140ms' }}>
+            <p className="text-xs font-semibold text-text-2 mb-3">Accuracy by subject</p>
+            {progressSubjects ? (
+              <SubjectAccuracyChart subjects={progressSubjects} />
+            ) : (
+              <ChartLoading height={140} />
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Weakest chapters / recent activity */}
       <div className="space-y-4">
         <SectionHeader title="Insights" subtitle="Fills in automatically as you use Sabaq AI." />
@@ -213,6 +243,19 @@ export default function DashboardPage() {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+// The gap between "stat cards resolved" and "the mastery-band query resolved" is real — it
+// touches more rows than the plain activity counts do — and a bare empty div in that window
+// reads as broken, not loading. Same spinner Progress's own full-page loading state already
+// uses (src/app/(app)/dashboard/progress/page.tsx), just sized to sit inside one chart card
+// instead of the whole page.
+function ChartLoading({ height }: { height: number }) {
+  return (
+    <div className="flex items-center justify-center" style={{ height }} aria-hidden="true">
+      <RefreshCw className="w-5 h-5 text-brand/40 animate-spin" />
     </div>
   );
 }

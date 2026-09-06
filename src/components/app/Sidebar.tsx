@@ -107,7 +107,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
       </div>
 
       {/* Nav */}
-      <nav className={`flex-1 overflow-y-auto space-y-6 ${rail ? 'px-2' : 'px-3'}`}>
+      <nav className={`flex-1 space-y-6 ${rail ? 'px-2' : 'px-3'}`}>
         <div className="space-y-1.5">
           {!rail && <p className="px-3.5 mb-1.5 text-[10px] font-bold text-text-2 uppercase tracking-wider">Workspace</p>}
           <NavItem href="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onClose} collapsed={rail} exact />
