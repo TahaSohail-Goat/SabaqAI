@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import type { AskOptionsResponse, AskSourceOption, AskSourceType, AskUnit } from '@/lib/types';
 import { useScope } from '@/components/app/ScopeContext';
-import { SUBJECTS, SUBJECT_LABELS } from '@/lib/subjects';
+import { SUBJECTS, SUBJECT_LABELS, isSubjectOfferedForClass } from '@/lib/subjects';
 import { ASK_SOURCE_META, ASK_SOURCE_TYPES } from '@/lib/ask/source-meta';
 import SyllabusPdfReader from '@/components/app/SyllabusPdfReader';
 
@@ -165,7 +165,7 @@ export default function SyllabusPage() {
             Subjects
           </span>
           <div className="flex lg:flex-col gap-1.5 lg:gap-0.5 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0">
-            {SUBJECTS.map((s) => {
+            {SUBJECTS.filter((s) => isSubjectOfferedForClass(s.code, classLevel)).map((s) => {
               const active = s.code === subject;
               return (
                 <button

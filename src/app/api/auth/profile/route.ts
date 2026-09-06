@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserAndProfile } from '@/lib/auth/get-current-user';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
-import { ALL_SUBJECT_CODES } from '@/lib/subjects';
+import { ALL_SUBJECT_CODES, isSubjectOfferedForClass } from '@/lib/subjects';
 
 // Mirrors the server-side check in /api/auth/send-otp and /api/auth/onboarding — client-side
 // copies exist only for immediate feedback, the server never trusts them.
@@ -16,7 +16,7 @@ const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 export async function POST(req: NextRequest) {
   try {
-    const { user } = await getCurrentUserAndProfile();
+    const { user, profile } = await getCurrentUserAndProfile();
     if (!user) {
       return NextResponse.json({ error: 'You need to be logged in.' }, { status: 401 });
     }
@@ -77,6 +77,18 @@ export async function POST(req: NextRequest) {
       const invalid = subjects.filter((s: unknown) => typeof s !== 'string' || !ALL_SUBJECT_CODES.includes(s));
       if (invalid.length > 0) {
         return NextResponse.json({ error: 'One or more subjects were not recognized.' }, { status: 400 });
+      }
+
+      // Islamiyat and Pakistan Studies aren't both offered in the same HSSC year — validate
+      // against whichever class level this request is actually saving (a class change earlier
+      // in this same request wins over the profile's existing one).
+      const effectiveClassLevel = classLevel !== undefined ? Number(classLevel) : (profile?.classLevel ?? null);
+      const unofferedSubjects = subjects.filter((s: string) => !isSubjectOfferedForClass(s, effectiveClassLevel));
+      if (unofferedSubjects.length > 0) {
+        return NextResponse.json(
+          { error: `${unofferedSubjects.join(', ')} is not offered for Class ${effectiveClassLevel}.` },
+          { status: 400 }
+        );
       }
 
       // Replace rather than merge — same reasoning as the onboarding route: this is the
