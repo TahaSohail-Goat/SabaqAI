@@ -89,14 +89,26 @@
   --color-text-disabled: var(--color-text-3);
   --color-danger: var(--color-error);
 
-  /* "This option is selected" — a button/list-item/chip in its active state. Deliberately
-     NOT the same value in both themes (see the dark-mode overrides below): light theme gets a
-     confident solid fill, since a subtle tint reads as barely-there against this theme's pale
-     surfaces; dark theme keeps the quieter tinted-surface treatment already used by the
-     sidebar's active nav item, since a solid saturated fill there reads as an alert, not a
-     calm "this is chosen" signal. Same token, intentionally different personality per theme. */
+  /* "This option is selected" — a button/list-item/chip in its active state (subject/chat-model/
+     conversation pickers). Deliberately NOT the same value in both themes (see the dark-mode
+     overrides below): light theme gets a confident solid fill, since a subtle tint reads as
+     barely-there against this theme's pale surfaces; dark theme uses a quieter tinted-surface
+     treatment instead, since a solid saturated fill there reads as an alert, not a calm "this is
+     chosen" signal, for what's usually a small in-page choice control. Same token, intentionally
+     different personality per theme. */
   --color-selected-surface: var(--color-brand);
   --color-selected-text: #FFFFFF;
+
+  /* The sidebar's own active-item pill — split out from --color-selected-surface above rather
+     than reusing it, because the rail wants the opposite dark-theme call: this is the app's one
+     permanent "where am I" signal, on screen every page, so it earns the strongest possible
+     contrast rather than the calmer treatment right for an in-page picker. Reuses this theme's
+     own ink/paper pair (--color-navy/--color-page) rather than a new hardcoded color: in dark
+     mode --color-navy is already near-white and --color-page already near-black, so the active
+     pill becomes a genuine paper-on-ink swap for free, no new hex value needed. Light mode keeps
+     the same brand-green-on-white read as the shared token above — nothing to invert there. */
+  --color-nav-active-surface: var(--color-brand);
+  --color-nav-active-text: #FFFFFF;
 
   --radius-card: 0.75rem;
 }
@@ -356,6 +368,13 @@
 
   --color-selected-surface: var(--color-brand-mint);
   --color-selected-text: var(--color-navy);
+
+  /* See the light-theme definition's comment — the sidebar earns the stronger, inverted-fill
+     treatment the shared selected-surface token deliberately avoids in dark mode. --color-navy
+     and --color-page are already the near-white/near-black pair this theme defines them as, so
+     this is a real paper-on-ink swap, not a new color choice. */
+  --color-nav-active-surface: var(--color-navy);
+  --color-nav-active-text: var(--color-page);
 
   --color-error-bg: #3A1E1E;
   --color-info-bg: #1C2C3A;
