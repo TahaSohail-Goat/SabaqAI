@@ -57,7 +57,7 @@ export default function Topbar({ onOpenSidebar }: TopbarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-border bg-surface-elevated/95 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-4">
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-border bg-surface-elevated/95 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-4 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.08)]">
       <div className="flex items-center gap-3 min-w-0">
         <button
           type="button"

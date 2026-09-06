@@ -67,7 +67,17 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
   // desktop `<aside>` below; the mobile drawer always renders expanded regardless of the
   // desktop collapse preference, since it's a temporary overlay with plenty of width already.
   const renderBody = (rail: boolean) => (
-    <div className="flex h-full flex-col bg-surface-elevated">
+    <div
+      className="flex h-full flex-col"
+      // A soft sheen near the top, not a hue shift — color-mix nudges toward white by a small,
+      // fixed amount and fades back to the plain surface-elevated tone within the first
+      // quarter of the panel, so the contrast against the page (deliberately strengthened
+      // above) holds for the whole height below the logo row, where it actually matters for
+      // the nav items sitting on it.
+      style={{
+        background: `linear-gradient(180deg, color-mix(in srgb, var(--color-surface-elevated) 100%, white 7%) 0%, var(--color-surface-elevated) 26%)`,
+      }}
+    >
       {/* Logo — border-b gives this row a clear "chrome" edge against the nav below, instead of
           the two relying on padding alone to read as separate regions. */}
       <div className={`flex items-center gap-2 pt-6 pb-5 mb-2 border-b border-border ${rail ? 'flex-col px-2' : 'justify-between px-5'}`}>

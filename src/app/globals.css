@@ -38,9 +38,16 @@
      Cards sit on it as crisp white, which is what actually produces contrast: a card and its
      canvas need real lightness separation, not just a different name. Sidebar/topbar chrome
      goes the other way (deeper than the page), so the app reads as three legible layers —
-     chrome > canvas > card — instead of one flat green field. */
+     chrome > canvas > card — instead of one flat green field.
+
+     surface-elevated is a real step deeper than page, not a name-only distinction — measured:
+     the previous value (#CBE6D5) sat at 1.10:1 contrast against page, which is imperceptible as
+     two separate regions and left the border-r as the only thing actually marking where the
+     sidebar ends. This value clears 1.38:1 while keeping inactive nav-label text (text-2,
+     semibold) at 4.0:1 against it — the "three legible layers" this comment already promised,
+     now actually measured rather than assumed. */
   --color-page: #DCEEE3;
-  --color-surface-elevated: #CBE6D5;
+  --color-surface-elevated: #A5D3B2;
   --color-surface: #FFFFFF;
   --color-surface-hover: #F1F9F4;
   --color-surface-active: #E1F1E8;
@@ -109,6 +116,14 @@
      the same brand-green-on-white read as the shared token above — nothing to invert there. */
   --color-nav-active-surface: var(--color-brand);
   --color-nav-active-text: #FFFFFF;
+  /* The gradient's far stop — NavItem always paints a linear-gradient from -surface to
+     -surface-end, so light mode gets a real brand->brand-dark diagonal (echoing
+     SabaqLogoBadge's own gradient, the one other place this exact pairing already appears)
+     while dark mode, by pointing this at the same value as -surface, makes that gradient
+     collapse to a flat fill — a colored diagonal would fight the inverted paper-on-ink pill
+     dark mode is deliberately doing instead. One gradient rule in the component, two very
+     different results, decided entirely by these two tokens. */
+  --color-nav-active-surface-end: var(--color-brand-dark);
 
   --radius-card: 0.75rem;
 }
@@ -345,10 +360,16 @@
    charcoal — it recedes. Structural surfaces (sidebar/topbar/cards) step up in real lightness
    increments (~5 points of L each), not 2-3. Accent surfaces (brand-mint et al) hold a
    materially higher saturation than the neutral surfaces at a similar lightness, so "this is
-   accented" reads from color identity, not just being a bit brighter. */
+   accented" reads from color identity, not just being a bit brighter.
+
+   surface-elevated's step was measured at only 1.10:1 WCAG contrast against page — at this
+   deep a base lightness, an OKLCH-space "~5 point" step still compresses to a barely-there
+   ratio, so the chrome/canvas boundary read as flat and leaned entirely on the border-r to mark
+   it. Deepened to 1.28:1 (still comfortably within the "near-black, recedes" character this
+   theme commits to — this is not a lightening) while keeping text-2 at 6.3:1 against it. */
 :root[data-theme="dark"] {
   --color-page: #0A1310;
-  --color-surface-elevated: #0F1E19;
+  --color-surface-elevated: #1A2C23;
   --color-surface: #17281F;
   --color-surface-hover: #1E332A;
   --color-surface-active: #254335;
@@ -381,6 +402,9 @@
      this is a real paper-on-ink swap, not a new color choice. */
   --color-nav-active-surface: var(--color-navy);
   --color-nav-active-text: var(--color-page);
+  /* Same value as -surface, on purpose — see the light theme's comment. NavItem's gradient
+     collapses to a flat fill here instead of tinting the pill any particular hue. */
+  --color-nav-active-surface-end: var(--color-navy);
 
   --color-error-bg: #3A1E1E;
   --color-info-bg: #1C2C3A;
