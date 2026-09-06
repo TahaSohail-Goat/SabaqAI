@@ -133,6 +133,12 @@
   font-family: var(--font-display), Georgia, 'Times New Roman', serif;
 }
 
+/* Dashboard's own greeting heading only — a distinct grotesque, not the serif above. See
+   layout.tsx's Bricolage_Grotesque load for why this is scoped rather than a site-wide swap. */
+.font-dashboard-display {
+  font-family: var(--font-dashboard-display), system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;
