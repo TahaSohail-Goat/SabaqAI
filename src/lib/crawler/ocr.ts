@@ -23,6 +23,9 @@ const OCR_DPI = 150;
 // paths are affected by this at all).
 const PROJECT_TESSDATA_DIR = path.join(process.cwd(), 'data', '.tessdata');
 
+// `checksum` is always this codebase's own sha256() hex digest of the downloaded PDF bytes
+// (see fetch.ts) — a fixed 64-char [0-9a-f] string that structurally cannot contain '/' or
+// '..', not text from an external source.
 function cachePath(checksum: string): string {
   return path.join(OCR_CACHE_DIR, `${checksum}.json`);
 }

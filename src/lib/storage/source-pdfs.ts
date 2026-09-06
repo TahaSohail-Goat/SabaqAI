@@ -75,7 +75,20 @@ export async function ensureSourcePdfBucket(admin: SupabaseClient): Promise<void
   }
 }
 
+// Both current callers (scripts/crawl.ts, scripts/backfill-pdf-storage.ts) only ever pass a
+// path built by sourcePdfPath() above from this repo's own crawl-sources.json manifest — never
+// from a live request — so there's no real attacker in this path today. This guard exists so
+// that stays true structurally, not just by convention: Supabase's Storage SDK resolves the
+// path internally, so a future caller passing anything containing '..' could write or read
+// outside the intended board/class/subject folder.
+function assertSafeStoragePath(path: string): void {
+  if (path.startsWith('/') || path.split('/').some((segment) => segment === '..')) {
+    throw new Error(`Refusing to upload to an unsafe storage path: "${path}"`);
+  }
+}
+
 export async function uploadSourcePdf(admin: SupabaseClient, path: string, pdfBytes: Buffer): Promise<void> {
+  assertSafeStoragePath(path);
   const { error } = await admin.storage.from(SOURCE_PDF_BUCKET).upload(path, pdfBytes, {
     contentType: 'application/pdf',
     upsert: true,

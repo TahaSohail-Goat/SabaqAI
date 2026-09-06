@@ -19,6 +19,9 @@ export function checkPdftoppmAvailable(): boolean {
   return isToolAvailable('pdftoppm');
 }
 
+// `prefix` is only ever a hardcoded literal at both call sites in this file
+// ('sabaq-text-', 'sabaq-pdfrange-') — never external input reaching this offline,
+// maintainer-run crawler — so there's no '../' this could ever carry.
 function withTempDir<T>(prefix: string, fn: (dir: string) => T): T {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   try {

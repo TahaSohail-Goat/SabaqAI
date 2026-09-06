@@ -38,6 +38,9 @@ async function downloadOne(url: string): Promise<Buffer> {
   // Node's fetch doesn't implement the file: scheme — a source already downloaded and
   // verified once (e.g. re-processing within the same session after the remote host starts
   // rate-limiting) needs its own path, not something fetch() can be coaxed into handling.
+  // `url` here is always a candidateUrl from this repo's own committed crawl-sources.json —
+  // an offline, maintainer-run script, not a live request handler — so this file:// branch
+  // can only ever read whatever path the manifest itself names, never attacker input.
   if (url.startsWith('file://')) {
     return fs.readFileSync(fileURLToPath(url));
   }
