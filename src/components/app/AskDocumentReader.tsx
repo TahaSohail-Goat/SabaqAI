@@ -255,6 +255,9 @@ function TextDocumentView({
       chapterNo: String(unit.chapterNo),
     });
 
+    // Fixed relative path, not an attacker-constructible URL — params only ever populate the
+    // query string (URL-encoded by URLSearchParams), never the origin, so there's no request
+    // this fetch could be redirected to make.
     fetch(`/api/ask/document?${params}`)
       .then(async (res) => {
         if (!res.ok) throw new DocumentLoadError((await res.json().catch(() => null))?.error ?? 'Failed to load this document.');
