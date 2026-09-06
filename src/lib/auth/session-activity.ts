@@ -13,7 +13,7 @@
 // the same thing: treat this request as logged out.
 //
 // Refreshed from two places so both page navigation and pure API activity count:
-// middleware.ts (page requests) and getCurrentUserAndProfile (every API route, since
+// proxy.ts (page requests) and getCurrentUserAndProfile (every API route, since
 // that's where most real activity in this app — chat, quiz grading — actually happens).
 
 export const ACTIVITY_COOKIE_NAME = 'sabaqai-active';

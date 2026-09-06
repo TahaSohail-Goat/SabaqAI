@@ -10,8 +10,11 @@ export async function generateGroundedAnswer(args: {
   question: string;
   language: Language;
   chunks: RetrievedChunk[];
+  board: string;
+  classLevel: number;
+  subject: string;
 }): Promise<GroundedAnswer> {
-  const { question, language, chunks } = args;
+  const { question, language, chunks, board, classLevel, subject } = args;
 
   if (!chunks || chunks.length === 0) {
     return {
@@ -24,7 +27,7 @@ export async function generateGroundedAnswer(args: {
 
   const ai = getGeminiClient();
   const chatModel = process.env.CHAT_MODEL || 'gemini-3.5-flash-lite';
-  const promptInput = { question, language, chunks };
+  const promptInput = { question, language, chunks, board, classLevel, subject };
 
   if (ai) {
     try {

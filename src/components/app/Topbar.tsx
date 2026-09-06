@@ -16,7 +16,9 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/quiz': { title: 'Quiz', subtitle: 'Board-pattern questions generated from your chapters.' },
   '/quiz/history': { title: 'Quiz history', subtitle: 'Every quiz you’ve submitted, with the solved paper.' },
   '/syllabus': { title: 'Syllabus', subtitle: 'What Sabaq AI actually knows, chapter by chapter.' },
-  '/explore': { title: 'Explore', subtitle: 'Fly through your subjects — pick a book to open it.' },
+  '/explore': { title: 'Explore', subtitle: 'Fly through your subjects, then pick a book to open it.' },
+  '/dashboard/progress': { title: 'Progress', subtitle: 'How you’re doing in each chapter, from your real quiz scores.' },
+  '/dashboard/plan': { title: 'Plan', subtitle: 'A day-by-day revision schedule built around your exam date.' },
   '/settings': { title: 'Settings', subtitle: 'Your profile, study scope, and appearance.' },
 };
 

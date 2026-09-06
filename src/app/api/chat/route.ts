@@ -8,8 +8,8 @@ import type { ChatAttachment, ChatResponse } from '@/lib/types';
 
 // Live Gemini/Groq calls plus attacker-controlled binary uploads are a real cost/abuse vector
 // /api/ask doesn't have (that route is retrieval-only, no auth check). Login is required here,
-// not just via the page's middleware guard, since middleware explicitly skips everything under
-// /api/ (see src/middleware.ts).
+// not just via the page's proxy guard, since the proxy explicitly skips everything under
+// /api/ (see src/proxy.ts).
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB — conservative under Gemini's ~20MB inline-request ceiling
 

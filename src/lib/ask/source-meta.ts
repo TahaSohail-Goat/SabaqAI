@@ -1,7 +1,7 @@
-import { BookOpen, FileText, FileCheck2, ClipboardList, type LucideIcon } from 'lucide-react';
+import { BookOpen, FileText, FileCheck2, type LucideIcon } from 'lucide-react';
 import type { AskSourceType } from '@/lib/types';
 
-export const ASK_SOURCE_TYPES: AskSourceType[] = ['textbook', 'past_paper', 'model_paper', 'marking_scheme'];
+export const ASK_SOURCE_TYPES: AskSourceType[] = ['textbook', 'past_paper', 'model_paper'];
 
 export const ASK_SOURCE_META: Record<
   AskSourceType,
@@ -24,11 +24,5 @@ export const ASK_SOURCE_META: Record<
     unitNoun: 'Paper',
     description: 'Ask from one official model/assessment paper',
     icon: FileCheck2,
-  },
-  marking_scheme: {
-    label: 'Marking Schemes',
-    unitNoun: 'Scheme',
-    description: 'Ask from one official marking scheme',
-    icon: ClipboardList,
   },
 };

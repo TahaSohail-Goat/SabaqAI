@@ -14,9 +14,14 @@ export function sourcePdfPath(params: {
   subject: string;
   sourceType: string;
   chapterNo: number;
+  /** Crawler redesign, Phase 1: chapter_sources itself treats (chapter_id, source_type,
+   *  language_code) as a source's full identity (see its unique constraint), but this path
+   *  builder didn't mirror that — an Urdu and an English document of the same type/chapter
+   *  would collide on the same storage path and silently overwrite each other on upload. */
+  language: string;
 }): string {
-  const { board, classLevel, subject, sourceType, chapterNo } = params;
-  return `${board.toLowerCase()}/${classLevel}/${subject}/${sourceType}-${chapterNo}.pdf`;
+  const { board, classLevel, subject, sourceType, chapterNo, language } = params;
+  return `${board.toLowerCase()}/${classLevel}/${subject}/${sourceType}-${chapterNo}-${language}.pdf`;
 }
 
 // This project's Supabase account has an account-wide storage file-size ceiling at or below

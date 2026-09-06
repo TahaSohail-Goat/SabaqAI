@@ -57,16 +57,10 @@ export default function SocialAuthButtons({
     }
 
     setLoadingProvider(provider);
-    // The dev server listens on 0.0.0.0 (so it's reachable from other devices on the LAN),
-    // but 0.0.0.0 itself is a wildcard bind address, not a real destination a browser can be
-    // redirected back to after OAuth — Chrome refuses it with ERR_ADDRESS_INVALID. If someone
-    // loaded the app via that address, send Supabase the actually-reachable localhost origin
-    // instead, so the post-login redirect doesn't dead-end.
-    const origin = window.location.origin.replace('0.0.0.0', 'localhost');
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback`,
         // Without this, Google's default behavior is inconsistent about whether it shows the
         // account picker or silently reuses whatever session is already active — this makes it
         // always show the chooser when the browser has any signed-in Google account, matching

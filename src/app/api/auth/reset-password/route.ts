@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     }
 
     const key = String(email).trim().toLowerCase();
-    const result = verifyOtp(resetOtpKey(key), String(otp).trim());
+    const result = await verifyOtp(resetOtpKey(key), String(otp).trim());
 
     switch (result) {
       case 'expired':

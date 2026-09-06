@@ -22,27 +22,34 @@ import type { ChapterMastery, SubjectMastery } from '@/app/api/dashboard/progres
 
 const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-const ACTIONS = [
-  {
-    href: '/doubts',
-    icon: Search,
-    title: 'Ask a question',
-    description: 'Get a grounded, cited answer — or an honest refusal.',
-    variant: 'primary' as const,
-  },
+// Time-aware rather than a fixed "Welcome back" every visit — a small touch, but a dashboard
+// that notices what time it is reads as built for the person looking at it, not a template.
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+const PRIMARY_ACTION = {
+  href: '/doubts',
+  icon: Search,
+  title: 'Ask a question',
+  description: 'Get a clear, cited answer straight from your textbook.',
+};
+
+const SECONDARY_ACTIONS = [
   {
     href: '/quiz',
     icon: Award,
     title: 'Take a quiz',
-    description: 'Board-pattern questions generated from your chapters.',
-    variant: 'secondary' as const,
+    description: 'Practice questions built from your own chapters.',
   },
   {
     href: '/syllabus',
     icon: BookOpen,
     title: 'Browse syllabus',
-    description: 'See exactly what Sabaq AI has ingested so far.',
-    variant: 'secondary' as const,
+    description: 'Every chapter and paper covered so far.',
   },
 ];
 
@@ -97,12 +104,14 @@ export default function DashboardPage() {
       label: 'Questions asked',
       value: activityStats ? String(activityStats.questionsAsked) : '—',
       hint: activityStats?.questionsAsked === 0 ? 'Ask your first question to start tracking.' : undefined,
+      tone: 'ai' as const,
     },
     {
       icon: ListChecks,
       label: 'Quizzes taken',
       value: activityStats ? String(activityStats.quizzesTaken) : '—',
       hint: activityStats?.quizzesTaken === 0 ? 'Scores will appear here once you submit one.' : undefined,
+      tone: 'quiz' as const,
     },
   ];
 
@@ -120,29 +129,41 @@ export default function DashboardPage() {
       {/* Welcome */}
       <div className="animate-fade-up">
         <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-navy">
-          {firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'}
+          {firstName ? `${greeting()}, ${firstName}.` : `${greeting()}.`}
         </h2>
         <Badge variant="context" className="mt-3">
           {board} · Class {classLevel} · {subjectsLabel}
         </Badge>
       </div>
 
-      {/* Primary actions */}
+      {/* Primary actions — one wide hero action plus two quieter ones stacked beside it,
+          instead of three equal boxes, so the most useful action reads as first among equals
+          rather than a generic feature grid. */}
       <div className="space-y-4">
-        <SectionHeader title="What do you want to do?" subtitle="Ask a question is the fastest way to check your work." />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {ACTIONS.map((action, i) => (
-            <ActionCard
-              key={action.href}
-              href={action.href}
-              icon={action.icon}
-              title={action.title}
-              description={action.description}
-              variant={action.variant}
-              className="animate-fade-up"
-              style={{ animationDelay: `${i * 80}ms` }}
-            />
-          ))}
+        <SectionHeader title="What do you want to do?" subtitle="Asking a question is the fastest way to check your work." />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <ActionCard
+            href={PRIMARY_ACTION.href}
+            icon={PRIMARY_ACTION.icon}
+            title={PRIMARY_ACTION.title}
+            description={PRIMARY_ACTION.description}
+            variant="primary"
+            className="lg:col-span-2 animate-fade-up"
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+            {SECONDARY_ACTIONS.map((action, i) => (
+              <ActionCard
+                key={action.href}
+                href={action.href}
+                icon={action.icon}
+                title={action.title}
+                description={action.description}
+                variant="secondary"
+                className="animate-fade-up"
+                style={{ animationDelay: `${(i + 1) * 80}ms` }}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -151,7 +172,7 @@ export default function DashboardPage() {
         <SectionHeader title="Your activity" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {STATS.map((stat) => (
-            <StatCard key={stat.label} icon={stat.icon} label={stat.label} value={stat.value} hint={stat.hint} />
+            <StatCard key={stat.label} icon={stat.icon} label={stat.label} value={stat.value} hint={stat.hint} tone={stat.tone} />
           ))}
         </div>
       </div>

@@ -141,6 +141,47 @@ function getCloudTexture(): THREE.CanvasTexture | null {
   return cloudTexture;
 }
 
+// Rim-light shaders for the atmosphere shell above. Rendered on the BackSide, so the fragments
+// we keep are the far wall of the shell seen through the planet's edge — the classic way to get
+// a limb glow without ray-marching an actual volume.
+const atmosphereVertexShader = /* glsl */ `
+  varying vec3 vNormalView;
+  varying vec3 vPositionView;
+
+  void main() {
+    vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+    vPositionView = viewPosition.xyz;
+    vNormalView = normalize(normalMatrix * normal);
+    gl_Position = projectionMatrix * viewPosition;
+  }
+`;
+
+const atmosphereFragmentShader = /* glsl */ `
+  precision mediump float;
+
+  uniform vec3  uColor;
+  uniform float uPower;
+  uniform float uIntensity;
+
+  varying vec3 vNormalView;
+  varying vec3 vPositionView;
+
+  void main() {
+    vec3 viewDir = normalize(-vPositionView);
+    // Facing away from us on a BackSide shell, so flip before measuring the grazing angle.
+    float facing = abs(dot(normalize(vNormalView), viewDir));
+    float rim = pow(1.0 - facing, uPower);
+    gl_FragColor = vec4(uColor * rim * uIntensity, rim);
+  }
+`;
+
+const atmosphereUniforms = {
+  uColor: { value: new THREE.Color('#7fd4ff') },
+  // Tightens the glow to the limb; lower values bleed it across the disc.
+  uPower: { value: 2.6 },
+  uIntensity: { value: 1.35 },
+};
+
 export default function CentralPlanet({ reducedMotion }: { reducedMotion: boolean }) {
   const planetRef = useRef<THREE.Mesh>(null);
   const cloudRef = useRef<THREE.Mesh>(null);
@@ -168,15 +209,18 @@ export default function CentralPlanet({ reducedMotion }: { reducedMotion: boolea
         </mesh>
       )}
 
-      {/* Soft atmosphere haze — a larger backside-rendered, additively-blended sphere. Not a
-          physically-real Fresnel rim (that needs a custom shader), but a cheap, low-risk way to
-          still read as "planet with an atmosphere" rather than a bare rock. */}
-      <mesh scale={1.14}>
-        <sphereGeometry args={[PLANET_RADIUS, 32, 32]} />
-        <meshBasicMaterial
-          color="#7fd4ff"
+      {/* Atmosphere — a real Fresnel rim now, not the flat additive shell this used to be. The
+          old version brightened the planet's whole silhouette evenly, which reads as a glow
+          pasted behind a rock; scattering concentrates at grazing angles, so the limb should
+          be hot and the face nearly clear. That falloff is the entire difference between
+          "sphere with a halo" and "sphere with air on it", and it's four lines of GLSL. */}
+      <mesh scale={1.16}>
+        <sphereGeometry args={[PLANET_RADIUS, 64, 64]} />
+        <shaderMaterial
+          vertexShader={atmosphereVertexShader}
+          fragmentShader={atmosphereFragmentShader}
+          uniforms={atmosphereUniforms}
           transparent
-          opacity={0.16}
           side={THREE.BackSide}
           blending={THREE.AdditiveBlending}
           depthWrite={false}

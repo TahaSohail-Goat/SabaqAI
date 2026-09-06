@@ -22,8 +22,8 @@
   /* Text (Navy = knowledge) */
   --color-navy: #102A3A;
   --color-navy-2: #294454;
-  --color-text-2: #536773;
-  --color-text-3: #82929B;
+  --color-text-2: #45606B;
+  --color-text-3: #647880;
 
   /* Surfaces — layered so each region reads as a distinct visual role, not one flat canvas.
      Stacking order (page < elevated-chrome < card < hover < active) holds in both themes:
@@ -34,22 +34,23 @@
        surface-active  pressed / selected surfaces
        surface-muted   inset wells inside cards (inputs, sub-panels) — recessed, not elevated
        surface-2       legacy alias, kept equal to surface-muted for existing call sites */
-  /* Page background is literally --color-brand-mint's value (the lightest green in the
-     palette below) — a deliberate, visible green wash across the whole app rather than a
-     nearly-neutral off-white with just a hint of tint. Every other surface below was re-tuned
-     to still read as a distinct, coherent step down from card white to this. */
-  --color-page: #EEF7F3;
-  --color-surface-elevated: #E4F0E9;
-  --color-surface: #F7FBF8;
-  --color-surface-hover: #ECF6F1;
-  --color-surface-active: #DCEEE3;
-  --color-surface-muted: #E9F3ED;
-  --color-surface-2: #E9F3ED;
+  /* Page background is a visibly saturated mint wash — not a near-white with a hint of tint.
+     Cards sit on it as crisp white, which is what actually produces contrast: a card and its
+     canvas need real lightness separation, not just a different name. Sidebar/topbar chrome
+     goes the other way (deeper than the page), so the app reads as three legible layers —
+     chrome > canvas > card — instead of one flat green field. */
+  --color-page: #DCEEE3;
+  --color-surface-elevated: #CBE6D5;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #F1F9F4;
+  --color-surface-active: #E1F1E8;
+  --color-surface-muted: #EEF7F1;
+  --color-surface-2: #EEF7F1;
 
-  /* Borders — shifted from near-neutral gray to a visibly green-tinted gray, so card/input
-     outlines read as part of the same green identity as the page behind them. */
-  --color-border: #C6DDD0;
-  --color-border-strong: #A3C4B2;
+  /* Borders — dark/saturated enough to read as a real outline against a white card, not just
+     a slightly-different shade of the same pale green. */
+  --color-border: #A9D3BA;
+  --color-border-strong: #6FAE87;
 
   /* Status — semantic use only */
   --color-success: #237A57;
@@ -189,6 +190,119 @@
   .animate-step-in,
   .animate-digit-pop,
   .animate-shake {
+    animation: none;
+  }
+}
+
+/* /explore's "Happy Learning" reveal — the held black screen after a book finishes opening
+   (see useExploreFlight's REVEAL_HOLD_SECONDS and ExploreScene). A bouncy scale-in entrance,
+   a looping colored glow so the huge text doesn't just sit static for the whole hold, and a
+   few expanding rings behind it for the "achievement unlocked" game-screen feel. */
+@keyframes happy-learning-pop {
+  0% { opacity: 0; transform: scale(0.35) translateY(24px); filter: blur(10px); }
+  55% { opacity: 1; transform: scale(1.1) translateY(0); filter: blur(0); }
+  78% { transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-happy-learning {
+  animation: happy-learning-pop 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes happy-learning-glow {
+  0%, 100% { text-shadow: 0 0 20px rgba(76, 222, 165, 0.55), 0 0 56px rgba(76, 222, 165, 0.28); }
+  50% { text-shadow: 0 0 36px rgba(76, 222, 165, 0.9), 0 0 92px rgba(76, 222, 165, 0.5); }
+}
+
+.animate-happy-learning-glow {
+  animation: happy-learning-glow 2.1s ease-in-out 0.9s infinite;
+}
+
+@keyframes reveal-ring {
+  0% { opacity: 0.55; transform: scale(0.4); }
+  100% { opacity: 0; transform: scale(2.4); }
+}
+
+.animate-reveal-ring {
+  animation: reveal-ring 2.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes reveal-sparkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.85) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(12deg); }
+}
+
+.animate-reveal-sparkle {
+  animation: reveal-sparkle 1.6s ease-in-out infinite;
+}
+
+/* /explore's study reveal — the animated open-book scene that carries the same held black
+   screen (see src/components/explore/StudyReveal.tsx for why this is hand-drawn SVG and not a
+   video file). Timings are tuned to REVEAL_HOLD_SECONDS: the scene lands and the pages finish
+   writing inside the first ~1.5s, then the turning sheets and rising motes loop so the rest of
+   the hold is never a static frame. */
+@keyframes study-scene-in {
+  0% { opacity: 0; transform: scale(0.86) translateY(16px); }
+  65% { opacity: 1; transform: scale(1.03) translateY(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-study-scene-in {
+  animation: study-scene-in 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* scaleX about the spine: 1 is the sheet lying flat on the right, 0 is edge-on overhead,
+   -1 is flat again on the left — one tween covering a whole page turn. */
+@keyframes study-flip {
+  0% { transform: scaleX(1); opacity: 0; }
+  10% { opacity: 0.95; }
+  50% { transform: scaleX(0.04); opacity: 0.75; }
+  90% { opacity: 0.9; }
+  100% { transform: scaleX(-1); opacity: 0; }
+}
+
+.animate-study-flip {
+  animation: study-flip 3.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes study-write {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+
+.animate-study-write {
+  animation: study-write 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes study-mote {
+  0% { opacity: 0; transform: translateY(0) scale(0.4); }
+  25% { opacity: 0.95; transform: translateY(-10px) scale(1); }
+  100% { opacity: 0; transform: translateY(-44px) scale(0.35); }
+}
+
+.animate-study-mote {
+  animation: study-mote 2.6s ease-out infinite;
+}
+
+@keyframes study-glow {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.07); }
+}
+
+.animate-study-glow {
+  animation: study-glow 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-happy-learning,
+  .animate-happy-learning-glow,
+  .animate-reveal-ring,
+  .animate-reveal-sparkle,
+  .animate-study-scene-in,
+  .animate-study-flip,
+  .animate-study-write,
+  .animate-study-mote,
+  .animate-study-glow {
     animation: none;
   }
 }

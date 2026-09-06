@@ -15,9 +15,12 @@ export interface GroundedAnswerPromptInput {
   question: string;
   language: Language;
   chunks: RetrievedChunk[];
-  board?: string;
-  classLevel?: number;
-  subject?: string;
+  // Required, not defaulted — a silent "PCTB Class 10 Physics" default here previously meant
+  // every answer was generated under the wrong board/class/subject unless the caller happened
+  // to pass the real ones, which generateGroundedAnswer never did. Fail to compile instead.
+  board: string;
+  classLevel: number;
+  subject: string;
 }
 
 /** Renders retrieved chunks as delimited, id-tagged blocks the model must cite by id. */
@@ -33,12 +36,7 @@ export function buildContext(chunks: RetrievedChunk[]): string {
 }
 
 export function buildSystemInstruction(input: GroundedAnswerPromptInput): string {
-  const {
-    language,
-    board = 'PCTB',
-    classLevel = 10,
-    subject = 'Physics',
-  } = input;
+  const { language, board, classLevel, subject } = input;
 
   const languageName = language === 'ur' ? 'Urdu script' : 'English';
 

@@ -15,14 +15,26 @@ next-env.d.ts
 # Local Supabase CA bundle for scripts/dev-db-sql.mjs (public cert, but machine-local)
 *.crt
 
-# Crawler: per-run state (checksums, timestamps). Machine-local, not for VCS.
-data/.crawl-state.json
+# Crawler: per-run state (checksums, timestamps) — tracked now, not ignored (see the file's
+# own history/the crawler redesign notes): the GitHub Actions cache that's meant to persist
+# this across runs only exists once a run has actually saved one, so the FIRST real run after
+# any cache change would still see zero state and silently re-detect (incorrectly, for several
+# books) every hand-verified textbook boundary. Committing a correct baseline means every fresh
+# checkout — CI included — starts from known-good state regardless of cache history. No
+# secrets/PII in this file (just checksums, timestamps, status strings), so committing it is
+# safe. Update it (or let a real crawl run update it) whenever a manifest entry's status
+# changes for real, the same way a lockfile gets updated.
 
 # Crawler: cached OCR output per PDF checksum — OCR is the slowest step (20-30+ min for a full
 # textbook) and deterministic for an unchanged file, so re-running it after an ingestion-only
 # code change (e.g. tuning chapter detection) is pure waste. Machine-local, not for VCS — can
 # get large and is trivially regenerable.
 data/.ocr-cache/
+# Crawler redesign, Phase 1: cached downloaded PDF bytes, keyed by URL — some source hosts
+# (taleem360) intermittently rate-limit a URL just downloaded successfully moments earlier,
+# and re-fetching a 40-70MB textbook just to re-run detection logic against unchanged bytes
+# is pure waste, same reasoning as the OCR cache above. Machine-local, not for VCS.
+data/.pdf-cache/
 
 # Tesseract language data — downloaded at runtime by tesseract.js, not for VCS
 *.traineddata

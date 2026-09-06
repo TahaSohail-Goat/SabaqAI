@@ -22,9 +22,9 @@ export default function ChapterMasteryCard({ chapter }: { chapter: ChapterMaster
     >
       <MasteryRing chapter={chapter} />
       <div className="flex-1 min-w-0 space-y-1.5">
-        <p className="text-xs font-bold text-navy leading-tight">
-          Chapter {chapterNo}
-          {chapterTitle && <span className="block font-medium text-text-2 truncate">{chapterTitle}</span>}
+        <p className="leading-tight">
+          <span className="block text-xs font-bold text-navy truncate">{chapterTitle ?? `Chapter ${chapterNo}`}</span>
+          <span className="block text-[10px] font-medium text-text-2">Chapter {chapterNo}</span>
         </p>
         <div className="flex items-center gap-2 flex-wrap">
           <MasteryBadge band={band} />

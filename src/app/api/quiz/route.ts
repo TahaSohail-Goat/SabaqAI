@@ -500,7 +500,7 @@ export async function POST(req: NextRequest) {
 
     if (matchingChunks.length === 0) {
       return NextResponse.json(
-        { error: `No ingested textbook content for ${board} Class ${classLevel} ${subject} Chapter ${chapterNo} yet.` },
+        { error: `No textbook content available yet for ${board} Class ${classLevel} ${subject} Chapter ${chapterNo}.` },
         { status: 404 }
       );
     }
@@ -511,7 +511,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Not enough ingested content to safely generate a quiz for this chapter yet. Try a different one, or check back once more content has been ingested.',
+            'Not enough content to safely generate a quiz for this chapter yet. Try a different one, or check back once more content has been added.',
         },
         { status: 404 }
       );
@@ -535,7 +535,7 @@ export async function POST(req: NextRequest) {
     const ai = getGeminiClient();
     if (!ai) {
       return NextResponse.json(
-        { error: 'Quiz generation is temporarily unavailable — the generation service is not configured.' },
+        { error: 'Quiz generation is temporarily unavailable. Please try again shortly.' },
         { status: 503 }
       );
     }

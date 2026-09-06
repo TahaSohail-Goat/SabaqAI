@@ -89,7 +89,7 @@ export default function AskSourceSelector({ value, sources, onChange, loading }:
                   </span>
                   <span className={`block text-[11px] mt-0.5 ${isActive ? 'text-selected-text/80' : 'text-text-2'}`}>
                     {count === 0
-                      ? 'Nothing ingested yet'
+                      ? 'Nothing added yet'
                       : `${count} ${meta.unitNoun.toLowerCase()}${count === 1 ? '' : 's'} available`}
                   </span>
                 </span>

@@ -6,7 +6,10 @@ Put your syllabus documents here as `.json` files (e.g. `pctb-10-physics-ch14.js
 > **Auto-generated files:** Files named `fbise-*.json` in this directory are
 > produced by `npm run crawl` (the weekly FBISE crawler). Do not hand-edit them —
 > they will be overwritten on the next crawl run. Add new sources to
-> `data/crawl-sources.json` instead.
+> `data/crawl-manifest/*.json` instead (`textbooks.json`, `model-papers.json`,
+> `past-papers.json`, `marking-schemes.json`, `bundles.json` — the old
+> `data/crawl-sources.json` is kept only as a historical round-trip reference for
+> `scripts/crawler-verify/manifest-lint.ts`, not read by the crawler itself).
 
 **Before ingesting:** make sure you have the right to use the material. For the demo, past papers
 or openly available notes are the safe choice if the textbook licence isn't cleared. This is the
@@ -50,7 +53,7 @@ citation always points somewhere specific.
 | --- | --- |
 | `board`, `classLevel`, `subject` | Must match what the app queries with, exactly. Retrieval filters on these. |
 | `chapterNo`, `chapterTitle` | Shown on the citation chip and in the refusal card's nearest chapters. |
-| `sourceType` | `textbook`, `past_paper`, or `marking_scheme`. |
+| `sourceType` | `textbook`, `model_paper`, `past_paper`, or `marking_scheme`. |
 | `language` | `en` or `ur`. |
 | `sections[].section` | The heading a student would recognise, e.g. `"14.3 Ohm's Law and Resistance"`. |
 | `sections[].pageFrom` / `pageTo` | Optional but **strongly recommended** — the page number is the thing a student verifies against their own book. Without it the citation is much weaker. |

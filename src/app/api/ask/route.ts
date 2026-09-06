@@ -63,11 +63,11 @@ export async function POST(req: NextRequest) {
         message:
           language === 'ur'
             ? 'یہ سوال آپ کے بورڈ سلیبس میں شامل نہیں ہے، اس لیے ہم نے اندازہ لگانے کے بجائے جواب روک دیا۔'
-            : "This topic is outside your registered board syllabus or not covered in the textbook. Sabaq AI refuses off-syllabus questions instead of guessing.",
+            : "This isn't part of your registered board syllabus, or it isn't covered in the textbook yet, so we're not going to guess.",
         nearestChapters,
         suggestion:
-          subject.toLowerCase() === 'physics'
-            ? "Try asking about Class 10 Physics topics like 'Ohm's law', 'Electric current', 'Joule's law', 'Electromagnetic induction', or 'Transformer'."
+          nearestChapters.length > 0
+            ? `Try asking about ${nearestChapters[0].chapterTitle ?? `Chapter ${nearestChapters[0].chapterNo}`} instead, or rephrase with specific textbook terminology.`
             : 'Try rephrasing with specific textbook chapter terminology.',
       };
 
@@ -91,6 +91,9 @@ export async function POST(req: NextRequest) {
       question: trimmedQuestion,
       language: (language as Language) || 'en',
       chunks: retrievedChunks,
+      board,
+      classLevel: Number(classLevel),
+      subject,
     });
 
     // 4. Citation Validation
@@ -102,7 +105,7 @@ export async function POST(req: NextRequest) {
         status: 'refused',
         reason: 'ungrounded_output',
         message:
-          "The generation could not be rigorously grounded in verified textbook citations. Sabaq AI refuses ungrounded answers to prevent exam misinformation.",
+          "The answer that came back couldn't be tied closely enough to specific textbook citations, so it's been held back rather than risk exam misinformation.",
         nearestChapters,
         suggestion: "Please try specifying a particular chapter or concept from the syllabus.",
       };

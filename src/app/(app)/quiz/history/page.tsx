@@ -112,7 +112,7 @@ export default function QuizHistoryPage() {
                   {stale && (
                     <p className="text-[11px] text-quiz flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      Session expired — reopen to review, but you&apos;ll need to regenerate to submit.
+                      Session expired. Reopen to review, but you&apos;ll need to regenerate to submit.
                     </p>
                   )}
                 </div>

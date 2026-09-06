@@ -71,13 +71,13 @@ function buildRecommendation(
   const parts: string[] = [];
 
   if (scorePct >= 85) {
-    parts.push('Strong attempt — you have a solid grip on this chapter.');
+    parts.push('Strong attempt. You have a solid grip on this chapter.');
   } else if (scorePct >= 60) {
     parts.push("Decent attempt, but there's room to tighten up.");
   } else if (scorePct >= 40) {
     parts.push('This chapter needs another pass before you rely on it in an exam.');
   } else {
-    parts.push('Re-study this chapter from the textbook before retaking — the fundamentals need work.');
+    parts.push('Re-study this chapter from the textbook before retaking. The fundamentals need work.');
   }
 
   // Call out the weakest question type only when it's clearly behind the others.

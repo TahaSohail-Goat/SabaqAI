@@ -2,8 +2,10 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
+
 import * as pdfjsLib from 'pdfjs-dist';
-import type { PDFDocumentProxy } from 'pdfjs-dist';
+import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
+
 import type { AskDocumentResponse, AskSourceType, AskUnit, Citation } from '@/lib/types';
 
 // Marks an error whose .message is already student-safe (built from /api/ask/document's own
@@ -122,16 +124,40 @@ function PdfDocumentView({ unit, pdfUrl, activeCitation }: { unit: AskUnit; pdfU
     setPageNum(Math.max(1, local));
   }, [activeCitation, unit.pageFrom, pdfUrl]);
 
+  // The page actually rendered below — pageNum can transiently point past the end (a stale
+  // citation re-applied against a different chapter's offset, or simply clicking past the last
+  // page) and clamping only where the page gets rendered would leave the pagination LABEL still
+  // showing the raw, out-of-range value. Deriving one clamped value and using it everywhere below
+  // keeps what's on screen and what the label says in sync.
+  const clampedPage = numPages > 0 ? Math.min(Math.max(1, pageNum), numPages) : pageNum;
+
   // Render the current page onto the canvas. This is the part that actually moves the
   // reader — deterministic, not dependent on any browser's native PDF viewer.
+  //
+  // Two real bugs lived here before: (1) nothing ever cleared a stale `error` from a
+  // previous page, so once any single page render failed for any reason, every later page
+  // showed "Could not render this page." for the rest of the session even though it had
+  // rendered fine internally; (2) the cleanup only flipped a local `cancelled` flag — it
+  // never actually cancelled pdf.js's in-flight render task on the canvas. React Strict
+  // Mode's dev-only double-invoke of effects made this reliably reproducible (page.render()
+  // called twice on the same canvas before the first settles throws "rendering already in
+  // progress"), but the same race is just as reachable in production by a normal fast
+  // double-click on next/previous — and because of bug (1), one such click permanently
+  // breaks the reader until the whole page is reloaded. Fixed by clearing the error up
+  // front and actually cancelling the previous render task, treating that expected
+  // cancellation as a no-op rather than a real failure.
   useEffect(() => {
     const doc = docRef.current;
     const canvas = canvasRef.current;
     if (!doc || !canvas || numPages === 0) return;
+    setError(null);
     let cancelled = false;
+
+    let renderTask: RenderTask | null = null;
     const clamped = Math.min(Math.max(1, pageNum), numPages);
 
-    doc.getPage(clamped).then((page) => {
+
+    doc.getPage(clampedPage).then((page) => {
       if (cancelled) return;
       const containerWidth = containerRef.current?.clientWidth || 700;
       const baseViewport = page.getViewport({ scale: 1 });
@@ -143,15 +169,20 @@ function PdfDocumentView({ unit, pdfUrl, activeCitation }: { unit: AskUnit; pdfU
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      page.render({ canvas, canvasContext: ctx, viewport }).promise.catch(() => {
-        if (!cancelled) setError('Could not render this page.');
+      renderTask = page.render({ canvas, canvasContext: ctx, viewport });
+      renderTask.promise.catch((err: unknown) => {
+        // A cancelled render task rejects with RenderingCancelledException — that's this
+        // effect's own cleanup doing its job, not a real failure, so it must never surface.
+        if (cancelled || (err as { name?: string } | null)?.name === 'RenderingCancelledException') return;
+        setError('Could not render this page.');
       });
     });
 
     return () => {
       cancelled = true;
+      renderTask?.cancel();
     };
-  }, [pageNum, numPages]);
+  }, [clampedPage, numPages]);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -160,27 +191,27 @@ function PdfDocumentView({ unit, pdfUrl, activeCitation }: { unit: AskUnit; pdfU
           <h4 className="text-sm font-bold text-navy leading-tight truncate">{unit.chapterTitle ?? `Chapter ${unit.chapterNo}`}</h4>
           <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-text-2">
             <ShieldCheck className="w-3.5 h-3.5 text-brand flex-shrink-0" />
-            <span>The real source PDF — not a reconstruction.</span>
+            <span>The real source PDF, not a reconstruction.</span>
           </div>
         </div>
         {numPages > 0 && (
           <div className="flex items-center gap-1 flex-shrink-0">
             <button
               type="button"
-              onClick={() => setPageNum((p) => Math.max(1, p - 1))}
-              disabled={pageNum <= 1}
+              onClick={() => setPageNum(clampedPage - 1)}
+              disabled={clampedPage <= 1}
               aria-label="Previous page"
               className="p-1 rounded-md text-text-2 hover:bg-surface-2 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <span className="text-[11px] font-mono text-text-2 min-w-[52px] text-center">
-              {pageNum} / {numPages}
+              {clampedPage} / {numPages}
             </span>
             <button
               type="button"
-              onClick={() => setPageNum((p) => Math.min(numPages, p + 1))}
-              disabled={pageNum >= numPages}
+              onClick={() => setPageNum(clampedPage + 1)}
+              disabled={clampedPage >= numPages}
               aria-label="Next page"
               className="p-1 rounded-md text-text-2 hover:bg-surface-2 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
             >
@@ -259,7 +290,7 @@ function TextDocumentView({
         // string, or the fixed fallback above) — anything else is a raw exception (dropped
         // connection, invalid JSON) that a student was never meant to read.
         if (!cancelled) {
-          setError(err instanceof DocumentLoadError ? err.message : 'Could not load this document — check your connection and try again.');
+          setError(err instanceof DocumentLoadError ? err.message : 'Could not load this document. Check your connection and try again.');
         }
       })
       .finally(() => {
@@ -301,7 +332,7 @@ function TextDocumentView({
         <h4 className="text-sm font-bold text-navy leading-tight">{doc.chapterTitle ?? `Chapter ${doc.chapterNo}`}</h4>
         <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-text-2">
           <ShieldCheck className="w-3.5 h-3.5 text-brand" />
-          <span>Ingested text — the original PDF hasn&apos;t been uploaded for this source yet.</span>
+          <span>Text version. The original PDF hasn&apos;t been uploaded for this source yet.</span>
         </div>
       </div>
 

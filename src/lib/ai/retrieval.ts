@@ -7,7 +7,7 @@
 //   2. Not configured       -> a keyword-ranked fallback over the small hardcoded corpus, so the
 //      frontend is workable locally without keys. It is NOT the product and says so loudly.
 
-import type { RetrievedChunk } from '../types';
+import { displayChapterTitle, type RetrievedChunk } from '../types';
 import { INITIAL_SYLLABUS_CHUNKS } from '../syllabus-data';
 import { getServiceRoleClient } from '../supabase/admin';
 import { embedText } from './embeddings';
@@ -17,9 +17,9 @@ export interface RetrievalInput {
   board: string;
   classLevel: number;
   subject: string;
-  /** Narrows to one source (a book, past papers, model papers, marking schemes) and/or one
-   *  specific chapter/paper within it. Board+class+subject stay mandatory regardless — this
-   *  only ever narrows further, never replaces that filter (AGENTS.md invariant 6). */
+  /** Narrows to one source (a book, past papers, model papers) and/or one specific
+   *  chapter/paper within it. Board+class+subject stay mandatory regardless — this only
+   *  ever narrows further, never replaces that filter (AGENTS.md invariant 6). */
   sourceType?: string;
   chapterNo?: number;
 }
@@ -63,7 +63,7 @@ export async function retrieve(input: RetrievalInput): Promise<RetrievedChunk[]>
 
   if (supabase) {
     // Embed the question once. Chunk vectors are already stored — never re-embed the corpus.
-    const queryVector = await embedText(normQuery);
+    const queryVector = await embedText(normQuery, { task: 'retrieval.query' });
 
     const { data, error } = await supabase.rpc('match_content_chunks', {
       query_embedding: queryVector,
@@ -99,7 +99,7 @@ export async function retrieve(input: RetrievalInput): Promise<RetrievedChunk[]>
     return ((data ?? []) as MatchRow[]).slice(0, maxChunks).map((row) => ({
       id: row.id,
       chapterNo: row.chapter_no,
-      chapterTitle: row.chapter_title,
+      chapterTitle: displayChapterTitle(row.source_type, row.chapter_no, row.chapter_title, input.subject),
       section: row.section,
       pageFrom: row.page_from,
       pageTo: row.page_to,

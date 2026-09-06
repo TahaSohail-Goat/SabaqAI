@@ -10,7 +10,7 @@ export interface IngestedChunkRecord {
   section: string;
   pageFrom: number;
   pageTo: number;
-  sourceType: 'textbook' | 'past_paper' | 'marking_scheme' | 'model_paper';
+  sourceType: 'textbook' | 'past_paper' | 'model_paper';
   language: 'en' | 'ur';
   content: string;
   contentHash: string;

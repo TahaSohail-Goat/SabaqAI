@@ -17,7 +17,7 @@ Legend: **Real** = works against live data · **Stub** = returns hardcoded or fa
 | Database schema + RLS | **Real** ✅ v2 verified live (22/22 torture tests) | Dev C | `supabase/migrations/0001_init.sql` |
 | Confidence guardrail | **Real** | Dev A | `src/lib/ai/guardrail.ts` |
 | Citation validator | **Real** | Dev A | `src/lib/ai/citation.ts` |
-| Eval scoring loop | **Real** | Dev D | `src/app/api/eval/route.ts` |
+| Eval scoring loop | **Removed** — replaced by the real Progress & Mastery module (`/dashboard/progress`, `/api/dashboard/progress`), computed from actual quiz attempts instead of a synthetic question set | Dev D | — |
 | Grounded generation (Gemini) | **Real** ✅ fixed | Dev A | `src/lib/ai/generation.ts` |
 | Nearest chapters | **Real** ✅ fixed | Dev A | `src/lib/ai/retrieval.ts` |
 | Recursive chunker | **Real** ✅ new, tested | Dev C | `src/lib/ingest/chunker.ts` |
@@ -28,20 +28,20 @@ Legend: **Real** = works against live data · **Stub** = returns hardcoded or fa
 | App shell (sidebar/topbar/routed pages) | **Real** ✅ new | Dev D | `src/app/(app)/layout.tsx`, `src/components/app/` |
 | Student dashboard (M8) | **Frontend only** — empty-state widgets, no invented numbers | Dev D | `src/app/(app)/dashboard/page.tsx` |
 | Settings (M13) | **Partly real** — theme/scope/logout real; password/delete disabled | Dev D | `src/app/(app)/settings/page.tsx` |
-| Eval set (single source) | **Real** ✅ fixed | Dev D | `src/lib/evaluation/` |
-| Near-miss evaluation | **Real** ✅ new | Dev D | `src/lib/evaluation/questions.ts` |
+| Eval set (single source) | **Removed** — `src/lib/evaluation/` no longer exists (see Eval scoring loop row) | Dev D | — |
+| Near-miss evaluation | **Removed**, same commit | Dev D | — |
 | Vector search RPC | **Real** ✅ v2 verified live | Dev C | `supabase/migrations/0002_*.sql` |
 | Atomic ingestion RPC | **Real** ✅ verified live (atomicity + idempotency proven) | Dev C | `supabase/migrations/0003_*.sql` |
 | Schema torture tests | **Real** ✅ verified (22/22 green against live DB) | Dev C | `supabase/tests/001_schema_torture.sql` |
-| Retrieval (pgvector path) | **Real** ✅ new, **unverified** | Dev A | `src/lib/ai/retrieval.ts` |
+| Retrieval (pgvector path) | **Real** ✅ verified live — real embedding-similarity scores against real ingested content across all 8 SSC textbooks (0.6-0.77 for on-syllabus questions, 0.3-0.4 for off-syllabus) | Dev A | `src/lib/ai/retrieval.ts` |
 | Embeddings (Jina AI; provider-agnostic client) | **Real** ✅ verified live (1024-dim probe passed) | Dev D | `src/lib/ai/embeddings.ts` |
-| Ingestion pipeline | **Real** ✅ v2 (transactional RPC), **unverified** | Dev C | `scripts/ingest.ts` |
-| `qa_log` writes | **Real** ✅ v2 junction rows, **unverified** | Dev A | `src/lib/qa-log.ts` |
-| `student_profiles` creation | **Real** ✅ v2 (+ student_subjects), **unverified** | Dev B | `src/app/api/auth/signup/` |
-| Onboarding (real board/class/subjects) | **Real** ✅ new, **unverified** — no live Supabase session tested against yet | Dev D | `src/app/onboarding/`, `src/app/api/auth/onboarding/` |
+| Ingestion pipeline | **Real** ✅ v2 (transactional RPC), verified live — the crawler's ingest-adapter path (`ingestDocument`) has written real content for all 8 SSC textbooks plus past papers/marking schemes/model papers | Dev C | `scripts/ingest.ts`, `src/lib/crawler/ingest-adapter.ts` |
+| `qa_log` writes | **Real** ✅ v2 junction rows, verified via live `/api/ask` calls this session | Dev A | `src/lib/qa-log.ts` |
+| `student_profiles` creation | **Real** ✅ v2 (+ student_subjects), verified via throwaway test accounts created/deleted this session | Dev B | `src/app/api/auth/signup/` |
+| Onboarding (real board/class/subjects) | **Real** ✅ new, verified against live Supabase sessions this session | Dev D | `src/app/onboarding/`, `src/app/api/auth/onboarding/` |
 | Syllabus browser / Explorer | **Real** ✅ rebuilt — library layout: subject rail + Recent list (localStorage) + source-type segmented control + unit list (no question box) + continuous-scroll source-PDF reader (`SyllabusPdfReader`) with zoom, fullscreen modal, prev/next chapter; fed by `/api/ask/options`. `/api/syllabus` unchanged, still used only by `/quiz`. | Dev C | `src/app/(app)/syllabus/page.tsx`, `src/components/app/SyllabusPdfReader.tsx` |
 | Syllabus corpus | **Stub** (10 hardcoded, dev only) | Dev C | `src/lib/syllabus-data.ts` |
-| FBISE Syllabus Crawler | **Real** ✅ new, **unverified against live URLs** | — | `scripts/crawl.ts`, `data/crawl-sources.json`, `.github/workflows/weekly-crawl.yml` |
+| FBISE Syllabus Crawler | **Real** ✅ fully redesigned and verified live — thin orchestrator (`scripts/crawl.ts`) over single-responsibility modules under `src/lib/crawler/` (manifest loading, fetch, OCR, ToC/chapter/paper-boundary detection, noise filtering, PDF rebuild, ingest adapter). Manifest is `data/crawl-manifest/*.json` (Zod-validated; the old `data/crawl-sources.json` is kept only as a round-trip reference for `manifest-lint.ts`, no longer read by the crawler itself) | — | `scripts/crawl.ts`, `src/lib/crawler/`, `data/crawl-manifest/`, `.github/workflows/weekly-crawl.yml` |
 | Quiz persistence | **Real** ✅ — `/api/quiz/grade` persists quiz + attempt on submit only | Dev B | `src/lib/quiz/persist.ts` |
 | Quiz history + solved-paper view | **Real** ✅ new — `/quiz/history` (+ `[id]` detail): lists completed attempts (DB) **and** in-progress quizzes (client draft registry), replays the graded paper with a computed results summary (`src/lib/quiz/feedback.ts`); not in the sidebar, reached from a button on `/quiz` | — | `src/app/api/quiz/history/`, `src/app/(app)/quiz/history/` |
 | Resumable in-progress quizzes | **Real** ✅ DB-backed — `quiz_drafts` table (migration 0015). `/api/quiz` parks the quiz on generation for logged-in users + returns `draftId`; `GET /api/quiz/drafts`, `GET/PATCH/DELETE /api/quiz/drafts/[id]`. `/quiz` autosaves answers (debounced), resume via `/quiz?draft=<id>&subject=&chapterNo=`. Survive logout **and device change**. Deleted on submit (`/api/quiz/grade` `draftId`). Client `src/lib/quiz/drafts-api.ts` (localStorage module removed). | — | `supabase/migrations/0015_quiz_drafts.sql`, `src/app/api/quiz/drafts/`, `src/lib/quiz/drafts-api.ts` |
@@ -51,12 +51,14 @@ Legend: **Real** = works against live data · **Stub** = returns hardcoded or fa
 | Auth (signup/login) | **Real**, with demo bypass | Dev B | `src/app/api/auth/*` |
 | Urdu voice input (STT) | **Missing** | Dev B | planned Day 5 |
 
-**"Unverified" means it has never run once against a real service.** A Supabase project is now
-connected (the v2 migrations have executed; `/api/syllabus` reads the live — empty — database;
-the schema and both RPCs passed a 22-assertion torture suite with synthetic vectors, and the Jina
-embedding key returned a verified 1024-dim vector), but nobody has supplied source documents, so no
-real content has ever been embedded or stored. Do not report the retrieval path as working until
-`npm run ingest` has actually stored rows and a question has come back with a real embedding score.
+**Update (crawler redesign, 2026-09-04/05): the corpus is real now.** All 8 SSC textbooks (Physics,
+Chemistry, Biology, Mathematics × Class 9 and 10) are ingested with real per-chapter PDFs, plus
+past papers, marking schemes, and model papers across classes 9-12 for the subjects FBISE publishes
+them for. `select count(*) from content_chunks` returns real rows; `/api/ask` returns real embedding
+similarity scores (0.6-0.77 for genuinely on-syllabus questions, 0.3-0.4 for off-syllabus, verified
+across all 8 textbook subject/class combinations plus a live off-syllabus refusal check). The
+"nothing has run against a real service" state described below is history, not current status —
+kept for context on how the RLS/search_path bugs below were actually found.
 
 ---
 
@@ -129,22 +131,23 @@ questions and different field names.
 
 ## Still stubbed or missing
 
-**1. Nothing has run against a real service.** See the note above the table. This is the top
-priority — provision, ingest, verify, then recalibrate.
-
-**2. The local corpus fallback is still there, by design.** Without Supabase credentials,
+**1. The local corpus fallback is still there, by design.** Without Supabase credentials,
 retrieval keyword-ranks the ten hardcoded chunks so the frontend is workable offline. It logs a
 `[retrieval]` warning. Scores from that path are **not** embedding similarity — never calibrate
-against them or quote them.
+against them or quote them. (Confirmed absent from every live verification this session — the
+`[retrieval]` fallback warning never appeared once real Supabase credentials + real content were
+in place.)
 
-**3. Near-miss leakage — measured, real, unfixed.** `nm-003` ("Derive Ohm's law from the Drude
-model") scores 0.709 and is **answered**. False acceptance 11.1%, near-miss refusal 75%. The easy
-off-syllabus questions reported 100% the whole time. Fix by recalibrating against the real corpus.
+**2. Near-miss evaluation tooling was removed** (see the Eval rows above), so there is no
+automated near-miss-leakage regression check any more — the Progress & Mastery module replaced it
+for user-facing metrics, but nothing currently re-runs a synthetic near-miss set against the live
+corpus. If that class of check is wanted again, it needs rebuilding from scratch, not resurrecting
+the deleted `src/lib/evaluation/`.
 
-**4. Quiz results are not persisted.** `quizzes`, `quiz_questions`, `quiz_attempts` are unused.
-Once quizzes have real ids, grading can look the key up by id and `answer-key.ts` can be deleted.
+**3. Quiz results are persisted now** (see Quiz persistence / Quiz history rows above) —
+this item from the original list is resolved, not stubbed.
 
-**5. Urdu voice input is not built.**
+**4. Urdu voice input is not built.**
 
 ---
 
@@ -170,12 +173,14 @@ subject filter already in the code. Keep RLS on for `qa_log`, `quizzes`, and `qu
 
 The demo is safe to run in front of judges when all of these are true:
 
-- [ ] `select count(*) from content_chunks` returns real ingested rows
-- [ ] Retrieval queries Supabase, not `INITIAL_SYLLABUS_CHUNKS`
-- [ ] A refusal shows chapters genuinely nearest to the asked question
-- [ ] One embedding call per question, not eleven
-- [ ] No metric anywhere in the UI is a hardcoded string
-- [ ] Gemini failure produces an honest refusal, never a fabricated answer
-- [ ] Quiz discards questions whose citation doesn't validate
-- [ ] Thresholds calibrated against real score distributions on real content
-- [ ] The whole flow works on a phone, on conference wifi
+- [x] `select count(*) from content_chunks` returns real ingested rows
+- [x] Retrieval queries Supabase, not `INITIAL_SYLLABUS_CHUNKS`
+- [x] A refusal shows chapters genuinely nearest to the asked question
+- [x] One embedding call per question, not eleven
+- [x] No metric anywhere in the UI is a hardcoded string
+- [x] Gemini failure produces an honest refusal, never a fabricated answer
+- [x] Quiz discards questions whose citation doesn't validate
+- [ ] Thresholds calibrated against real score distributions on real content — informally
+      confirmed (on-syllabus 0.6-0.77 vs. off-syllabus 0.3-0.4 across all 8 SSC textbooks), but
+      no formal recalibration pass has been run since the near-miss eval tooling was removed
+- [ ] The whole flow works on a phone, on conference wifi — not verified this session

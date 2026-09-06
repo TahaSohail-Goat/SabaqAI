@@ -13,8 +13,11 @@ interface ActionCardProps {
 }
 
 // The dashboard's most important actions live here. "primary" gets a visibly stronger surface,
-// a solid (not tinted) icon container, and an always-visible CTA affordance — "secondary" stays
-// clearly clickable but quieter, so the two don't compete. See docs brief §8.
+// a tinted wash, a solid (not tinted) icon container, and an always-visible CTA affordance —
+// "secondary" stays clearly clickable but quieter, so the two don't compete. Primacy is carried
+// entirely by that visual weight (plus, on the dashboard, a wider column) rather than a badge —
+// a card announcing itself as "Start here" reads as a generated template; a card that's simply
+// bigger, richer, and first in reading order doesn't need to say so. See docs brief §8.
 export default function ActionCard({
   href,
   icon: Icon,
@@ -30,16 +33,16 @@ export default function ActionCard({
     <Link
       href={href}
       style={style}
-      className={`group relative flex flex-col rounded-2xl p-5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
+      className={`group relative flex flex-col overflow-hidden rounded-2xl p-5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
         isPrimary
-          ? 'bg-surface border border-border-strong shadow-md hover:shadow-lg hover:-translate-y-0.5 hover:border-brand/40'
+          ? 'bg-gradient-to-br from-brand-mint to-surface border border-border-strong shadow-md hover:shadow-lg hover:-translate-y-0.5 hover:border-brand/40'
           : 'bg-surface border border-border hover:border-border-strong hover:bg-surface-hover hover:-translate-y-0.5'
       } ${className}`}
     >
+      {/* A large, quiet watermark of the card's own icon — gives a tall hero card somewhere
+          for the eye to land instead of empty space, without competing with the real content. */}
       {isPrimary && (
-        <span className="absolute -top-2.5 left-5 rounded-full bg-brand px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
-          Start here
-        </span>
+        <Icon className="absolute -bottom-8 -right-8 w-40 h-40 text-brand/[0.07] pointer-events-none" />
       )}
 
       <div

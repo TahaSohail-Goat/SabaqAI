@@ -3,7 +3,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BookOpen, Maximize2, ShieldCheck, X, ZoomIn, ZoomOut } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
+// The legacy build (not the default 'pdfjs-dist' entry) — this component's top-level import
+// still executes once during Next's server-side prerender pass even though it's client-only,
+// and the default build assumes a browser and warns/misbehaves under Node.
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
 
 if (typeof window !== 'undefined') {
@@ -259,7 +262,7 @@ export default function SyllabusPdfReader({ pdfUrl, title }: SyllabusPdfReaderPr
   );
 
   const subline =
-    numPages > 0 ? `${numPages} pages — scroll to read` : 'The real source PDF — not a reconstruction.';
+    numPages > 0 ? `${numPages} pages. Scroll to read.` : 'The real source PDF, not a reconstruction.';
 
   if (expanded) {
     return (

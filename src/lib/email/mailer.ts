@@ -154,3 +154,19 @@ export function buildPasswordResetEmail(code: string): string {
       'If you did not request a password reset, you can safely ignore this email — your password will not change.',
   });
 }
+
+/** Builds the branded account-deletion OTP email body. This is the confirmation step for
+ *  every account, not just Google sign-in — Google/social accounts have no password to
+ *  re-enter, so email-code confirmation replaces the password check entirely rather than
+ *  branching between two different confirmation methods. */
+export function buildDeleteAccountEmail(code: string): string {
+  return otpEmailShell({
+    title: 'Confirm deleting your SabaqAI account',
+    heading: 'Confirm account deletion',
+    body: 'Use the 6-digit code below to permanently delete your account and everything tied to it.',
+    code,
+    expiryText: '2 minutes',
+    footer:
+      'If you did not request this, you can safely ignore this email — your account will not be deleted.',
+  });
+}

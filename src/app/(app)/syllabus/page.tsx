@@ -10,7 +10,9 @@ import SyllabusPdfReader from '@/components/app/SyllabusPdfReader';
 
 const EMPTY_SOURCES: AskSourceOption[] = ASK_SOURCE_TYPES.map((sourceType) => ({ sourceType, units: [] }));
 const RECENT_KEY = 'sabaqai-syllabus-recent';
-const RECENT_MAX = 6;
+// Higher now that the list scrolls internally (see the rail below) — there's no reason to
+// forget an opened document just because it's the 7th one, once scrolling makes room for it.
+const RECENT_MAX = 15;
 
 // Subject code -> the --color-subj-* utility (see globals.css @theme). Static map so Tailwind's
 // scanner sees every class literally; matches the suffixes already used in src/app/(app)/eval.
@@ -193,7 +195,7 @@ export default function SyllabusPage() {
               Documents you open show up here so you can jump back to them.
             </p>
           ) : (
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-0.5 max-h-64 overflow-y-auto pr-0.5">
               {recent.map((r) => {
                 const rMeta = ASK_SOURCE_META[r.sourceType];
                 return (
@@ -225,7 +227,7 @@ export default function SyllabusPage() {
           </div>
         ) : availableSources.length === 0 ? (
           <div className="bg-surface-muted border border-border rounded-2xl p-8 text-center text-sm text-text-2">
-            Nothing has been ingested for {board} Class {classLevel} {SUBJECT_LABELS[subject] ?? subject} yet.
+            Nothing has been added yet for {board} Class {classLevel} {SUBJECT_LABELS[subject] ?? subject}.
           </div>
         ) : !unit ? (
           /* Browse: pick a source type, then a chapter/paper */
@@ -258,7 +260,7 @@ export default function SyllabusPage() {
             )}
 
             <p className="text-xs text-text-2 px-1">
-              {SUBJECT_LABELS[subject] ?? subject} · {meta?.label} — {units.length}{' '}
+              {SUBJECT_LABELS[subject] ?? subject} · {meta?.label} · {units.length}{' '}
               {(meta?.unitNoun ?? 'item').toLowerCase()}
               {units.length === 1 ? '' : 's'}
             </p>

@@ -7,6 +7,10 @@ import { RoundedBoxGeometry } from 'three-stdlib';
 import * as THREE from 'three';
 import { useSubjectColor } from '@/lib/explore/subjectVisuals';
 import { getSubjectIcon } from '@/lib/explore/subjectIcons';
+import { type OrbitParams, advance, positionAt } from '@/lib/explore/orbits';
+
+// Reused across every book's frame update instead of allocating a Vector3 per book per frame.
+const scratchPosition = new THREE.Vector3();
 
 // Book dimensions, shared by every SubjectBook instance. The front cover hinges open around
 // the spine (the book's left edge, running along Y) — see the pivot group below.
@@ -184,17 +188,15 @@ export interface SubjectBookHandle {
   coverPivot: THREE.Group;
 }
 
-export type ExplorePhase = 'idle' | 'flying' | 'opening' | 'done';
+export type ExplorePhase = 'idle' | 'flying' | 'opening' | 'revealing' | 'done';
 
 interface SubjectBookProps {
   subjectCode: string;
   label: string;
   hasTextbook: boolean;
-  orbitRadius: number;
-  orbitSpeed: number;
-  initialAngle: number;
-  tiltX: number;
-  tiltZ: number;
+  params: OrbitParams;
+  /** Shared with this orbit's CometTrail so the wake's head tracks the book exactly. */
+  anomaly: { value: number };
   reducedMotion: boolean;
   phase: ExplorePhase;
   isTarget: boolean;
@@ -206,11 +208,8 @@ export default function SubjectBook({
   subjectCode,
   label,
   hasTextbook,
-  orbitRadius,
-  orbitSpeed,
-  initialAngle,
-  tiltX,
-  tiltZ,
+  params,
+  anomaly,
   reducedMotion,
   phase,
   isTarget,
@@ -223,10 +222,10 @@ export default function SubjectBook({
   const glowTex = useMemo(() => getGlowTexture(), []);
   const coverTex = useMemo(() => getCoverTexture(subjectCode, color, label), [subjectCode, color, label]);
 
-  const orbitRef = useRef<THREE.Group>(null);
   const bookRef = useRef<THREE.Group>(null);
   const coverPivotRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
+  const elapsed = useRef(0);
 
   useEffect(() => {
     if (bookRef.current && coverPivotRef.current) {
@@ -237,38 +236,52 @@ export default function SubjectBook({
   }, [subjectCode]);
 
   useFrame((_, delta) => {
-    if (!orbitRef.current) return;
-    // Frozen once a flight targets any book (the whole scene settles), and under reduced motion.
-    if (reducedMotion || phase !== 'idle') return;
-    orbitRef.current.rotation.y += delta * orbitSpeed;
+    if (!bookRef.current) return;
+
+    // Orbital motion freezes once a flight targets any book (the whole system settles so the
+    // camera has a stationary subject), and under reduced motion.
+    if (!reducedMotion && phase === 'idle') {
+      anomaly.value = advance(params, anomaly.value, delta);
+      elapsed.current += delta;
+    }
+
+    // The book is positioned directly on its ellipse rather than being carried around by a
+    // rotating parent group. That also removes the counter-rotation this used to need: the old
+    // nested groups spun the book's own frame with the orbit, so its front cover — which hinges
+    // about a LOCAL axis — pointed a different way depending on where it happened to be, and
+    // had to be spun back every frame to keep opening toward the camera. With no rotating
+    // ancestor there is nothing to undo; the frame is world-aligned by construction.
+    positionAt(params, anomaly.value, scratchPosition);
+
+    // A slow bob along the orbital normal, scaled per-subject by phase so the books aren't all
+    // rising and falling together.
+    const bob = reducedMotion ? 0 : Math.sin(elapsed.current * 0.6 + params.phase) * 0.08;
+    bookRef.current.position.set(scratchPosition.x, scratchPosition.y + bob, scratchPosition.z);
   });
 
   const canInteract = phase === 'idle';
 
   return (
-    <group rotation={[tiltX, 0, tiltZ]}>
-      <group ref={orbitRef} rotation-y={initialAngle}>
-        <group position={[orbitRadius, 0, 0]}>
-          <group
-            ref={bookRef}
-            scale={hovered && canInteract ? 1.08 : 1}
-            onPointerOver={(e) => {
-              if (!canInteract) return;
-              e.stopPropagation();
-              setHovered(true);
-              document.body.style.cursor = 'pointer';
-            }}
-            onPointerOut={(e) => {
-              e.stopPropagation();
-              setHovered(false);
-              document.body.style.cursor = 'auto';
-            }}
-            onClick={(e) => {
-              if (!canInteract) return;
-              e.stopPropagation();
-              onClick(subjectCode);
-            }}
-          >
+    <group
+      ref={bookRef}
+      scale={hovered && canInteract ? 1.08 : 1}
+      onPointerOver={(e) => {
+        if (!canInteract) return;
+        e.stopPropagation();
+        setHovered(true);
+        document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        setHovered(false);
+        document.body.style.cursor = 'auto';
+      }}
+      onClick={(e) => {
+        if (!canInteract) return;
+        e.stopPropagation();
+        onClick(subjectCode);
+      }}
+    >
             {/* Soft colored glow pad — a real textbook's presence, without ever gating the
                 click on it (every book stays clickable regardless). Replaces a harder ring
                 outline, which read as visually confusable with the big orbit-path traces. */}
@@ -328,16 +341,13 @@ export default function SubjectBook({
               </mesh>
             </group>
 
-            {(hovered || isTarget) && (
-              <Html center distanceFactor={8} position={[0, BOOK_HEIGHT / 2 + 0.35, 0]} occlude={false}>
-                <div className="pointer-events-none whitespace-nowrap rounded-full border border-border bg-surface/90 px-2.5 py-1 text-[11px] font-bold text-navy shadow-sm">
-                  {label}
-                </div>
-              </Html>
-            )}
-          </group>
-        </group>
-      </group>
+      {(hovered || isTarget) && (
+        <Html center distanceFactor={8} position={[0, BOOK_HEIGHT / 2 + 0.35, 0]} occlude={false}>
+          <div className="pointer-events-none whitespace-nowrap rounded-full border border-border bg-surface/90 px-2.5 py-1 text-[11px] font-bold text-navy shadow-sm">
+            {label}
+          </div>
+        </Html>
+      )}
     </group>
   );
 }

@@ -2,7 +2,7 @@
 -- Sabaq AI — schema v2 torture tests
 -- =============================================================================
 -- Proves the claims in docs/schema-proposal.md against the LIVE database:
---   structure (24 tables, RLS everywhere), CHECK/FK/UNIQUE enforcement,
+--   structure (31 tables, RLS everywhere), CHECK/FK/UNIQUE enforcement,
 --   ingest_document atomicity + idempotency + force mode, vector search correctness,
 --   the expanded view, and RLS visibility for the anon role.
 --
@@ -34,8 +34,8 @@ begin
   select count(*) into v_tables
   from information_schema.tables
   where table_schema = 'public' and table_type = 'BASE TABLE';
-  if v_tables <> 24 then
-    raise exception 'TEST FAILED: expected 24 tables, found %', v_tables;
+  if v_tables <> 31 then
+    raise exception 'TEST FAILED: expected 31 tables, found %', v_tables;
   end if;
 
   select count(*) into v_fks
@@ -56,7 +56,7 @@ begin
     raise exception 'TEST FAILED: expected >= 15 CHECK constraints, found %', v_checks;
   end if;
 
-  insert into test_results values (1, 'structure: 24 tables, FKs, CHECKs', true);
+  insert into test_results values (1, 'structure: 31 tables, FKs, CHECKs', true);
 end $$;
 
 -- RLS must be ENABLED on every public table — a table without it is a data leak.
@@ -69,7 +69,7 @@ begin
   ) then
     raise exception 'TEST FAILED: at least one public table has RLS disabled';
   end if;
-  insert into test_results values (2, 'RLS enabled on all 24 tables', true);
+  insert into test_results values (2, 'RLS enabled on all 31 tables', true);
 end $$;
 
 -- quiz_answer_keys must have ZERO policies: with RLS on and no policy, the answer key
@@ -88,13 +88,13 @@ end $$;
 -- Functions must be service-role only.
 do $$
 begin
-  if has_function_privilege('anon', 'public.match_content_chunks(vector,text,integer,text,integer)', 'EXECUTE') then
+  if has_function_privilege('anon', 'public.match_content_chunks(vector,text,integer,text,integer,text,integer)', 'EXECUTE') then
     raise exception 'TEST FAILED: anon can execute match_content_chunks';
   end if;
   if has_function_privilege('anon', 'public.ingest_document(jsonb,boolean)', 'EXECUTE') then
     raise exception 'TEST FAILED: anon can execute ingest_document';
   end if;
-  if not has_function_privilege('service_role', 'public.match_content_chunks(vector,text,integer,text,integer)', 'EXECUTE') then
+  if not has_function_privilege('service_role', 'public.match_content_chunks(vector,text,integer,text,integer,text,integer)', 'EXECUTE') then
     raise exception 'TEST FAILED: service_role cannot execute match_content_chunks';
   end if;
   if not has_function_privilege('service_role', 'public.ingest_document(jsonb,boolean)', 'EXECUTE') then
@@ -429,17 +429,23 @@ begin
 end $$;
 
 -- The curriculum filter must exclude everything outside the filter (invariant 6).
+-- Scoped to filter_chapter_no = 999 (this block's own synthetic marker, seeded above) rather
+-- than just board/class/subject: now that the live DB carries real FBISE curriculum content
+-- (Phase 1 of the crawler redesign — every SSC board/class/subject textbook is populated),
+-- an unscoped 'FBISE',10,'physics' probe would correctly find real chunks and falsely look
+-- like a leak. Real chapters never use chapter_no 999, so this keeps the negative control
+-- valid regardless of how much real content either board accumulates.
 do $$
 declare
   emb1 jsonb := (select jsonb_agg(case when g = 1 then 1 else 0 end order by g) from generate_series(1, 1024) g);
 begin
   if exists (
-    select 1 from match_content_chunks(emb1::text::vector, 'FBISE', 10, 'physics', 5)
+    select 1 from match_content_chunks(emb1::text::vector, 'FBISE', 10, 'physics', 5, null, 999)
   ) then
     raise exception 'TEST FAILED: search leaked across the board filter';
   end if;
   if exists (
-    select 1 from match_content_chunks(emb1::text::vector, 'PCTB', 9, 'physics', 5)
+    select 1 from match_content_chunks(emb1::text::vector, 'PCTB', 9, 'physics', 5, null, 999)
   ) then
     raise exception 'TEST FAILED: search leaked across the class filter';
   end if;

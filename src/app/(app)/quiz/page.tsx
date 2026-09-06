@@ -566,10 +566,10 @@ function QuizPageInner() {
         <div className="bg-surface border border-border rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 className="text-sm font-semibold text-navy">
-              {board} Class {classLevel} {SUBJECT_LABELS[selectedSubject] || selectedSubject} — Chapter {selectedChapter}
+              {board} Class {classLevel} {SUBJECT_LABELS[selectedSubject] || selectedSubject} · Chapter {selectedChapter}
             </h3>
             <p className="text-xs text-text-2">
-              {QUIZ_SCOPE_DESCRIPTION}, grounded in the ingested textbook — a fresh quiz every time.
+              {QUIZ_SCOPE_DESCRIPTION}, grounded in your textbook. A fresh quiz every time.
             </p>
           </div>
           <button
@@ -586,9 +586,9 @@ function QuizPageInner() {
 
       {isPartial && !quizLoading && quizQuestions.length > 0 && (
         <div className="text-xs text-navy bg-quiz-light border border-quiz-border rounded-lg px-3.5 py-2.5">
-          This chapter doesn't have enough ingested content yet for the full quiz size
+          This chapter doesn't have enough content yet for the full quiz size
           {effectiveCounts && (
-            <> — generated {effectiveCounts.mcq} MCQs, {effectiveCounts.short} short-answer and {effectiveCounts.long} long-answer questions instead.</>
+            <>, so we generated {effectiveCounts.mcq} MCQs, {effectiveCounts.short} short-answer and {effectiveCounts.long} long-answer questions instead.</>
           )}
         </div>
       )}
@@ -600,7 +600,7 @@ function QuizPageInner() {
             <div>
               <p className="text-xs font-semibold text-navy">Picked up your last quiz</p>
               <p className="text-[11px] text-text-2">
-                {answeredCount}/{quizQuestions.length} answered — carry on where you left off.
+                {answeredCount}/{quizQuestions.length} answered. Carry on where you left off.
               </p>
             </div>
           </div>
@@ -638,19 +638,19 @@ function QuizPageInner() {
       {chaptersLoading ? (
         <div className="bg-surface border border-border rounded-xl p-12 text-center space-y-3">
           <RefreshCw className="w-8 h-8 text-brand animate-spin mx-auto" />
-          <div className="text-sm text-navy-2">Checking what's been ingested for this subject...</div>
+          <div className="text-sm text-navy-2">Checking what's available for this subject...</div>
         </div>
       ) : chapters.length === 0 ? (
         <EmptyState
           icon={FileQuestion}
-          title="Nothing ingested yet"
-          message={`No content has been ingested for ${board} Class ${classLevel} ${SUBJECT_LABELS[selectedSubject] || selectedSubject} yet — quizzes can only be generated from chapters that are actually in the syllabus database.`}
+          title="Nothing added yet"
+          message={`No content is available yet for ${board} Class ${classLevel} ${SUBJECT_LABELS[selectedSubject] || selectedSubject}. Quizzes can only be generated from chapters that are actually in the syllabus.`}
         />
       ) : quizLoading ? (
         <div className="bg-surface border border-border rounded-xl p-12 text-center space-y-3">
           <RefreshCw className="w-8 h-8 text-brand animate-spin mx-auto" />
           <div className="text-sm text-navy-2">
-            Generating a fresh chapter quiz — this can take a little longer for larger quizzes...
+            Generating a fresh chapter quiz. This can take a little longer for larger quizzes...
           </div>
         </div>
       ) : quizError ? (
