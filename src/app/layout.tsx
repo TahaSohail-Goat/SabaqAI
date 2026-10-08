@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Fraunces } from 'next/font/google';
+import { Fraunces, Bricolage_Grotesque } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import './globals.css';
@@ -9,6 +9,17 @@ const fraunces = Fraunces({
   variable: '--font-display',
   weight: ['500', '600'],
   style: ['normal', 'italic'],
+});
+
+// A second display face, deliberately distinct from Fraunces above — scoped to the Dashboard's
+// own greeting heading only (see .font-dashboard-display in globals.css), not a site-wide swap.
+// A wide-set variable grotesque against Fraunces' warm editorial serif gives the one page a
+// student actually lands on every session its own character, without touching the serif
+// identity everything else (auth pages, the sidebar wordmark) already carries.
+const bricolage = Bricolage_Grotesque({
+  subsets: ['latin'],
+  variable: '--font-dashboard-display',
+  weight: ['600', '700'],
 });
 
 export const metadata: Metadata = {
@@ -22,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={fraunces.variable}>
+    <html lang="en" suppressHydrationWarning className={`${fraunces.variable} ${bricolage.variable}`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <script

@@ -11,6 +11,10 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+        with:
+          # This job never pushes back to the repo — no reason for the default GITHUB_TOKEN
+          # to persist in the local git config for a later step or third-party action to read.
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

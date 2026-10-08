@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AlertCircle, ArrowRight, ArrowLeft, AtSign, Check } from 'lucide-react';
 import SabaqLogoBadge from '@/components/SabaqLogoBadge';
 import AuthField from '@/components/AuthField';
-import { SUBJECTS } from '@/lib/subjects';
+import { SUBJECTS, isSubjectOfferedForClass } from '@/lib/subjects';
 
 // Mirrors the server-side check in /api/auth/onboarding — client-side copy exists only for
 // immediate feedback.
@@ -59,6 +59,14 @@ export default function OnboardingPage() {
   const toggleSubject = (code: string) => {
     setSubjects((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
   };
+
+  // Islamiyat/Pakistan Studies aren't both offered in the same HSSC year (see
+  // isSubjectOfferedForClass) — if a student picked one, then went back and changed their class
+  // to the year that doesn't study it, drop it from the selection rather than silently submit a
+  // subject that's no longer shown as a toggle.
+  useEffect(() => {
+    setSubjects((prev) => prev.filter((code) => isSubjectOfferedForClass(code, classLevel)));
+  }, [classLevel]);
 
   const usernameError = usernameTouched && username.trim() && !USERNAME_RE.test(username.trim())
     ? 'Username must be 3-20 characters — letters, numbers and underscores only.'
@@ -198,7 +206,7 @@ export default function OnboardingPage() {
               <h2 className="font-display text-2xl font-semibold text-navy">Your subjects</h2>
               <p className="text-sm text-text-2 mb-5">Pick everything you study — you can change this later in Settings.</p>
               <div className="grid grid-cols-2 gap-2.5">
-                {SUBJECTS.map((s) => {
+                {SUBJECTS.filter((s) => isSubjectOfferedForClass(s.code, classLevel)).map((s) => {
                   const selected = subjects.includes(s.code);
                   return (
                     <button

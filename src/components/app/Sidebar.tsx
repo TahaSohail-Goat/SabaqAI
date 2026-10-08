@@ -67,9 +67,20 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
   // desktop `<aside>` below; the mobile drawer always renders expanded regardless of the
   // desktop collapse preference, since it's a temporary overlay with plenty of width already.
   const renderBody = (rail: boolean) => (
-    <div className="flex h-full flex-col bg-surface-elevated">
-      {/* Logo */}
-      <div className={`flex items-center gap-2 pt-6 pb-5 ${rail ? 'flex-col px-2' : 'justify-between px-5'}`}>
+    <div
+      className="flex h-full flex-col"
+      // A soft sheen near the top, not a hue shift — color-mix nudges toward white by a small,
+      // fixed amount and fades back to the plain surface-elevated tone within the first
+      // quarter of the panel, so the contrast against the page (deliberately strengthened
+      // above) holds for the whole height below the logo row, where it actually matters for
+      // the nav items sitting on it.
+      style={{
+        background: `linear-gradient(180deg, color-mix(in srgb, var(--color-surface-elevated) 100%, white 7%) 0%, var(--color-surface-elevated) 26%)`,
+      }}
+    >
+      {/* Logo — border-b gives this row a clear "chrome" edge against the nav below, instead of
+          the two relying on padding alone to read as separate regions. */}
+      <div className={`flex items-center gap-2 pt-6 pb-5 mb-2 border-b border-border ${rail ? 'flex-col px-2' : 'justify-between px-5'}`}>
         <Link
           href="/dashboard"
           className={`flex items-center gap-2.5 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 rounded-lg ${rail ? 'flex-col' : ''}`}
@@ -84,7 +95,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
         <button
           type="button"
           onClick={onClose}
-          className={`p-1.5 rounded-lg text-text-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
+          className={`p-1.5 rounded-xl bg-surface-muted text-text-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
             rail ? 'hidden' : 'lg:hidden'
           }`}
           aria-label="Close menu"
@@ -96,7 +107,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
         <button
           type="button"
           onClick={onToggleCollapsed}
-          className={`hidden lg:flex items-center justify-center p-1.5 rounded-lg text-text-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
+          className={`hidden lg:flex items-center justify-center p-1.5 rounded-xl bg-surface-muted text-text-2 hover:bg-surface-hover hover:text-navy transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
             rail ? '' : 'shrink-0'
           }`}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -107,8 +118,8 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
       </div>
 
       {/* Nav */}
-      <nav className={`flex-1 overflow-y-auto space-y-6 ${rail ? 'px-2' : 'px-3'}`}>
-        <div className="space-y-1">
+      <nav className={`flex-1 space-y-6 ${rail ? 'px-2' : 'px-3'}`}>
+        <div className="space-y-1.5">
           {!rail && <p className="px-3.5 mb-1.5 text-[10px] font-bold text-text-2 uppercase tracking-wider">Workspace</p>}
           <NavItem href="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onClose} collapsed={rail} exact />
           <NavItem href="/doubts" icon={Search} label="Doubts" onNavigate={onClose} collapsed={rail} />
@@ -118,7 +129,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
           <NavItem href="/explore" icon={Orbit} label="Explore" onNavigate={onClose} collapsed={rail} />
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {!rail && <p className="px-3.5 mb-1.5 text-[10px] font-bold text-text-2 uppercase tracking-wider">Insights</p>}
           <NavItem href="/dashboard/progress" icon={TrendingUp} label="Progress" onNavigate={onClose} collapsed={rail} />
           <NavItem href="/dashboard/plan" icon={CalendarClock} label="Plan" onNavigate={onClose} collapsed={rail} />
@@ -157,7 +168,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2.5 px-3 py-2 mt-1 rounded-xl bg-surface-muted">
+            <div className="flex items-center gap-2.5 px-3 py-2 mt-1 rounded-xl bg-surface-muted border border-border hover:border-border-strong transition-colors">
               {profile?.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- avatars are user-uploaded
                 // Supabase Storage URLs, not build-time-known assets next/image can optimize.

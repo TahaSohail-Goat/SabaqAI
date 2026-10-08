@@ -42,12 +42,16 @@ function main() {
   check('all 4 loaded manifest files parse and validate against their schemas', true);
 
   // 2. Exact counts.
-  // 20, not the original 5 — Class 10 Physics/Chemistry/Biology were added 2026-09-04 (SSC-II
+  // 33, not the original 5 — Class 10 Physics/Chemistry/Biology were added 2026-09-04 (SSC-II
   // science was silently absent), Computer Science 9+10 were added 2026-09-06 (only
-  // model_paper/past_paper existed for that subject, no textbook at all), and HSSC-I/II
+  // model_paper/past_paper existed for that subject, no textbook at all), HSSC-I/II
   // Physics/Mathematics/Computer Science/Chemistry/Biology (classes 11-12, 10 entries) were
-  // added the same day at the user's explicit request to extend textbook coverage past SSC.
-  check('exactly 20 textbook entries', manifest.textbooks.length === 20, `got ${manifest.textbooks.length}`);
+  // added the same day to extend textbook coverage past SSC, and the arts subjects
+  // (English/Urdu/Islamiyat/Pakistan Studies, 13 entries — SSC-I/II English+Urdu+Islamiyat+
+  // Pakistan Studies, HSSC-I English+Urdu+Islamiyat, HSSC-II English+Urdu+Pakistan Studies) were
+  // added 2026-09-06 right after. Class 9 Islamiyat has NO textbook entry at all — confirmed no
+  // FBISE/NBF edition exists on taleem360, a real unresolved gap, not an oversight.
+  check('exactly 33 textbook entries', manifest.textbooks.length === 33, `got ${manifest.textbooks.length}`);
   check('exactly 33 model_paper entries', manifest.modelPapers.length === 33, `got ${manifest.modelPapers.length}`);
   // 83/61, not the naive 7 subjects x 4 classes x 3 years = 84: real gaps on fbise.edu.pk's
   // own "Old Question Paper.php" clean matrix (a few "#" placeholder links, and a block of
@@ -111,6 +115,10 @@ function main() {
     'fbise-11-chemistry-textbook', 'fbise-11-biology-textbook',
     'fbise-12-physics-textbook', 'fbise-12-mathematics-textbook', 'fbise-12-computer_science-textbook',
     'fbise-12-chemistry-textbook', 'fbise-12-biology-textbook',
+    'fbise-9-english-textbook', 'fbise-9-urdu-textbook', 'fbise-9-pakistan_studies-textbook',
+    'fbise-10-english-textbook', 'fbise-10-urdu-textbook', 'fbise-10-islamiyat-textbook', 'fbise-10-pakistan_studies-textbook',
+    'fbise-11-english-textbook', 'fbise-11-urdu-textbook', 'fbise-11-islamiyat-textbook',
+    'fbise-12-english-textbook', 'fbise-12-urdu-textbook', 'fbise-12-pakistan_studies-textbook',
   ]);
   const knownNewTuples = new Set(
     flat
@@ -120,7 +128,7 @@ function main() {
   extraInNew = extraInNew.filter((t) => !knownNewTuples.has(t));
 
   check('every old crawl-sources.json tuple exists in the new manifest', missingFromNew.length === 0, missingFromNew.join('; '));
-  check('the new manifest introduces no unexpected tuples beyond the old one plus the 15 known additions', extraInNew.length === 0, extraInNew.join('; '));
+  check('the new manifest introduces no unexpected tuples beyond the old one plus the 28 known additions', extraInNew.length === 0, extraInNew.join('; '));
 
   console.log('='.repeat(60));
   if (failures > 0) {

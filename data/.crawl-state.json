@@ -1211,5 +1211,95 @@
     "checksum": "32b26aabdb1f7fdbdda8882e8ff9c97f946293367c09f5bcce2cd9629c118b97",
     "lastProcessed": "2026-09-06T02:15:00.000Z",
     "status": "ok"
+  },
+  "fbise-9-islamiyat-past_paper-2024-bundle": {
+    "checksum": "09e564141f72d188d81bc16a9d1d93911c0d13b92cb150ca93c2af9334891867-rotfix",
+    "lastProcessed": "2026-09-06T07:54:47.879Z",
+    "status": "ok"
+  },
+  "fbise-9-pakistan_studies-past_paper-2024-bundle": {
+    "checksum": "09e564141f72d188d81bc16a9d1d93911c0d13b92cb150ca93c2af9334891867-rotfix",
+    "lastProcessed": "2026-09-06T07:54:47.880Z",
+    "status": "ok"
+  },
+  "fbise-10-islamiyat-past_paper-2024-bundle": {
+    "checksum": "56f920b2376f79f2c75d1989743f8494665709e69c070562c96b24834ce5a955-rotfix",
+    "lastProcessed": "2026-09-06T07:54:47.880Z",
+    "status": "ok"
+  },
+  "fbise-10-pakistan_studies-past_paper-2024-bundle": {
+    "checksum": "56f920b2376f79f2c75d1989743f8494665709e69c070562c96b24834ce5a955-rotfix",
+    "lastProcessed": "2026-09-06T07:54:47.880Z",
+    "status": "ok"
+  },
+  "fbise-12-pakistan_studies-past_paper-2024-bundle": {
+    "checksum": "43185b2a2c9fdda76924c9a77967580798c411008f515fa5052d37c4ec7ad76a-rotfix",
+    "lastProcessed": "2026-09-06T07:54:47.880Z",
+    "status": "ok"
+  },
+  "fbise-9-urdu-textbook": {
+    "checksum": "fdf0efd9d5e124497f452e16b17aa3065fe89f47659e390823e68bab2ed2bd83",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
+  },
+  "fbise-9-english-textbook": {
+    "checksum": "43c0eadcfec6be97b74cecb062fcb83f092edeb92c6d7587cf9c7094a7cbf89f",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
+  },
+  "fbise-10-english-textbook": {
+    "checksum": "d0913068fbb74567509709f7c4a9964bcc25b6f1e0120251c5a35b77aac76e6b",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
+  },
+  "fbise-11-english-textbook": {
+    "checksum": "65724b7768bd2dec62198dc4bee58a813bf1023df8fe3f2dc2f1b6b18e647aae",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
+  },
+  "fbise-12-english-textbook": {
+    "checksum": "e1af55d7590d4c3c60763e9513d1ce8e2dc5256a7ac11d8a1f6b46bb0fb6c778",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
+  },
+  "fbise-9-pakistan_studies-textbook": {
+    "checksum": "b0340938f19f70a3acbe624341e54eb0df1135caab65a7c25b375062bf5032d1",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
+  },
+  "fbise-10-pakistan_studies-textbook": {
+    "checksum": "59cb737d5af1e95c8bc5f601abc5c855a3d966fa35ba514f2de45eed08cbccf9",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
+  },
+  "fbise-12-pakistan_studies-textbook": {
+    "checksum": "3becbfbf9acff618f7f719945cfe1259c94fa2d62fca7536dc7b6f54d49484a6",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
+  },
+  "fbise-11-urdu-textbook": {
+    "checksum": "b643a02f00080745ce28204b175663482e152dcec4b7a950c27b0ba5e4793b7e",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
+  },
+  "fbise-10-urdu-textbook": {
+    "checksum": "f7501555017c34b71063443bf800022f5f4136382ea3a8ae95244c78fb1fc12b",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
+  },
+  "fbise-12-urdu-textbook": {
+    "checksum": "39b721c5c778bccc90f7c97e253aec32bdb8f722049a6b9e3a6604de8c22a1ad",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
+  },
+  "fbise-10-islamiyat-textbook": {
+    "checksum": "694bdfecb24de480d165e426a664a8a167021380111f8f8d5cb0750d59a1c12f",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
+  },
+  "fbise-11-islamiyat-textbook": {
+    "checksum": "de1160b6bf3d2e04724b6f5fcba8d341fb8d2d2c7c9e806c9111ba75884dd28c",
+    "lastProcessed": "2026-09-06T09:50:24.393Z",
+    "status": "ok"
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
+import { isSubjectOfferedForClass } from '@/lib/subjects';
 
 // Mirrors the server-side check in /api/auth/send-otp — client-side copy exists only for
 // immediate feedback, the server never trusts it.
@@ -32,6 +33,17 @@ export async function POST(req: NextRequest) {
     }
     if (!Array.isArray(subjects) || subjects.length === 0) {
       return NextResponse.json({ error: 'At least one subject is required.' }, { status: 400 });
+    }
+    // Islamiyat and Pakistan Studies aren't both offered in the same HSSC year — the client
+    // already only shows the one that applies, but this is the authoritative check.
+    const unofferedSubjects = subjects.filter(
+      (s: unknown) => typeof s === 'string' && !isSubjectOfferedForClass(s, classLevel)
+    );
+    if (unofferedSubjects.length > 0) {
+      return NextResponse.json(
+        { error: `${unofferedSubjects.join(', ')} is not offered for Class ${classLevel}.` },
+        { status: 400 }
+      );
     }
 
     const supabase = await createServerSupabaseClient();

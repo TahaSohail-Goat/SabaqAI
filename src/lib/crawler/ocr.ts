@@ -16,6 +16,13 @@ export interface OcrPage {
 
 const OCR_CACHE_DIR = path.join(process.cwd(), 'data', '.ocr-cache');
 const OCR_DPI = 150;
+// Urdu's cursive, right-to-left script loses more to rasterization at 150 DPI than Latin
+// script does — confirmed directly: a books' table-of-contents page (numbered entries with
+// page references) came back with illegible page numbers at 150 DPI but clean, consistent
+// ones at 300 DPI, same page, same tesseract settings otherwise. English textbooks have
+// OCR'd correctly at 150 DPI all session, so this only raises DPI for the language that
+// actually needs it, not everything.
+const OCR_DPI_URDU = 300;
 // The system tessdata directory (wherever the tesseract binary is installed) only ships
 // English by default on a typical Windows install — writing a new language file there would
 // need admin rights on `Program Files`. Keep Urdu project-local instead; English keeps using
@@ -23,6 +30,9 @@ const OCR_DPI = 150;
 // paths are affected by this at all).
 const PROJECT_TESSDATA_DIR = path.join(process.cwd(), 'data', '.tessdata');
 
+// `checksum` is always this codebase's own sha256() hex digest of the downloaded PDF bytes
+// (see fetch.ts) — a fixed 64-char [0-9a-f] string that structurally cannot contain '/' or
+// '..', not text from an external source.
 function cachePath(checksum: string): string {
   return path.join(OCR_CACHE_DIR, `${checksum}.json`);
 }
@@ -85,7 +95,7 @@ export function ocrPdfByPage(pdfBuf: Buffer, checksum: string, language: Crawler
   if (cached) return cached;
 
   const tesseractBin = resolveTesseractBinary();
-  const { dir, pages: rasterized } = rasterizePdfToPng(pdfBuf, OCR_DPI);
+  const { dir, pages: rasterized } = rasterizePdfToPng(pdfBuf, language === 'ur' ? OCR_DPI_URDU : OCR_DPI);
   try {
     const tessLang = tessLangFor(language);
     const tessArgs = tessLang === 'urd' && fs.existsSync(path.join(PROJECT_TESSDATA_DIR, 'urd.traineddata'))

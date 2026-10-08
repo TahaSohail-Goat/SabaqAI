@@ -1,14 +1,32 @@
+<div align="center">
+
+<img src="src/app/icon.svg" width="84" height="84" alt="Sabaq AI logo" />
+
 # Sabaq AI
 
 **A syllabus-grounded AI study companion for Pakistani board students.**
 
-Live demo: **[sabaq-ai-three.vercel.app](https://sabaq-ai-three.vercel.app)**
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=20&pause=1200&color=1BB56B&center=true&vCenter=true&width=680&lines=Answers+strictly+from+the+student's+own+syllabus;Cites+the+exact+chapter+and+page%2C+every+time;Refuses+honestly+instead+of+guessing;English%2C+Urdu%2C+and+Roman+Urdu" alt="What Sabaq AI does, animated" />
 
-Answers questions strictly from the student's own board, class, and subject syllabus — real
-textbook and past-paper content, in English, Urdu, or Roman Urdu — and always shows the exact
-chapter and page it drew from. When a question falls outside what the syllabus covers, the app
-says so and points to the nearest chapters instead of guessing. Built for the **Bano Qabil AI
-Hackathon 2026** (Education category).
+[![Live demo](https://img.shields.io/badge/demo-live-1BB56B?style=flat-square&logo=vercel&logoColor=white)](https://sabaq-ai-three.vercel.app)
+[![CI](https://img.shields.io/github/actions/workflow/status/TahaSohail-Goat/SabaqAI/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/TahaSohail-Goat/SabaqAI/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-1BB56B?style=flat-square)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js&logoColor=white)](package.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white)](package.json)
+[![Last commit](https://img.shields.io/github/last-commit/TahaSohail-Goat/SabaqAI?style=flat-square&color=1BB56B)](https://github.com/TahaSohail-Goat/SabaqAI/commits/main)
+
+Built for the **Bano Qabil AI Hackathon 2026** (Education category).
+
+</div>
+
+---
+
+### Contents
+
+[Why](#why) · [What it does](#what-it-does) · [Content scope](#content-scope) ·
+[How grounding works](#how-grounding-works) · [Stack](#stack) · [Run it locally](#run-it-locally) ·
+[Folder map](#folder-map) · [Syllabus crawler](#syllabus-crawler) · [Docs](#docs) ·
+[Contributing](#contributing) · [Changelog](#changelog) · [License](#license)
 
 ## Why
 
@@ -35,9 +53,11 @@ Auth supports email/password (with OTP email verification) and Google OAuth.
 ## Content scope
 
 FBISE board, classes 9–12. Past papers and model papers are ingested across all nine subjects at
-every class level; full textbooks are ingested for Physics, Chemistry, Biology, and Mathematics
-(classes 9–10 complete, expansion ongoing). The board/class/subject schema is curriculum-agnostic —
-adding another board or class is a content-ingestion exercise, not a rebuild.
+every class level; full textbooks are verified live for Physics, Chemistry, Biology, and
+Mathematics (classes 9–10), with additional subjects and the HSSC (11–12) textbooks ingested in
+code and expanding. The board/class/subject schema is curriculum-agnostic — adding another board
+or class is a content-ingestion exercise, not a rebuild. `docs/project-status.md` has the current
+verified-vs-in-progress breakdown.
 
 ## How grounding works
 
@@ -92,9 +112,12 @@ npm run ingest               # embed data/source/*.json → Supabase
 ```
 
 A weekly GitHub Action (`.github/workflows/weekly-crawl.yml`) keeps the FBISE corpus current
-automatically — see [Syllabus Crawler](#syllabus-crawler) below.
+automatically — see [Syllabus crawler](#syllabus-crawler) below.
 
 ## Folder map
+
+<details>
+<summary>Expand</summary>
 
 ```
 src/app/(app)/     the app shell: dashboard, doubts, chat, quiz, syllabus, explore, settings
@@ -107,6 +130,8 @@ data/                crawl manifest + source docs (never committed)
 supabase/migrations/ full schema history
 docs/                architecture, setup, and submission docs
 ```
+
+</details>
 
 ## Syllabus crawler
 
@@ -134,6 +159,9 @@ Requires the `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `EMBEDDING_API_KEY
 
 ## Docs
 
+<details>
+<summary>Expand</summary>
+
 | File | What's in it |
 | --- | --- |
 | `docs/setup.md` | Accounts, keys, first run |
@@ -146,3 +174,21 @@ Requires the `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `EMBEDDING_API_KEY
 Some docs under `docs/` (`project-status.md`, `build-plan.md`) are working notes from early
 development and describe an earlier, mostly-stubbed state of the project — the feature list above
 reflects what's actually live today.
+
+</details>
+
+## Contributing
+
+Bug reports and PRs are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first — it covers setup,
+the non-negotiable product invariants (things like "the LLM is never called on refuse"), and what
+CI checks before a PR can merge. AI coding agents should read [AGENTS.md](AGENTS.md) instead — the
+fuller version this guide is derived from.
+
+## Changelog
+
+Every notable change, grouped by day and drawn directly from merged PRs, lives in
+[CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Taha Sohail

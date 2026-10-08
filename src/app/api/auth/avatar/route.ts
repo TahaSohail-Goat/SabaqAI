@@ -76,7 +76,11 @@ export async function POST(req: NextRequest) {
 
     // Store as avatars/<user_id>/avatar.<ext> — a fixed path per user so re-uploading
     // replaces the file in place (no orphaned objects accumulate in the bucket). Extension
-    // comes from the validated format, never the client-supplied filename.
+    // comes from the validated format, never the client-supplied filename. Neither piece of
+    // this path is attacker-controlled: user.id is Supabase's own verified auth UUID (never
+    // the request body), and format.ext is a fixed lookup by validated MIME type (see
+    // ALLOWED_FORMATS above) — there's no client-supplied string anywhere in this path for a
+    // '../' style traversal to reach.
     const storagePath = `${user.id}/avatar.${format.ext}`;
 
     const { error: uploadError } = await admin.storage

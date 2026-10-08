@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useScope } from '@/components/app/ScopeContext';
 import ExploreScene from '@/components/explore/ExploreScene';
 import BookReaderOverlay from '@/components/explore/BookReaderOverlay';
-import { ALL_SUBJECT_CODES, SUBJECT_LABELS } from '@/lib/subjects';
+import { ALL_SUBJECT_CODES, SUBJECT_LABELS, subjectsForClassLevel } from '@/lib/subjects';
 import type { ExploreOverviewResponse } from '@/lib/types';
 
 export default function ExplorePage() {
@@ -14,7 +14,9 @@ export default function ExplorePage() {
 
   // Anonymous/no-profile sessions see every subject rather than collapsing to one — Explore's
   // whole point is showing multiple books, unlike Ask's single-subject `?? [subject]` fallback.
-  const enrolledSubjects = profile?.subjects ?? ALL_SUBJECT_CODES;
+  // Still excludes whichever of Islamiyat/Pakistan Studies this classLevel doesn't offer (see
+  // subjectsForClassLevel) — a signed-in profile's subjects are already filtered server-side.
+  const enrolledSubjects = profile?.subjects ?? subjectsForClassLevel(ALL_SUBJECT_CODES, classLevel);
 
   const [overview, setOverview] = useState<ExploreOverviewResponse | null>(null);
   const [readerSubject, setReaderSubject] = useState<string | null>(null);

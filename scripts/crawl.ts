@@ -258,6 +258,9 @@ async function processFlatDocument(
     return;
   }
 
+  // slugify() (below) strips everything but [a-z0-9] to '-', so entry.subject/sourceType —
+  // themselves only ever from this repo's own committed crawl-sources.json, not a live
+  // request — can never carry a '/' or '..' into this path.
   const filename = `fbise-${entry.classLevel}-${slugify(entry.subject)}-${slugify(entry.sourceType)}${year ? `-${year}` : ''}.json`;
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   fs.writeFileSync(path.join(OUTPUT_DIR, filename), JSON.stringify(doc, null, 2), 'utf8');

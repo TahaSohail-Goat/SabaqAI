@@ -8,6 +8,7 @@ import { cookies } from 'next/headers';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
 import { ACTIVITY_COOKIE_NAME, activityCookieOptions, isActivityFresh } from '@/lib/auth/session-activity';
+import { subjectsForClassLevel } from '@/lib/subjects';
 import type { Language } from '@/lib/types';
 
 export interface CurrentUser {
@@ -90,7 +91,10 @@ export async function getCurrentUserAndProfile(): Promise<CurrentUserResult> {
         board: profileRow.board_code,
         classLevel: profileRow.class_level,
         examDate: profileRow.exam_date,
-        subjects: (subjectRows ?? []).map((r) => r.subject_code),
+        // student_subjects enrolls every student in all 9 seeded subjects regardless of class
+        // (see 0009_missing_subjects.sql) — filtered here, at the single shared read path, so
+        // an HSSC student never sees the subject their class doesn't actually study.
+        subjects: subjectsForClassLevel((subjectRows ?? []).map((r) => r.subject_code), profileRow.class_level),
         avatarUrl: row?.avatar_url ?? null,
         language: row?.preferred_language === 'ur' ? 'ur' : 'en',
       };

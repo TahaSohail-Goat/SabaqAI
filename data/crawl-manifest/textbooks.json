@@ -238,5 +238,161 @@
       "https://www.taleem360.com/download/federal-board-2nd-year-biology-new-text-book-2025-pdf"
     ],
     "comment": "Real FBISE Class 12 (HSSC-II) Biology textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 alongside the rest of the HSSC-II set. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1XPihVQJwZTtFUmBbBBm2-7PMajGJxNUm)."
+  },
+  {
+    "id": "fbise-9-english-textbook",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "english",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/9th-class-english-text-book-federal-board-pdf"
+    ],
+    "comment": "Real FBISE Class 9 (SSC-I) English textbook (National Book Foundation). Added 2026-09-06 as part of the arts-subjects batch (English/Urdu/Islamiyat/Pakistan Studies). Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1DBgLXL0elv-1bnpWEkd4nGjIQIGHRp30)."
+  },
+  {
+    "id": "fbise-9-urdu-textbook",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "urdu",
+    "sourceType": "textbook",
+    "language": "ur",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/federal-board-9th-class-urdu-text-book-2025-pdf"
+    ],
+    "comment": "Real FBISE Class 9 (SSC-I) Urdu textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 as part of the arts-subjects batch. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1-akKcH_zTHEAWVHNDbxuClKRYFrJNrue)."
+  },
+  {
+    "id": "fbise-9-pakistan_studies-textbook",
+    "board": "FBISE",
+    "classLevel": 9,
+    "subject": "pakistan_studies",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/fbise-9th-class-pak-studies-em-new-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 9 (SSC-I) Pakistan Studies textbook, English Medium (National Book Foundation, New SNC 2025 edition — an Urdu Medium edition also exists on taleem360 but this app is English-medium throughout). Added 2026-09-06 as part of the arts-subjects batch. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1UQ91pjYvuOpKVLpmYLLYLGls47NQX8Ns)."
+  },
+  {
+    "id": "fbise-10-english-textbook",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "english",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/10th-class-english-federal-board-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 10 (SSC-II) English textbook (National Book Foundation). Added 2026-09-06 as part of the arts-subjects batch. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1DPZNkv3wIltXa56FdVZGQKRna_UznKH_)."
+  },
+  {
+    "id": "fbise-10-urdu-textbook",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "urdu",
+    "sourceType": "textbook",
+    "language": "ur",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/10th-class-urdu-federal-board-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 10 (SSC-II) Urdu textbook (National Book Foundation). Added 2026-09-06 as part of the arts-subjects batch. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1vsyShuo3WiObdJrOhCAPS2vusDewn6zl)."
+  },
+  {
+    "id": "fbise-10-islamiyat-textbook",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "islamiyat",
+    "sourceType": "textbook",
+    "language": "ur",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/10th-class-islamiat-new-federal-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 10 (SSC-II) Islamiat textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 as part of the arts-subjects batch. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1y0nw9jSX6sx14vlq3BbFRGeyWId89X2o)."
+  },
+  {
+    "id": "fbise-10-pakistan_studies-textbook",
+    "board": "FBISE",
+    "classLevel": 10,
+    "subject": "pakistan_studies",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/10th-class-pak-studies-federal-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 10 (SSC-II) Pakistan Studies textbook, English Medium (National Book Foundation, New SNC 2025 edition — a Urdu Medium edition also exists on taleem360 but this app is English-medium throughout). Added 2026-09-06 as part of the arts-subjects batch. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 16YgsNYQ8qqCl01NWOaB1XUV3FTVJ9dQu)."
+  },
+  {
+    "id": "fbise-11-english-textbook",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "english",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/11th-class-english-new-federal-text-book-2025-pdf"
+    ],
+    "comment": "Real FBISE Class 11 (HSSC-I) English textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 as part of the arts-subjects batch. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1NJITeYL8cydYsBn8BEndN4404rlMkYTu)."
+  },
+  {
+    "id": "fbise-11-urdu-textbook",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "urdu",
+    "sourceType": "textbook",
+    "language": "ur",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/1st-year-urdu-new-snc-federal-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 11 (HSSC-I) Urdu textbook (National Book Foundation, New SNC 2025 edition). Added 2026-09-06 as part of the arts-subjects batch. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1meVlJQFUrR3DSQ7D_HDfteJ3WbWHXqpu)."
+  },
+  {
+    "id": "fbise-11-islamiyat-textbook",
+    "board": "FBISE",
+    "classLevel": 11,
+    "subject": "islamiyat",
+    "sourceType": "textbook",
+    "language": "ur",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/11th-class-islamiat-new-snc-federal-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 11 (HSSC-I) Islamiat textbook (National Book Foundation, New SNC 2025 edition) — Islamiyat is examined in HSSC-I only (see subjectsForClassLevel in src/lib/subjects.ts), so Class 12 gets no Islamiyat textbook entry. Added 2026-09-06 as part of the arts-subjects batch. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1C6_k-goRGeQTEi1_Svc6jJ-kn8OO0QWu)."
+  },
+  {
+    "id": "fbise-12-english-textbook",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "english",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/federal-board-12th-class-english-snc-new-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 12 (HSSC-II) English textbook (National Book Foundation, New SNC edition). Added 2026-09-06 as part of the arts-subjects batch. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 18C-IZ3Ot-ZKruBX2G51f0wEWQjNv3tTd)."
+  },
+  {
+    "id": "fbise-12-urdu-textbook",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "urdu",
+    "sourceType": "textbook",
+    "language": "ur",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/fbise-12th-class-urdu-new-snc-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 12 (HSSC-II) Urdu textbook (National Book Foundation, New SNC edition). Added 2026-09-06 as part of the arts-subjects batch. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1AW1pSqk2Fv5G5NN7WSJQtY58p6kYyJJG)."
+  },
+  {
+    "id": "fbise-12-pakistan_studies-textbook",
+    "board": "FBISE",
+    "classLevel": 12,
+    "subject": "pakistan_studies",
+    "sourceType": "textbook",
+    "language": "en",
+    "candidateUrls": [
+      "https://www.taleem360.com/download/2nd-year-pak-studies-snc-federal-text-book-pdf"
+    ],
+    "comment": "Real FBISE Class 12 (HSSC-II) Pakistan Studies textbook, English Medium/SNC edition (National Book Foundation) — Pakistan Studies is examined in HSSC-II only (see subjectsForClassLevel in src/lib/subjects.ts), so Class 11 gets no Pakistan Studies textbook entry. Added 2026-09-06 as part of the arts-subjects batch. Verified via direct HTTP HEAD: taleem360's /download/ URL 302s to a distinct real Google Drive file (id 1UTgMAtFuzhTa1A7F9FIFNeNEL0KSmA-d)."
   }
 ]
