@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
-import { getSourcePdfUrl } from '@/lib/storage/source-pdfs';
+import { getSourcePdfUrl, SOURCE_PDF_BUCKET } from '@/lib/storage/source-pdfs';
 import { displayChapterTitle, type AskOptionsResponse, type AskSourceOption, type AskSourceType } from '@/lib/types';
 
 const DEFAULT_BOARD = 'FBISE';
@@ -17,6 +17,9 @@ const DEFAULT_CLASS_LEVEL = 10;
 const DEFAULT_SUBJECT = 'physics';
 
 const SOURCE_TYPES: AskSourceType[] = ['textbook', 'past_paper', 'model_paper'];
+// A database-only restore keeps Storage paths but loses the bytes. In recovery mode, check
+// the actual bucket so each restored chapter can show its PDF while missing ones use OCR.
+const verifyPdfPresence = process.env.SOURCE_PDF_BYTES_AVAILABLE === 'false';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -49,6 +52,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(empty);
   }
 
+  const storagePrefix = `${board.toLowerCase()}/${classLevel}/${subject}`;
+  const availablePdfPaths = new Set<string>();
+  if (verifyPdfPresence) {
+    const { data: files, error: storageError } = await admin.storage
+      .from(SOURCE_PDF_BUCKET)
+      .list(storagePrefix, { limit: 1000 });
+    if (storageError) {
+      console.error('ask/options PDF listing failed:', storageError.message);
+    } else {
+      for (const file of files ?? []) availablePdfPaths.add(`${storagePrefix}/${file.name}`);
+    }
+  }
+
   const bySourceType = new Map<AskSourceType, AskSourceOption['units']>(
     SOURCE_TYPES.map((sourceType) => [sourceType, []])
   );
@@ -72,7 +88,9 @@ export async function GET(req: NextRequest) {
       units.push({
         chapterNo: row.chapter_no,
         chapterTitle: displayChapterTitle(sourceType, row.chapter_no, row.chapter_title, subject),
-        pdfUrl: source.storage_path ? getSourcePdfUrl(admin, source.storage_path) : null,
+        pdfUrl: source.storage_path && (!verifyPdfPresence || availablePdfPaths.has(source.storage_path))
+          ? getSourcePdfUrl(admin, source.storage_path)
+          : null,
         pageFrom: pageNumbers.length > 0 ? Math.min(...pageNumbers) : null,
       });
     }

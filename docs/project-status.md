@@ -1,5 +1,37 @@
 # Project status — what is real and what is a stub
 
+## Local disaster recovery snapshot — 2026-10-09
+
+The D: drive PostgreSQL backup has been restored into a **separate local Supabase stack** on
+`127.0.0.1:54321`; the hosted project and original backup were not changed. The local database
+contains 8,594 content chunks, each with content and a 1,024-dimensional embedding, 494
+chapters, 8,491 sections, 24 restored auth users, 41 restored quizzes, and 12 restored quiz
+attempts. A separate local demo user and smoke-test quizzes/attempts were added after restore.
+The app's `.env.local` points at the local stack. Retrieval, an on-syllabus answer with a
+stored-row citation, an off-syllabus refusal, email/password login, quiz generation, grading,
+and quiz history were exercised through the local app. `npm run lint` and `npm run build` pass.
+
+The backup included Storage bucket and object metadata but **not the PDF or avatar file bytes**.
+All 33 original textbook PDFs were downloaded and checked against their saved crawl SHA-256
+checksums; 377 standalone chapter PDFs were uploaded to local Storage. The live options API
+returns PDF URLs for all 377 textbook units. All 121 past-paper and model-paper rows now also
+have verified local PDF links: 115 originals matched saved crawl checksums, five upright 2024
+subject excerpts came from checksum-matched FBISE bundles, and one legacy duplicate Chemistry
+model row uses the same verified 2025 source. The five previously null paper Storage paths were
+filled locally; OCR and embeddings were unchanged. `SOURCE_PDF_BYTES_AVAILABLE=false` makes the
+options API check which Storage objects exist before offering a PDF. Avatars are still missing.
+All 28 2022 past papers now point to separate JPEG-based readable copies after a browser check
+found that PDF.js painted a blank page from the original Class 9 CCITT-scanned PDF. The original
+2022 PDF objects remain in local Storage; readable copies were browser-rendered across Classes
+9–12. OCR and embeddings were unchanged.
+The local Google OAuth client ID and user-provided secret are
+configured, its authorization redirect was checked, and the user confirmed Google login works.
+See
+[local-recovery.md](local-recovery.md) for exact startup and remaining steps.
+
+The historical status below records the earlier hosted project state; the local recovery
+snapshot above describes the restored textbook PDFs and Google login.
+
 **This is the most important doc in the repo for the next seven days.** The README describes the
 target system. This file describes the system that actually exists today. Keep it honest, and
 update it the moment a row changes — four people guessing at each other's progress is how a

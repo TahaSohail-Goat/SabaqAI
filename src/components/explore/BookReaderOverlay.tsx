@@ -8,6 +8,7 @@ import { X, ChevronLeft, ChevronRight, BookOpen, ShieldCheck } from 'lucide-reac
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { AskOptionsResponse, AskUnit } from '@/lib/types';
+import AskDocumentReader from '@/components/app/AskDocumentReader';
 
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
@@ -42,7 +43,7 @@ export default function BookReaderOverlay({ subjectCode, subjectLabel, board, cl
       .then((data: AskOptionsResponse) => {
         if (cancelled) return;
         const textbook = data.sources.find((s) => s.sourceType === 'textbook');
-        const units = (textbook?.units ?? []).filter((u): u is AskUnit & { pdfUrl: string } => Boolean(u.pdfUrl));
+        const units = textbook?.units ?? [];
         if (units.length === 0) {
           setLoadError("This book isn't available to read yet.");
           return;
@@ -127,7 +128,19 @@ export default function BookReaderOverlay({ subjectCode, subjectLabel, board, cl
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand/20 border-t-brand" />
             </div>
           ) : (
-            <BookChapterPage key={activeChapter.chapterNo} title={activeChapter.chapterTitle ?? `Chapter ${activeChapter.chapterNo}`} pdfUrl={activeChapter.pdfUrl!} />
+            activeChapter.pdfUrl ? (
+              <BookChapterPage key={activeChapter.chapterNo} title={activeChapter.chapterTitle ?? `Chapter ${activeChapter.chapterNo}`} pdfUrl={activeChapter.pdfUrl} />
+            ) : (
+              <AskDocumentReader
+                key={activeChapter.chapterNo}
+                board={board}
+                classLevel={classLevel}
+                subject={subjectCode}
+                sourceType="textbook"
+                unit={activeChapter}
+                activeCitation={null}
+              />
+            )
           )}
         </div>
       </div>

@@ -7,6 +7,7 @@ import { useScope } from '@/components/app/ScopeContext';
 import { SUBJECTS, SUBJECT_LABELS, isSubjectOfferedForClass } from '@/lib/subjects';
 import { ASK_SOURCE_META, ASK_SOURCE_TYPES } from '@/lib/ask/source-meta';
 import SyllabusPdfReader from '@/components/app/SyllabusPdfReader';
+import AskDocumentReader from '@/components/app/AskDocumentReader';
 
 const EMPTY_SOURCES: AskSourceOption[] = ASK_SOURCE_TYPES.map((sourceType) => ({ sourceType, units: [] }));
 const RECENT_KEY = 'sabaqai-syllabus-recent';
@@ -320,11 +321,23 @@ export default function SyllabusPage() {
             </div>
 
             <div className="bg-surface border border-border rounded-2xl p-5 sticky top-24 h-[calc(100vh-9rem)] flex flex-col">
-              <SyllabusPdfReader
-                key={`${sourceType}-${unit.chapterNo}`}
-                pdfUrl={unit.pdfUrl}
-                title={readerTitle(unit)}
-              />
+                {unit.pdfUrl ? (
+                  <SyllabusPdfReader
+                    key={`${sourceType}-${unit.chapterNo}`}
+                    pdfUrl={unit.pdfUrl}
+                    title={readerTitle(unit)}
+                  />
+                ) : (
+                  <AskDocumentReader
+                    key={`${sourceType}-${unit.chapterNo}`}
+                    board={board}
+                    classLevel={classLevel}
+                    subject={subject}
+                    sourceType={sourceType}
+                    unit={unit}
+                    activeCitation={null}
+                  />
+                )}
             </div>
           </div>
         )}
