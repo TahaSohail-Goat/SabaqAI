@@ -5,6 +5,10 @@
 Implemented the shared header bell/preview, sidebar entry, and `/notifications` inbox with
 read/unread/archive/restore, selected-item bulk actions, undo, All/Unread/Archived views,
 category/title filters, mark-all-read, pagination, and persisted category/popup preferences.
+Single and selected-item Delete actions are available in inbox/archive with confirmation.
+Deletion clears display text and hides the update from all views, counts and authenticated
+direct reads. A tombstone/event key prevents sync from recreating it; saved plans/quiz results
+are preserved. Deleted updates cannot be restored.
 New unread receipts show dismissible bottom-right popups while the app is open. The initial
 backlog is suppressed, read/archive changes do not replay receipts, and source event time is
 kept separate from receipt time. Archive remains accessible with categories disabled; restoring
@@ -14,7 +18,8 @@ deterministically derived from owned saved exam plans and completed quiz attempt
 curriculum scope. Exam reminders use Asia/Karachi calendar days. No model or delivery provider
 is called, and the planner's scheduling algorithm and mastery computation are unchanged.
 
-Migrations `0019_notifications.sql` and `0020_notification_popups.sql` were applied to the
+Migrations `0019_notifications.sql`, `0020_notification_popups.sql` and
+`0021_notification_deletion.sql` were applied to the
 separate local recovery database only.
 The self-rolling-back `supabase/tests/002_notifications.sql` passed ownership/RLS, write-grant,
 deduplication, read/archive/receipt-time preservation, popup defaults, and cascade checks.
@@ -24,7 +29,11 @@ archive access, bulk actions, search/category filters, strict input validation, 
 preferences, and actual plan/quiz destination routes passed. The computed plan was identical before and after notification
 actions; the inactivity-cookie value stayed unchanged across passive notification requests.
 
-`npm run test:notifications` passes fifteen cases, covering calendar boundaries, event keys,
+Delete-from-archive and bulk delete-from-inbox API checks also passed: deleted ids stayed absent
+after sync, rejected further read/archive/restore/delete actions, and left source plans intact.
+SQL checks confirmed deleted-row RLS exclusion, cleared text and tombstone deduplication.
+
+`npm run test:notifications` passes sixteen cases, covering calendar boundaries, event keys,
 curriculum filtering, category preferences, source immutability, validation, owner-filtered
 actions, archive restore, bounded bulk requests, popup backlog/deduplication/preference rules,
 and actionable client errors. Lint and production build passed. Playwright exercised archive,
@@ -35,6 +44,9 @@ marking read and opening the specific plan, and the saved quiz-result page. Popu
 are removed after testing; the ignored browser screenshots are under `output/playwright/`.
 Local browser logs include pre-existing unavailable `/_vercel/*` telemetry assets, the expected
 offline-test request error, and resource-limited prefetch failures for Chat/Doubts on this machine.
+The subsequent Delete confirmation/cancel browser checks could not complete because Windows
+ran out of memory launching/operating Playwright. The new deletion behavior was checked through
+unit, real-auth API and SQL tests; the earlier browser results above apply to the existing flows.
 
 The delivery phases and rollout prerequisites are in [notifications-plan.md](notifications-plan.md).
 This release syncs every 15 seconds while visible, on navigation/focus, and after successful

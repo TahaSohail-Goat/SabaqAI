@@ -15,7 +15,8 @@ General Chat and grounded Doubts retain their existing trust boundaries.
 
 ## Phase 1 — persistence and deterministic events (implemented)
 
-Apply `supabase/migrations/0019_notifications.sql` and `0020_notification_popups.sql` before
+Apply `supabase/migrations/0019_notifications.sql`, `0020_notification_popups.sql` and
+`0021_notification_deletion.sql` before
 releasing the application change. They add notifications/preferences, separate receipt time
 from source event time, and persist popup preferences. Defaults enable all categories and popups.
 
@@ -88,11 +89,17 @@ activity-cookie refresh, explicit missing-migration state, repeatable sync and n
   show the unread count; the collapsed rail has an unread indicator and accessible count label.
 - `/notifications` provides All/Unread/Archived views, category and title filters, newest-first
   cards, per-item read/unread/archive/restore, selected-item read/archive/restore, undo for
-  archive/restore actions, mark-all-read, preferences, refresh, and previous/next pagination.
+  archive/restore actions, single/selected delete with confirmation, mark-all-read, preferences,
+  refresh, and previous/next pagination.
 - Archived updates live in the Archived tab and leave the unread badge. Their original read
   state and expiry remain intact. They can be found/restored even if a category is disabled;
   enable that category to see restored messages in the inbox. Expired messages are not shown
-  in any view; physical deletion remains deferred. There is no separate trash or permanent-delete UI.
+  in any view; physical deletion remains deferred.
+- Delete is available in both inbox and archive, with an irreversible-action confirmation.
+  It removes the update from all lists, badges and popups without deleting its saved plan/quiz.
+  Display text is cleared; a hidden tombstone retains the event key and source/scope metadata
+  to prevent recreation by sync. Direct authenticated reads also exclude deleted rows. There
+  is no trash/restore path for deleted updates. Account/source cascades still remove tombstones.
 - New unread receipts show bottom-right popups, up to three at a time. Initial backlog,
   repeated refreshes, restored messages and preference changes do not replay alerts. Popups
   dismiss after 12 seconds, pause while hovered/focused, and have Dismiss/Open controls.
@@ -127,7 +134,7 @@ Only start these after the in-app release has been observed with real student us
 
 ## Rollout and verification
 
-1. Back up the target database and apply migrations 0019–0020 through the normal migration workflow.
+1. Back up the target database and apply migrations 0019–0021 through the normal migration workflow.
    Local recovery uses `.recovery/` and must remain separate from the hosted project.
 2. Run `supabase/tests/002_notifications.sql` against that environment. It rolls back all fixtures.
 3. Run `npm run test:notifications`, `npm run lint`, and `npm run build`.

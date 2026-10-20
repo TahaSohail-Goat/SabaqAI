@@ -1,4 +1,4 @@
--- Self-rolling-back isolation/integrity checks. Run after migrations 0019–0020.
+-- Self-rolling-back isolation/integrity checks. Run after migrations 0019–0021.
 begin;
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-000000001901', 'notifications-test-a@example.invalid'),
@@ -54,6 +54,27 @@ do $$ declare original_read timestamptz; original_received timestamptz; begin
   if exists (select 1 from notifications where user_id = '00000000-0000-4000-8000-000000001901'
     and (archived_at is not null or read_at is distinct from original_read or received_at is distinct from original_received))
     then raise exception 'Restore changed read/receipt state'; end if;
+end $$;
+
+update notifications set deleted_at = now(), title = '', body = ''
+where user_id = '00000000-0000-4000-8000-000000001901';
+set local role authenticated;
+do $$ begin
+  if exists (select 1 from notifications) then raise exception 'Deleted notification visible through RLS'; end if;
+end $$;
+reset role;
+insert into notifications (user_id, event_key, kind, board_code, class_level, subject_code, plan_id, title, body, href, expires_at)
+select user_id, 'test:' || id, 'plan_created', board_code, class_level, subject_code, id,
+  'Saved plan', 'Repeated event after deletion', '/dashboard/plan?plan=' || id, now() + interval '1 day'
+from exam_plans where id = '00000000-0000-4000-8000-000000001911'
+on conflict (user_id, event_key) do nothing;
+do $$ begin
+  if (select count(*) from notifications where user_id = '00000000-0000-4000-8000-000000001901') <> 1
+    then raise exception 'Deleted event lost its deduplication key'; end if;
+  if exists (select 1 from notifications where user_id = '00000000-0000-4000-8000-000000001901'
+    and (deleted_at is null or title <> '' or body <> '')) then raise exception 'Sync resurrected deleted content'; end if;
+  if not exists (select 1 from exam_plans where id = '00000000-0000-4000-8000-000000001911')
+    then raise exception 'Deletion removed the source plan'; end if;
 end $$;
 
 delete from exam_plans where id = '00000000-0000-4000-8000-000000001911';

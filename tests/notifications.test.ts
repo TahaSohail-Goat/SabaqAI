@@ -86,6 +86,7 @@ test('restore clears only archive state and enforces archived, expiry and owners
     eq(key: string, value: unknown) { calls.push([key, value]); return this; },
     in(key: string, value: unknown) { calls.push([key, value]); return this; },
     gt(key: string) { calls.push(['expiry', key]); return this; },
+    is(key: string, value: unknown) { calls.push([key, value]); return this; },
     not(key: string, operator: string, value: unknown) { calls.push([key, [operator, value]]); return this; },
     async select() { return { data: [{ id: attempt.id }], error: null }; },
   };
@@ -93,8 +94,32 @@ test('restore clears only archive state and enforces archived, expiry and owners
   await applyNotificationAction({ admin, userId: 'owner', scope }, { action: 'restore_many', ids: [attempt.id, attempt.id] });
   assert.deepEqual(calls, [
     ['update', { archived_at: null }], ['user_id', 'owner'], ['board_code', 'FBISE'], ['class_level', 10],
-    ['subject_code', ['physics']], ['expiry', 'expires_at'], ['archived_at', ['is', null]], ['id', [attempt.id]],
+    ['subject_code', ['physics']], ['deleted_at', null], ['expiry', 'expires_at'], ['archived_at', ['is', null]], ['id', [attempt.id]],
   ]);
+});
+
+test('deletion scrubs text and retains a tombstone with owner/scope checks across inbox and archive', async () => {
+  for (const action of [{ action: 'delete', id: attempt.id }, { action: 'delete_many', ids: [attempt.id] }] as const) {
+    const calls: [string, unknown][] = [];
+    const query = {
+      update(value: unknown) { calls.push(['update', value]); return this; },
+      eq(key: string, value: unknown) { calls.push([key, value]); return this; },
+      in(key: string, value: unknown) { calls.push([key, value]); return this; },
+      is(key: string, value: unknown) { calls.push([key, value]); return this; },
+      gt(key: string) { calls.push(['expiry', key]); return this; },
+      async select() { return { data: [{ id: attempt.id }], error: null }; },
+    };
+    const admin = { from: () => query } as unknown as SupabaseClient;
+    const request = action.action === 'delete' ? action : { ...action, ids: [...action.ids] };
+    await applyNotificationAction({ admin, userId: 'owner', scope }, request);
+    const patch = calls[0][1] as { deleted_at: string; title: string; body: string };
+    assert.ok(Number.isFinite(Date.parse(patch.deleted_at)));
+    assert.equal(patch.title, ''); assert.equal(patch.body, '');
+    assert.deepEqual(calls.slice(1), [
+      ['user_id', 'owner'], ['board_code', 'FBISE'], ['class_level', 10], ['subject_code', ['physics']],
+      ['deleted_at', null], ['expiry', 'expires_at'], ['id', action.action === 'delete' ? attempt.id : [attempt.id]],
+    ]);
+  }
 });
 
 const message: StudyNotification = {

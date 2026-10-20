@@ -121,12 +121,24 @@ try {
   const attemptId = history.attempts[0].id;
   await ok(`/api/quiz/history/${attemptId}`);
   assert.equal((await request(`/quiz/history/${attemptId}`)).status, 200);
+  // Delete from both archive and inbox; preserve source plans and deduplication across sync.
+  await ok('/api/notifications', 'PATCH', { action: 'archive', id: ids[0] });
+  await ok('/api/notifications', 'PATCH', { action: 'delete', id: ids[0] });
+  await ok('/api/notifications', 'PATCH', { action: 'delete_many', ids: ids.slice(1) });
+  await ok('/api/notifications/sync', 'POST');
+  for (const view of ['inbox', 'unread', 'archived']) {
+    assert.ok(!(await all(view)).some(item => ids.includes(item.id)), 'Deleted message reappeared in ' + view);
+  }
+  for (const action of ['restore', 'read', 'archive', 'delete']) assert.equal((await request('/api/notifications', 'PATCH', { action, id: ids[0] })).status, 404);
+  assert.equal((await request('/api/notifications', 'PATCH', { action: 'delete', id: ids[0], user_id: randomUUID() })).status, 400);
+  assert.equal((await request('/api/notifications', 'PATCH', { action: 'delete_many', ids: [] })).status, 400);
+  assert.deepEqual((await ok(`/api/dashboard/plan/${plans[0]}`)).days, scheduleBefore.days, 'Deleting notifications changed the source plan.');
   passed = true;
   if (keep) {
     fs.writeFileSync(fixturePath, JSON.stringify({ planIds: plans, savedPreferences, attemptId }));
     fs.writeFileSync('.recovery/notifications-browser-state.json', JSON.stringify({ cookies: [...jar].map(([name, value]) => ({ name, value, domain: new URL(base).hostname, path: '/', expires: -1, httpOnly: false, secure: false, sameSite: 'Lax' })), origins: [] }));
   }
-  console.log('PASS: real-auth routes, pagination, deduplication, archive/restore/read status, disabled-category archive, bulk actions, search/filter validation, unchanged schedule/session, and plan/quiz destinations.');
+  console.log('PASS: real-auth routes, pagination, deduplication, archive/restore/read status, disabled-category archive, bulk actions, search/filter validation, unchanged schedule/session, plan/quiz destinations, and deletion surviving sync without removing source plans.');
 } finally {
   if (!keep || !passed) {
     for (const id of plans) await request(`/api/dashboard/plan/${id}`, 'DELETE');

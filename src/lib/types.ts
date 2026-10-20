@@ -219,5 +219,5 @@ export interface NotificationInboxResponse {
 
 export type NotificationActionRequest =
   | { action: 'mark_all_read' }
-  | { action: 'read' | 'unread' | 'archive' | 'restore'; id: string }
-  | { action: 'archive_many' | 'restore_many' | 'read_many'; ids: string[] };
+  | { action: 'read' | 'unread' | 'archive' | 'restore' | 'delete'; id: string }
+  | { action: 'archive_many' | 'restore_many' | 'read_many' | 'delete_many'; ids: string[] };

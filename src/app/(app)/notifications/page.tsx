@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Archive, ArchiveRestore, ArrowUpRight, Bell, BookOpen, CalendarClock, CheckCheck, ChevronLeft, ChevronRight, ClipboardCheck, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowUpRight, Bell, BookOpen, CalendarClock, CheckCheck, ChevronLeft, ChevronRight, ClipboardCheck, RefreshCw, SlidersHorizontal, Trash2 } from 'lucide-react';
 import { fetchNotificationJson, useNotifications } from '@/components/app/NotificationContext';
 import { useScope } from '@/components/app/ScopeContext';
 import EmptyState from '@/components/app/EmptyState';
@@ -68,19 +68,21 @@ export default function NotificationsPage() {
   const inbox = defaultView ? data : pageDataKey === resultKey ? pageData : null;
   const visibleError = pageError ?? error;
   const selectedIds = selected.filter(id => inbox?.items.some(item => item.id === id));
-  const update = async (item: StudyNotification, action: 'read' | 'unread' | 'archive' | 'restore') => {
+  const update = async (item: StudyNotification, action: 'read' | 'unread' | 'archive' | 'restore' | 'delete') => {
+    if (action === 'delete' && !window.confirm('Delete this notification from your inbox and archive? This cannot be undone. Your saved plan or quiz result will be kept.')) return;
     if (await act({ action, id: item.id })) {
       setPage(0); setSelected([]);
       setUndo(action === 'archive' ? { action: 'restore', id: item.id } : action === 'restore' ? { action: 'archive', id: item.id } : null);
-      setFeedback(action === 'archive' ? 'Notification moved to Archived.' : action === 'restore' ? 'Restored with its original read status. Enable its category to see it in your inbox.' : action === 'read' ? 'Marked as read.' : 'Marked as unread.');
+      setFeedback(action === 'delete' ? 'Notification deleted.' : action === 'archive' ? 'Notification moved to Archived.' : action === 'restore' ? 'Restored with its original read status. Enable its category to see it in your inbox.' : action === 'read' ? 'Marked as read.' : 'Marked as unread.');
     }
   };
-  const bulk = async (action: 'read_many' | 'archive_many' | 'restore_many') => {
+  const bulk = async (action: 'read_many' | 'archive_many' | 'restore_many' | 'delete_many') => {
     const ids = selectedIds;
+    if (action === 'delete_many' && !window.confirm(`Delete ${ids.length} selected notifications from your inbox and archive? This cannot be undone. Your saved plans and quiz results will be kept.`)) return;
     if (await act({ action, ids })) {
       setPage(0); setSelected([]);
       setUndo(action === 'archive_many' ? { action: 'restore_many', ids } : action === 'restore_many' ? { action: 'archive_many', ids } : null);
-      setFeedback(action === 'archive_many' ? 'Selected updates moved to Archived.' : action === 'restore_many' ? 'Selected updates restored. Enable their categories to see them in your inbox.' : 'Selected updates marked as read.');
+      setFeedback(action === 'delete_many' ? 'Selected notifications deleted.' : action === 'archive_many' ? 'Selected updates moved to Archived.' : action === 'restore_many' ? 'Selected updates restored. Enable their categories to see them in your inbox.' : 'Selected updates marked as read.');
     }
   };
 
@@ -128,6 +130,7 @@ export default function NotificationsPage() {
       {inbox && inbox.items.length > 0 && !visibleError && <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
         <label className="flex min-h-10 items-center gap-2 text-xs text-text-2"><input type="checkbox" aria-label="Select all on this page" checked={selectedIds.length === inbox.items.length} disabled={busy} onChange={event => setSelected(event.target.checked ? inbox.items.map(item => item.id) : [])} className="h-4 w-4 accent-brand" />{selectedIds.length ? `${selectedIds.length} selected` : 'Select page'}</label>
         {selectedIds.length > 0 && (view === 'archived' ? <button className={buttonClass} disabled={busy} onClick={() => void bulk('restore_many')}><ArchiveRestore className="h-4 w-4" /> Restore selected</button> : <><button className={buttonClass} disabled={busy} onClick={() => void bulk('read_many')}>Mark selected read</button><button className={buttonClass} disabled={busy} onClick={() => void bulk('archive_many')}>Archive selected</button></>)}
+        {selectedIds.length > 0 && <button type="button" className={buttonClass} disabled={busy} onClick={() => void bulk('delete_many')}><Trash2 className="h-4 w-4" /> Delete selected</button>}
         <span className="ml-auto text-xs text-text-2">{inbox.totalCount} {inbox.totalCount === 1 ? 'update' : 'updates'}</span>
       </div>}
       {visibleError ? <div role="status" className="space-y-3 p-6 text-sm text-text-2"><p>{visibleError}</p><button type="button" className={buttonClass} onClick={() => { setPage(0); void refresh(true); }}>Try again</button></div>
@@ -148,6 +151,7 @@ export default function NotificationsPage() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     {!item.archivedAt && <button type="button" className={buttonClass} disabled={busy} onClick={() => void update(item, item.readAt ? 'unread' : 'read')}>{item.readAt ? 'Mark unread' : 'Mark read'}</button>}
                     <button type="button" className={buttonClass} disabled={busy} onClick={() => void update(item, item.archivedAt ? 'restore' : 'archive')}>{item.archivedAt ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}{item.archivedAt ? 'Restore' : 'Archive'}</button>
+                    <button type="button" className={buttonClass} disabled={busy} onClick={() => void update(item, 'delete')}><Trash2 className="h-3.5 w-3.5" /> Delete</button>
                   </div>
                 </div>
               </li>;

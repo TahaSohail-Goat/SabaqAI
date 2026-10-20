@@ -12,8 +12,8 @@ import {
 
 export const notificationActionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('mark_all_read') }).strict(),
-  z.object({ action: z.enum(['read', 'unread', 'archive', 'restore']), id: z.uuid() }).strict(),
-  z.object({ action: z.enum(['archive_many', 'restore_many', 'read_many']), ids: z.array(z.uuid()).min(1).max(50) }).strict(),
+  z.object({ action: z.enum(['read', 'unread', 'archive', 'restore', 'delete']), id: z.uuid() }).strict(),
+  z.object({ action: z.enum(['archive_many', 'restore_many', 'read_many', 'delete_many']), ids: z.array(z.uuid()).min(1).max(50) }).strict(),
 ]);
 export const notificationPreferencesSchema = z.object({
   examReminders: z.boolean(), planUpdates: z.boolean(), quizResults: z.boolean(), popups: z.boolean(),
@@ -51,7 +51,7 @@ export async function notificationContext(): Promise<NotificationContext> {
 function databaseError(error: { code?: string; message: string }): never {
   console.error('Notifications database error:', error.code, error.message);
   if (['42P01', '42703', 'PGRST205', 'PGRST204'].includes(error.code ?? '')) {
-    throw new NotificationError('Notifications need database migrations 0019–0020. See docs/notifications-plan.md.');
+    throw new NotificationError('Notifications need database migrations 0019–0021. See docs/notifications-plan.md.');
   }
   throw new NotificationError('Notifications could not be updated. Try again shortly. See docs/notifications-plan.md if this continues.');
 }
@@ -85,7 +85,7 @@ function inboxQuery(context: NotificationContext, kinds: NotificationKind[], now
     .select('id, kind, title, body, href, created_at, read_at, archived_at, received_at', { count: 'exact', head })
     .eq('user_id', context.userId).eq('board_code', context.scope.board).eq('class_level', context.scope.classLevel)
     .in('subject_code', context.scope.subjects).in('kind', kinds)
-    .gt('expires_at', now);
+    .is('deleted_at', null).gt('expires_at', now);
 }
 
 export async function readNotificationInbox(context: NotificationContext, options: NotificationQuery): Promise<NotificationInboxResponse> {
@@ -177,12 +177,14 @@ export async function syncNotifications(context: NotificationContext) {
 export async function applyNotificationAction(context: NotificationContext, action: z.infer<typeof notificationActionSchema>) {
   const now = new Date().toISOString();
   const restore = action.action === 'restore' || action.action === 'restore_many';
-  const patch = restore ? { archived_at: null } : action.action === 'archive' || action.action === 'archive_many' ? { archived_at: now }
+  const remove = action.action === 'delete' || action.action === 'delete_many';
+  // Retain the event key so sync cannot recreate a deleted update. Remove its display text.
+  const patch = remove ? { deleted_at: now, title: '', body: '' } : restore ? { archived_at: null } : action.action === 'archive' || action.action === 'archive_many' ? { archived_at: now }
     : { read_at: action.action === 'unread' ? null : now };
   let query = context.admin.from('notifications').update(patch)
     .eq('user_id', context.userId).eq('board_code', context.scope.board).eq('class_level', context.scope.classLevel)
-    .in('subject_code', context.scope.subjects).gt('expires_at', now);
-  query = restore ? query.not('archived_at', 'is', null) : query.is('archived_at', null);
+    .in('subject_code', context.scope.subjects).is('deleted_at', null).gt('expires_at', now);
+  if (!remove) query = restore ? query.not('archived_at', 'is', null) : query.is('archived_at', null);
   if (action.action === 'mark_all_read') {
     const kinds = enabledNotificationKinds(await readNotificationPreferences(context));
     if (!kinds.length || !context.scope.subjects.length) return;
