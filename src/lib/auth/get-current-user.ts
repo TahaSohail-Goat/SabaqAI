@@ -33,7 +33,9 @@ export interface CurrentUserResult {
   configured: boolean;
 }
 
-export async function getCurrentUserAndProfile(): Promise<CurrentUserResult> {
+export async function getCurrentUserAndProfile(
+  { refreshActivity = true }: { refreshActivity?: boolean } = {},
+): Promise<CurrentUserResult> {
   const supabase = await createServerSupabaseClient();
   if (!supabase) {
     return { user: null, profile: null, configured: false };
@@ -54,7 +56,10 @@ export async function getCurrentUserAndProfile(): Promise<CurrentUserResult> {
     return { user: null, profile: null, configured: true };
   }
   try {
-    cookieStore.set(ACTIVITY_COOKIE_NAME, Date.now().toString(), activityCookieOptions());
+    // Passive inbox refreshes must not keep an unattended session alive indefinitely.
+    if (refreshActivity) {
+      cookieStore.set(ACTIVITY_COOKIE_NAME, Date.now().toString(), activityCookieOptions());
+    }
   } catch {
     // Called from a Server Component (e.g. (app)/layout.tsx) — can't write cookies there.
     // Fine: middleware refreshes the same cookie for page navigations, and Route Handlers

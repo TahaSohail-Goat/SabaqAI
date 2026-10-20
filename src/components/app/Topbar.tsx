@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, Sun, Moon, Settings } from 'lucide-react';
 import { useScope } from './ScopeContext';
+import NotificationBell from './NotificationBell';
 
 type Theme = 'light' | 'dark';
 
@@ -21,6 +22,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/dashboard/progress': { title: 'Progress', subtitle: 'How you’re doing in each chapter, from your real quiz scores.' },
   '/dashboard/plan': { title: 'Plan', subtitle: 'A day-by-day revision schedule built around your exam date.' },
   '/settings': { title: 'Settings', subtitle: 'Your profile, study scope, and appearance.' },
+  '/notifications': { title: 'Notifications', subtitle: 'Study reminders and updates from your saved activity.' },
 };
 
 function metaFor(pathname: string | null) {
@@ -87,6 +89,7 @@ export default function Topbar({ onOpenSidebar }: TopbarProps) {
             but that's a scroll/expand away on a collapsed rail; this puts it one click from
             every page, right beside the other global control (theme). Filled instead of
             outlined while already on /settings, matching how a NavItem shows "you're here". */}
+        <NotificationBell />
         <Link
           href="/settings"
           aria-label="Settings"

@@ -12,6 +12,7 @@ import {
   Orbit,
   TrendingUp,
   CalendarClock,
+  Bell,
   Settings,
   LogOut,
   LogIn,
@@ -25,6 +26,7 @@ import NavItem from './NavItem';
 import SabaqLogoBadge from '@/components/SabaqLogoBadge';
 import { useScope } from './ScopeContext';
 import { clearAllPageProgress } from '@/lib/persist/page-progress';
+import { useNotifications } from './NotificationContext';
 
 interface SidebarProps {
   open: boolean;
@@ -40,6 +42,8 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
   // user/profile come from ScopeContext, resolved server-side by (app)/layout.tsx before this
   // ever renders — no client fetch, no "shows the old thing for a moment" gap on this footer.
   const { user, profile } = useScope();
+  const { data: notifications, error: notificationError } = useNotifications();
+  const unread = notificationError ? 0 : notifications?.unreadCount ?? 0;
   const [confirmingLogout, setConfirmingLogout] = useState(false);
 
   const handleLogout = async () => {
@@ -118,7 +122,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
       </div>
 
       {/* Nav */}
-      <nav className={`flex-1 space-y-6 ${rail ? 'px-2' : 'px-3'}`}>
+      <nav className={`min-h-0 flex-1 space-y-6 overflow-y-auto pb-2 ${rail ? 'px-2' : 'px-3'}`}>
         <div className="space-y-1.5">
           {!rail && <p className="px-3.5 mb-1.5 text-[10px] font-bold text-text-2 uppercase tracking-wider">Workspace</p>}
           <NavItem href="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onClose} collapsed={rail} exact />
@@ -137,7 +141,8 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
       </nav>
 
       {/* Footer */}
-      <div className={`mt-auto border-t border-border space-y-2 ${rail ? 'p-2' : 'p-3'}`}>
+      <div className={`mt-auto shrink-0 border-t border-border space-y-2 ${rail ? 'p-2' : 'p-3'}`}>
+        <NavItem href="/notifications" icon={Bell} label="Notifications" badge={unread ? (unread > 99 ? '99+' : String(unread)) : undefined} onNavigate={onClose} collapsed={rail} />
         <NavItem href="/settings" icon={Settings} label="Settings" onNavigate={onClose} collapsed={rail} />
 
         {user ? (
