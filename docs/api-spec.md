@@ -1,5 +1,33 @@
 # API spec
 
+## Notifications (M15)
+
+All four endpoints require a real signed-in session and completed profile. Owner and curriculum
+scope come from the server, never the request body. These passive requests do not refresh the
+inactivity cookie. Apply migration `0019_notifications.sql` before deploying the routes.
+
+- `GET /api/notifications?offset=0&unread=false`: read-only, 20-row pages; non-negative numeric
+  offset below 100000. `unread` is optional and accepts only `true` or `false`. Returns
+  `NotificationInboxResponse`: `items`, `unreadCount`, `totalCount`, `hasMore`, `preferences`.
+  `totalCount` follows the chosen All/Unread filter; unreadCount always covers all enabled
+  categories in the current scope. Archived and expired rows are excluded. No-store response.
+- `POST /api/notifications/sync`: no body needed. Generates idempotent in-app receipts from
+  current saved plans and recent completed attempts; returns `{ success: true }`.
+- `PATCH /api/notifications`: body `{ action: 'read' | 'unread' | 'archive', id: '<uuid>' }` or
+  `{ action: 'mark_all_read' }`; returns `{ success: true }`. Unknown/extra fields are rejected.
+- `PATCH /api/notifications/preferences`: body contains all three boolean fields
+  `{ examReminders, planUpdates, quizResults }`; returns `{ preferences }`.
+
+Each item contains `id`, `kind`, `title`, `body`, `href`, `createdAt` and nullable `readAt`.
+Kinds are `exam_reminder`, `plan_created`, `quiz_completed`; destinations are internal plan or
+solved-quiz routes. Errors use `{ error: string }`: 400 invalid input, 401 missing/expired auth,
+403 incomplete onboarding, 404 unavailable notification, 503 missing configuration/migration
+or a database failure. No fabricated notifications or unread count are returned on failure.
+
+See [notifications-plan.md](notifications-plan.md) for event/expiry rules and later phases.
+
+---
+
 Every route lives in `src/app/api/`. All requests and responses are JSON. Types are defined once
 in `src/lib/types.ts` — the app and this doc agree on them, so change the type file, not just this
 page.

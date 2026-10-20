@@ -2,6 +2,7 @@
 
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { CalendarClock, Flag, Moon, Plus, Trash2, ChevronLeft, RefreshCw, Award, Sparkles, ArrowRight, Play, X } from 'lucide-react';
 import { useScope } from '@/components/app/ScopeContext';
 import EmptyState from '@/components/app/EmptyState';
@@ -154,6 +155,7 @@ function useHorizontalScroll<T extends HTMLElement>() {
 }
 
 export default function PlanPage() {
+  const requestedPlan = useSearchParams().get('plan');
   const { board, classLevel, profile } = useScope();
   const enrolledSubjects = profile?.subjects?.length ? profile.subjects : [];
 
@@ -262,7 +264,7 @@ export default function PlanPage() {
     }
   };
 
-  const openDetail = (id: string) => {
+  const openDetail = useCallback((id: string) => {
     setView('detail');
     setDetail(null);
     setDetailError(null);
@@ -276,7 +278,12 @@ export default function PlanPage() {
         setDetail(data);
       })
       .catch(() => setDetailError('Could not reach the server.'));
-  };
+  }, []);
+
+  // Notification links open the persisted plan; the scheduling algorithm is unchanged.
+  useEffect(() => {
+    if (requestedPlan && /^[0-9a-f-]{36}$/i.test(requestedPlan)) openDetail(requestedPlan);
+  }, [requestedPlan, openDetail]);
 
   const deletePlan = async (id: string) => {
     await fetch(`/api/dashboard/plan/${id}`, { method: 'DELETE' }).catch(() => {});

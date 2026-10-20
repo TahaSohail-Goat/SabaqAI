@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
+    "test:notifications": "tsx --test tests/notifications.test.ts",
     "ingest": "tsx scripts/ingest.ts",
     "crawl": "tsx scripts/crawl.ts",
     "crawl:dry": "tsx scripts/crawl.ts --dry-run"

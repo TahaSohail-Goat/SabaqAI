@@ -184,3 +184,34 @@ export interface ExploreOverviewResponse {
   classLevel: number;
   subjects: ExploreSubjectSummary[];
 }
+
+// In-app notifications. Message text is built from persisted events, never model output.
+export type NotificationKind = 'exam_reminder' | 'plan_created' | 'quiz_completed';
+
+export interface StudyNotification {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  href: string;
+  createdAt: string;
+  readAt: string | null;
+}
+
+export interface NotificationPreferences {
+  examReminders: boolean;
+  planUpdates: boolean;
+  quizResults: boolean;
+}
+
+export interface NotificationInboxResponse {
+  items: StudyNotification[];
+  unreadCount: number;
+  totalCount: number;
+  hasMore: boolean;
+  preferences: NotificationPreferences;
+}
+
+export type NotificationActionRequest =
+  | { action: 'mark_all_read' }
+  | { action: 'read' | 'unread' | 'archive'; id: string };

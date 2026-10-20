@@ -1,5 +1,33 @@
 # Project status — what is real and what is a stub
 
+## In-app notifications (M15) — 2026-10-21
+
+Implemented the shared header bell/preview, sidebar entry, and `/notifications` inbox with
+read/unread/archive, mark-all-read, pagination, and persisted category preferences. Events are
+deterministically derived from owned saved exam plans and completed quiz attempts in the current
+curriculum scope. Exam reminders use Asia/Karachi calendar days. No model or delivery provider
+is called, and the planner's scheduling algorithm and mastery computation are unchanged.
+
+Migration `0019_notifications.sql` was applied to the separate local recovery database only.
+The self-rolling-back `supabase/tests/002_notifications.sql` passed ownership/RLS, write-grant,
+deduplication, read/archive preservation, and cascade checks. Real local-auth API checks passed
+sync/repeated sync, plan/exam events, read/unread/archive persistence, category preferences,
+invalid inputs and unknown ids. The computed plan was identical before and after notification
+actions; the inactivity-cookie value stayed unchanged across passive notification requests.
+
+`npm run test:notifications` passes ten cases, covering calendar boundaries, event keys,
+curriculum filtering, category preferences, source immutability, validation, owner-filtered
+actions, and actionable client errors. Lint and production build passed. Playwright exercised
+the inbox at desktop and 360px widths, both themes, bell/Escape, synchronized read counts,
+empty Unread view, preference toggles, offline/retry, and the specific-plan deep link. Local
+production-server console errors from unavailable `/_vercel/*` telemetry assets are pre-existing.
+
+The delivery phases and rollout prerequisites are in [notifications-plan.md](notifications-plan.md).
+This release syncs while the app is open; it has no closed-browser delivery, email, push,
+Realtime subscription or scheduled worker. Expired rows are hidden; physical cleanup is deferred.
+The hosted migration has **not** been applied, and this feature is not reported as deployed there.
+
+
 ## Presentation source review — 2026-10-11
 
 The [hackathon technical guide](hackathon-technical-guide.md) maps the current code to the
