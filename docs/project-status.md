@@ -3,27 +3,42 @@
 ## In-app notifications (M15) — 2026-10-21
 
 Implemented the shared header bell/preview, sidebar entry, and `/notifications` inbox with
-read/unread/archive, mark-all-read, pagination, and persisted category preferences. Events are
+read/unread/archive/restore, selected-item bulk actions, undo, All/Unread/Archived views,
+category/title filters, mark-all-read, pagination, and persisted category/popup preferences.
+New unread receipts show dismissible bottom-right popups while the app is open. The initial
+backlog is suppressed, read/archive changes do not replay receipts, and source event time is
+kept separate from receipt time. Archive remains accessible with categories disabled; restoring
+preserves read status and original expiry. Filtered views retain their cards during passive polling.
+Events are
 deterministically derived from owned saved exam plans and completed quiz attempts in the current
 curriculum scope. Exam reminders use Asia/Karachi calendar days. No model or delivery provider
 is called, and the planner's scheduling algorithm and mastery computation are unchanged.
 
-Migration `0019_notifications.sql` was applied to the separate local recovery database only.
+Migrations `0019_notifications.sql` and `0020_notification_popups.sql` were applied to the
+separate local recovery database only.
 The self-rolling-back `supabase/tests/002_notifications.sql` passed ownership/RLS, write-grant,
-deduplication, read/archive preservation, and cascade checks. Real local-auth API checks passed
-sync/repeated sync, plan/exam events, read/unread/archive persistence, category preferences,
-invalid inputs and unknown ids. The computed plan was identical before and after notification
+deduplication, read/archive/receipt-time preservation, popup defaults, and cascade checks.
+The repeatable `npm run test:notifications:e2e` script passed against real local auth: eleven
+saved plans exercised pagination and deduplication; read/unread/archive/restore, disabled-category
+archive access, bulk actions, search/category filters, strict input validation, unknown ids,
+preferences, and actual plan/quiz destination routes passed. The computed plan was identical before and after notification
 actions; the inactivity-cookie value stayed unchanged across passive notification requests.
 
-`npm run test:notifications` passes ten cases, covering calendar boundaries, event keys,
+`npm run test:notifications` passes fifteen cases, covering calendar boundaries, event keys,
 curriculum filtering, category preferences, source immutability, validation, owner-filtered
-actions, and actionable client errors. Lint and production build passed. Playwright exercised
-the inbox at desktop and 360px widths, both themes, bell/Escape, synchronized read counts,
-empty Unread view, preference toggles, offline/retry, and the specific-plan deep link. Local
-production-server console errors from unavailable `/_vercel/*` telemetry assets are pre-existing.
+actions, archive restore, bounded bulk requests, popup backlog/deduplication/preference rules,
+and actionable client errors. Lint and production build passed. Playwright exercised archive,
+restore and undo, bulk archive/restore, search/category filters, pagination, desktop/360px
+layouts, both themes, bell/Escape, mobile sidebar/View all, preference persistence across reload,
+offline/retry, actual popup arrival and placement, dismiss preserving unread state, popup Open
+marking read and opening the specific plan, and the saved quiz-result page. Popup/API fixtures
+are removed after testing; the ignored browser screenshots are under `output/playwright/`.
+Local browser logs include pre-existing unavailable `/_vercel/*` telemetry assets, the expected
+offline-test request error, and resource-limited prefetch failures for Chat/Doubts on this machine.
 
 The delivery phases and rollout prerequisites are in [notifications-plan.md](notifications-plan.md).
-This release syncs while the app is open; it has no closed-browser delivery, email, push,
+This release syncs every 15 seconds while visible, on navigation/focus, and after successful
+saved-plan or persisted-quiz actions. It has no closed-browser delivery, email, push,
 Realtime subscription or scheduled worker. Expired rows are hidden; physical cleanup is deferred.
 The hosted migration has **not** been applied, and this feature is not reported as deployed there.
 

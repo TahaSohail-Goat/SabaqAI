@@ -4,21 +4,31 @@
 
 All four endpoints require a real signed-in session and completed profile. Owner and curriculum
 scope come from the server, never the request body. These passive requests do not refresh the
-inactivity cookie. Apply migration `0019_notifications.sql` before deploying the routes.
+inactivity cookie. Apply migrations `0019_notifications.sql` and `0020_notification_popups.sql`
+before deploying the routes.
 
-- `GET /api/notifications?offset=0&unread=false`: read-only, 20-row pages; non-negative numeric
-  offset below 100000. `unread` is optional and accepts only `true` or `false`. Returns
-  `NotificationInboxResponse`: `items`, `unreadCount`, `totalCount`, `hasMore`, `preferences`.
-  `totalCount` follows the chosen All/Unread filter; unreadCount always covers all enabled
-  categories in the current scope. Archived and expired rows are excluded. No-store response.
+- `GET /api/notifications?offset=0&view=inbox`: read-only, 20-row pages; non-negative numeric
+  offset below 100000. `view` accepts `inbox` (default), `unread`, or `archived`. Optional `kind`
+  accepts one notification kind; `q` searches titles case-insensitively, up to 100 characters.
+  Legacy `unread=true|false` is supported; archived + unread=true is rejected. Extra fields
+  are rejected. Returns `NotificationInboxResponse`: `items`, `unreadCount`, `archivedCount`,
+  `checkedAt`, `totalCount`, `hasMore`, `preferences`. `totalCount` follows all chosen filters;
+  unreadCount covers enabled inbox categories, archivedCount covers all archived categories.
+  Disabled categories remain accessible in Archived. All views exclude expired rows. No-store response.
 - `POST /api/notifications/sync`: no body needed. Generates idempotent in-app receipts from
   current saved plans and recent completed attempts; returns `{ success: true }`.
-- `PATCH /api/notifications`: body `{ action: 'read' | 'unread' | 'archive', id: '<uuid>' }` or
-  `{ action: 'mark_all_read' }`; returns `{ success: true }`. Unknown/extra fields are rejected.
-- `PATCH /api/notifications/preferences`: body contains all three boolean fields
-  `{ examReminders, planUpdates, quizResults }`; returns `{ preferences }`.
+- `PATCH /api/notifications`: body `{ action: 'read' | 'unread' | 'archive' | 'restore', id: '<uuid>' }`,
+  `{ action: 'mark_all_read' }`, or `{ action: 'read_many' | 'archive_many' | 'restore_many', ids: ['<uuid>'] }`.
+  Bulk requests accept 1–50 ids, deduplicate them, and update only owned, current-scope,
+  unexpired rows in the expected archive state. Unavailable ids are skipped; if none match,
+  returns 404. Returns `{ success: true }`. Restore preserves read/receipt timestamps;
+  mark_all_read only affects enabled inbox categories. Unknown/extra fields are rejected.
+- `PATCH /api/notifications/preferences`: body contains all four boolean fields
+  `{ examReminders, planUpdates, quizResults, popups }`; returns `{ preferences }`.
 
-Each item contains `id`, `kind`, `title`, `body`, `href`, `createdAt` and nullable `readAt`.
+Each item contains `id`, `kind`, `title`, `body`, `href`, `createdAt`, `receivedAt`, and nullable
+`readAt` and `archivedAt`. `createdAt` is the source event time; `receivedAt` is the receipt's
+database insertion time. `checkedAt` is the server read time used to establish a popup baseline.
 Kinds are `exam_reminder`, `plan_created`, `quiz_completed`; destinations are internal plan or
 solved-quiz routes. Errors use `{ error: string }`: 400 invalid input, 401 missing/expired auth,
 403 incomplete onboarding, 404 unavailable notification, 503 missing configuration/migration

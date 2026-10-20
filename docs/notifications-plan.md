@@ -15,8 +15,9 @@ General Chat and grounded Doubts retain their existing trust boundaries.
 
 ## Phase 1 — persistence and deterministic events (implemented)
 
-Apply `supabase/migrations/0019_notifications.sql` before releasing the application change.
-It adds `notifications` and `notification_preferences`. Defaults enable the three categories.
+Apply `supabase/migrations/0019_notifications.sql` and `0020_notification_popups.sql` before
+releasing the application change. They add notifications/preferences, separate receipt time
+from source event time, and persist popup preferences. Defaults enable all categories and popups.
 
 | Category | Source | Event identity | Destination |
 | --- | --- | --- | --- |
@@ -49,17 +50,19 @@ state preservation, source/account cascades, calendar boundaries, scope and cate
 
 Shared response types live in `src/lib/types.ts`; route contracts are in `api-spec.md`.
 
-- `GET /api/notifications`: read-only inbox, exact unread count, preferences, and 20-row pages.
-  Supports `offset` and an optional `unread=true` filter. Responses are private/no-store.
+- `GET /api/notifications`: read-only inbox/archive, global unread/archive counts, preferences,
+  and 20-row pages. Supports view, category, title search and offset (see api-spec.md).
 - `POST /api/notifications/sync`: find eligible persisted events and insert missing receipts.
   It accepts no user id, arbitrary message or destination from the client.
-- `PATCH /api/notifications`: read, unread, archive, or mark all visible categories read.
-- `PATCH /api/notifications/preferences`: persist the three boolean category preferences.
+- `PATCH /api/notifications`: read, unread, archive, restore, selected-item bulk actions (up to
+  50 ids), or mark all enabled inbox categories read. Restore changes only archive state.
+- `PATCH /api/notifications/preferences`: persist category preferences and popup alerts.
   Disabled categories are hidden from the inbox and unread count; re-enabling them restores
   unexpired, unarchived messages and syncs any currently eligible events.
 
-The shell syncs on mount, route navigation, focus/visibility return and every 60 seconds while
-the document is visible. Opening the bell and using Refresh also sync. This is in-app delivery:
+The shell syncs on mount, route navigation, focus/visibility return and every 15 seconds while
+the document is visible. Successful saved-plan creation and persisted quiz grading dispatch a
+shared study-event signal for immediate sync. Opening the bell and using Refresh also sync. This is in-app delivery:
 no promise of background or closed-browser delivery is made. No cron job or Realtime subscription
 is configured in this release.
 
@@ -83,8 +86,18 @@ activity-cookie refresh, explicit missing-migration state, repeatable sync and n
   Escape closes the preview and returns focus; outside interaction closes it.
 - Sidebar Notifications item is above Settings in the footer. Expanded and mobile navigation
   show the unread count; the collapsed rail has an unread indicator and accessible count label.
-- `/notifications` provides All/Unread views, newest-first cards, per-item read/unread/archive,
-  mark-all-read, category preferences, refresh, and previous/next pagination.
+- `/notifications` provides All/Unread/Archived views, category and title filters, newest-first
+  cards, per-item read/unread/archive/restore, selected-item read/archive/restore, undo for
+  archive/restore actions, mark-all-read, preferences, refresh, and previous/next pagination.
+- Archived updates live in the Archived tab and leave the unread badge. Their original read
+  state and expiry remain intact. They can be found/restored even if a category is disabled;
+  enable that category to see restored messages in the inbox. Expired messages are not shown
+  in any view; physical deletion remains deferred. There is no separate trash or permanent-delete UI.
+- New unread receipts show bottom-right popups, up to three at a time. Initial backlog,
+  repeated refreshes, restored messages and preference changes do not replay alerts. Popups
+  dismiss after 12 seconds, pause while hovered/focused, and have Dismiss/Open controls.
+  Dismiss leaves the update unread; Open follows the stored destination and marks it read.
+  The popup preference is saved per account. Scope/account changes clear local popup state.
 - Opening an item marks it read and follows its stored internal destination. The planner now
   accepts `?plan=<id>` to open that specific saved plan without changing its scheduling algorithm.
 - Both surfaces share one provider. New accounts have an honest empty state. Unconfigured/demo
@@ -114,10 +127,16 @@ Only start these after the in-app release has been observed with real student us
 
 ## Rollout and verification
 
-1. Back up the target database and apply migration 0019 through the normal migration workflow.
+1. Back up the target database and apply migrations 0019–0020 through the normal migration workflow.
    Local recovery uses `.recovery/` and must remain separate from the hosted project.
 2. Run `supabase/tests/002_notifications.sql` against that environment. It rolls back all fixtures.
 3. Run `npm run test:notifications`, `npm run lint`, and `npm run build`.
+   For a running local app with a separate test account and an existing real quiz attempt, run
+   `npm run test:notifications:e2e -- --credentials .recovery/demo-login.json`. The JSON file
+   contains email/password and must remain ignored. Alternatively set NOTIFICATIONS_TEST_EMAIL
+   and NOTIFICATIONS_TEST_PASSWORD. The script only accepts localhost/127.0.0.1, creates eleven
+   plans to exercise pagination, restores preferences and deletes its fixtures. `--keep-fixture`
+   retains plans/browser state under ignored `.recovery/` for UI checks; a normal rerun cleans them.
 4. Exercise authenticated API sync, repeat sync, read/unread/archive, preferences and a second
    account. Use a real saved plan/attempt; never seed plausible student metrics into production UI.
 5. Check mobile/desktop, light/dark, keyboard/Escape, polling failures and a missing migration.

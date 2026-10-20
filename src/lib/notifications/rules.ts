@@ -5,6 +5,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   examReminders: true,
   planUpdates: true,
   quizResults: true,
+  popups: true,
 };
 export const NOTIFICATION_TIME_ZONE = 'Asia/Karachi';
 export const NOTIFICATION_PAGE_SIZE = 20;

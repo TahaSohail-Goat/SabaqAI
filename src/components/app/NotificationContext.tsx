@@ -3,7 +3,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useScope } from './ScopeContext';
-import type { NotificationActionRequest, NotificationInboxResponse, NotificationPreferences } from '@/lib/types';
+import type { NotificationActionRequest, NotificationInboxResponse, NotificationPreferences, StudyNotification } from '@/lib/types';
+import { appendNotificationPopups, collectNotificationPopups, type PopupCursor } from '@/lib/notifications/popups';
+import NotificationToasts from './NotificationToasts';
 
 interface NotificationState {
   data: NotificationInboxResponse | null;
@@ -51,6 +53,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [error, setError] = useState<string | null>(null);
   const requestRef = useRef<AbortController | null>(null);
   const busyRef = useRef(false);
+  const popupCursor = useRef<PopupCursor | null>(null);
+  const suppressPopups = useRef(false);
+  const [toasts, setToasts] = useState<StudyNotification[]>([]);
 
   const refresh = useCallback(async (sync = false) => {
     if (!user || busyRef.current) return;
@@ -61,7 +66,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     try {
       if (sync) await fetchNotificationJson('/api/notifications/sync', { method: 'POST', signal: controller.signal });
       const result = await fetchNotificationJson<NotificationInboxResponse>('/api/notifications', { signal: controller.signal });
-      if (identityRef.current === identity && !controller.signal.aborted) { dataIdentity.current = identity; setData(result); setError(null); }
+      if (identityRef.current === identity && !controller.signal.aborted) {
+        const next = collectNotificationPopups(result, popupCursor.current);
+        popupCursor.current = next.cursor;
+        if (!result.preferences.popups) setToasts([]);
+        else if (!suppressPopups.current) setToasts(current => appendNotificationPopups(
+          current.filter(item => result.items.some(latest => latest.id === item.id && !latest.readAt)), next.items,
+        ));
+        suppressPopups.current = false;
+        dataIdentity.current = identity; setData(result); setError(null);
+      }
     } catch (err) {
       if (identityRef.current === identity && !controller.signal.aborted) {
         setError(err instanceof Error ? err.message : 'Could not load notifications. Check your connection.');
@@ -73,6 +87,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     dataIdentity.current = identity;
+    popupCursor.current = null; suppressPopups.current = false; setToasts([]);
     setData(null); setError(null); setLoading(Boolean(user));
     return () => { requestRef.current?.abort(); };
   }, [identity, user]);
@@ -81,13 +96,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     if (!user) return;
     void refresh(true);
     const onVisible = () => { if (document.visibilityState === 'visible') void refresh(true); };
-    const interval = window.setInterval(onVisible, 60_000);
+    const interval = window.setInterval(onVisible, 15_000);
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
+    window.addEventListener('sabaq:study-event', onVisible);
     return () => {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
+      window.removeEventListener('sabaq:study-event', onVisible);
       requestRef.current?.abort();
     };
   }, [pathname, refresh, user]);
@@ -99,6 +116,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const result = await fetchNotificationJson<{ preferences?: NotificationPreferences }>(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (identityRef.current !== identity) return false;
       const preferences = result.preferences;
+      // Enabling a category or restoring a message is not a newly delivered event.
+      if (preferences || ('action' in body && (body.action === 'restore' || body.action === 'restore_many'))) suppressPopups.current = true;
       if (preferences) setData(value => value ? { ...value, preferences } : value);
       busyRef.current = false;
       await refresh(sync);
@@ -116,7 +135,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     loading: loading || Boolean(user && dataIdentity.current !== identity), refreshing, busy, error, refresh,
     act: action => mutate('/api/notifications', action, false),
     savePreferences: preferences => mutate('/api/notifications/preferences', preferences, true),
-  }}>{children}</NotificationContext.Provider>;
+  }}>{children}<NotificationToasts items={dataIdentity.current === identity ? toasts : []}
+    dismiss={id => setToasts(current => current.filter(item => item.id !== id))}
+    open={item => { setToasts(current => current.filter(value => value.id !== item.id)); void mutate('/api/notifications', { action: 'read', id: item.id }, false); }}
+  /></NotificationContext.Provider>;
 }
 
 export function useNotifications() {

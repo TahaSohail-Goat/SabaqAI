@@ -12,11 +12,21 @@ import {
 
 export const notificationActionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('mark_all_read') }).strict(),
-  z.object({ action: z.enum(['read', 'unread', 'archive']), id: z.uuid() }).strict(),
+  z.object({ action: z.enum(['read', 'unread', 'archive', 'restore']), id: z.uuid() }).strict(),
+  z.object({ action: z.enum(['archive_many', 'restore_many', 'read_many']), ids: z.array(z.uuid()).min(1).max(50) }).strict(),
 ]);
 export const notificationPreferencesSchema = z.object({
-  examReminders: z.boolean(), planUpdates: z.boolean(), quizResults: z.boolean(),
+  examReminders: z.boolean(), planUpdates: z.boolean(), quizResults: z.boolean(), popups: z.boolean(),
 }).strict();
+
+export const notificationQuerySchema = z.object({
+  offset: z.string().regex(/^\d{1,5}$/).default('0').transform(Number),
+  unread: z.enum(['true', 'false']).optional(),
+  view: z.enum(['inbox', 'unread', 'archived']).default('inbox'),
+  kind: z.enum(['exam_reminder', 'plan_created', 'quiz_completed']).optional(),
+  q: z.string().trim().max(100).default(''),
+}).strict().refine(value => !(value.view === 'archived' && value.unread === 'true'), 'Archived and unread filters cannot be combined.');
+export type NotificationQuery = z.infer<typeof notificationQuerySchema>;
 
 interface NotificationContext {
   admin: SupabaseClient;
@@ -40,8 +50,8 @@ export async function notificationContext(): Promise<NotificationContext> {
 
 function databaseError(error: { code?: string; message: string }): never {
   console.error('Notifications database error:', error.code, error.message);
-  if (error.code === '42P01' || error.code === 'PGRST205') {
-    throw new NotificationError('Notifications need database migration 0019. See docs/notifications-plan.md.');
+  if (['42P01', '42703', 'PGRST205', 'PGRST204'].includes(error.code ?? '')) {
+    throw new NotificationError('Notifications need database migrations 0019–0020. See docs/notifications-plan.md.');
   }
   throw new NotificationError('Notifications could not be updated. Try again shortly. See docs/notifications-plan.md if this continues.');
 }
@@ -55,52 +65,65 @@ export function notificationErrorResponse(error: unknown) {
 
 export async function readNotificationPreferences({ admin, userId }: NotificationContext): Promise<NotificationPreferences> {
   const { data, error } = await admin.from('notification_preferences')
-    .select('exam_reminders, plan_updates, quiz_results').eq('user_id', userId).maybeSingle();
+    .select('exam_reminders, plan_updates, quiz_results, popups').eq('user_id', userId).maybeSingle();
   if (error) databaseError(error);
   return data ? {
-    examReminders: data.exam_reminders, planUpdates: data.plan_updates, quizResults: data.quiz_results,
+    examReminders: data.exam_reminders, planUpdates: data.plan_updates, quizResults: data.quiz_results, popups: data.popups,
   } : { ...DEFAULT_NOTIFICATION_PREFERENCES };
 }
 
 export async function saveNotificationPreferences(context: NotificationContext, preferences: NotificationPreferences) {
   const { error } = await context.admin.from('notification_preferences').upsert({
     user_id: context.userId, exam_reminders: preferences.examReminders,
-    plan_updates: preferences.planUpdates, quiz_results: preferences.quizResults,
+    plan_updates: preferences.planUpdates, quiz_results: preferences.quizResults, popups: preferences.popups,
   }, { onConflict: 'user_id' });
   if (error) databaseError(error);
 }
 
 function inboxQuery(context: NotificationContext, kinds: NotificationKind[], now: string, head = false) {
   return context.admin.from('notifications')
-    .select('id, kind, title, body, href, created_at, read_at', { count: 'exact', head })
+    .select('id, kind, title, body, href, created_at, read_at, archived_at, received_at', { count: 'exact', head })
     .eq('user_id', context.userId).eq('board_code', context.scope.board).eq('class_level', context.scope.classLevel)
     .in('subject_code', context.scope.subjects).in('kind', kinds)
-    .is('archived_at', null).gt('expires_at', now);
+    .gt('expires_at', now);
 }
 
-export async function readNotificationInbox(context: NotificationContext, offset = 0, unreadOnly = false): Promise<NotificationInboxResponse> {
+export async function readNotificationInbox(context: NotificationContext, options: NotificationQuery): Promise<NotificationInboxResponse> {
+  const { offset, view, q, kind } = options;
+  const unreadOnly = view === 'unread' || options.unread === 'true';
   const preferences = await readNotificationPreferences(context);
-  const kinds = enabledNotificationKinds(preferences);
-  if (!kinds.length || !context.scope.subjects.length) {
-    return { items: [], unreadCount: 0, totalCount: 0, hasMore: false, preferences };
-  }
+  // The archive remains accessible even when its category is disabled.
+  const kinds: NotificationKind[] = view === 'archived' ? ['exam_reminder', 'plan_created', 'quiz_completed'] : enabledNotificationKinds(preferences);
   const now = new Date().toISOString();
+  if (!kinds.length || !context.scope.subjects.length) {
+    // Still count archived messages when all live categories are disabled.
+    const archive = context.scope.subjects.length ? await inboxQuery(context, ['exam_reminder', 'plan_created', 'quiz_completed'], now, true).not('archived_at', 'is', null) : null;
+    if (archive?.error) databaseError(archive.error);
+    return { items: [], unreadCount: 0, archivedCount: archive?.count ?? 0, checkedAt: now, totalCount: 0, hasMore: false, preferences };
+  }
   let listQuery = inboxQuery(context, kinds, now);
+  listQuery = view === 'archived' ? listQuery.not('archived_at', 'is', null) : listQuery.is('archived_at', null);
   if (unreadOnly) listQuery = listQuery.is('read_at', null);
-  const [list, unread] = await Promise.all([
+  if (kind) listQuery = listQuery.eq('kind', kind);
+  // Literal substring search; never interpolate user text into a PostgREST .or expression.
+  if (q) listQuery = listQuery.ilike('title', `%${q.replace(/[\\%_]/g, '\\$&')}%`);
+  const activeKinds = enabledNotificationKinds(preferences);
+  const [list, unread, archive] = await Promise.all([
     listQuery.order('created_at', { ascending: false }).order('id', { ascending: false })
       .range(offset, offset + NOTIFICATION_PAGE_SIZE - 1),
-    inboxQuery(context, kinds, now, true).is('read_at', null),
+    activeKinds.length ? inboxQuery(context, activeKinds, now, true).is('archived_at', null).is('read_at', null) : Promise.resolve({ count: 0, error: null }),
+    inboxQuery(context, ['exam_reminder', 'plan_created', 'quiz_completed'], now, true).not('archived_at', 'is', null),
   ]);
   if (list.error) databaseError(list.error);
   if (unread.error) databaseError(unread.error);
+  if (archive.error) databaseError(archive.error);
   return {
     items: (list.data ?? []).map(row => ({
       id: row.id, kind: row.kind as NotificationKind, title: row.title, body: row.body,
       // Stored destinations are constrained to app routes by the migration.
-      href: row.href, createdAt: row.created_at, readAt: row.read_at,
+      href: row.href, createdAt: row.created_at, readAt: row.read_at, archivedAt: row.archived_at, receivedAt: row.received_at,
     })),
-    unreadCount: unread.count ?? 0, totalCount: list.count ?? 0,
+    unreadCount: unread.count ?? 0, archivedCount: archive.count ?? 0, checkedAt: now, totalCount: list.count ?? 0,
     hasMore: offset + NOTIFICATION_PAGE_SIZE < (list.count ?? 0), preferences,
   };
 }
@@ -153,15 +176,19 @@ export async function syncNotifications(context: NotificationContext) {
 
 export async function applyNotificationAction(context: NotificationContext, action: z.infer<typeof notificationActionSchema>) {
   const now = new Date().toISOString();
-  const patch = action.action === 'archive' ? { archived_at: now }
+  const restore = action.action === 'restore' || action.action === 'restore_many';
+  const patch = restore ? { archived_at: null } : action.action === 'archive' || action.action === 'archive_many' ? { archived_at: now }
     : { read_at: action.action === 'unread' ? null : now };
   let query = context.admin.from('notifications').update(patch)
     .eq('user_id', context.userId).eq('board_code', context.scope.board).eq('class_level', context.scope.classLevel)
-    .in('subject_code', context.scope.subjects).is('archived_at', null).gt('expires_at', now);
+    .in('subject_code', context.scope.subjects).gt('expires_at', now);
+  query = restore ? query.not('archived_at', 'is', null) : query.is('archived_at', null);
   if (action.action === 'mark_all_read') {
     const kinds = enabledNotificationKinds(await readNotificationPreferences(context));
     if (!kinds.length || !context.scope.subjects.length) return;
     query = query.in('kind', kinds).is('read_at', null);
+  } else if ('ids' in action) {
+    query = query.in('id', [...new Set(action.ids)]);
   } else {
     query = query.eq('id', action.id);
   }

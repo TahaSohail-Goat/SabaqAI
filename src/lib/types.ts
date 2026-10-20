@@ -196,17 +196,22 @@ export interface StudyNotification {
   href: string;
   createdAt: string;
   readAt: string | null;
+  archivedAt: string | null;
+  receivedAt: string;
 }
 
 export interface NotificationPreferences {
   examReminders: boolean;
   planUpdates: boolean;
   quizResults: boolean;
+  popups: boolean;
 }
 
 export interface NotificationInboxResponse {
   items: StudyNotification[];
   unreadCount: number;
+  archivedCount: number;
+  checkedAt: string;
   totalCount: number;
   hasMore: boolean;
   preferences: NotificationPreferences;
@@ -214,4 +219,5 @@ export interface NotificationInboxResponse {
 
 export type NotificationActionRequest =
   | { action: 'mark_all_read' }
-  | { action: 'read' | 'unread' | 'archive'; id: string };
+  | { action: 'read' | 'unread' | 'archive' | 'restore'; id: string }
+  | { action: 'archive_many' | 'restore_many' | 'read_many'; ids: string[] };

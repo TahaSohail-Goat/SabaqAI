@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   applyNotificationAction, notificationActionSchema, notificationContext,
-  notificationErrorResponse, NotificationError, readNotificationInbox,
+  notificationErrorResponse, NotificationError, readNotificationInbox, notificationQuerySchema,
 } from '@/lib/notifications/server';
 
 export async function GET(req: NextRequest) {
   try {
     const context = await notificationContext();
-    const rawOffset = req.nextUrl.searchParams.get('offset') ?? '0';
-    if (!/^\d{1,5}$/.test(rawOffset)) throw new NotificationError('Offset must be a non-negative integer below 100000.', 400);
-    const unread = req.nextUrl.searchParams.get('unread');
-    if (unread !== null && unread !== 'true' && unread !== 'false') throw new NotificationError('Unread must be true or false.', 400);
-    return NextResponse.json(await readNotificationInbox(context, Number(rawOffset), unread === 'true'), { headers: { 'Cache-Control': 'private, no-store' } });
+    const parsed = notificationQuerySchema.safeParse(Object.fromEntries(req.nextUrl.searchParams));
+    if (!parsed.success) throw new NotificationError('Choose a valid view, category, search (up to 100 characters) and non-negative offset below 100000.', 400);
+    return NextResponse.json(await readNotificationInbox(context, parsed.data), { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) { return notificationErrorResponse(error); }
 }
 

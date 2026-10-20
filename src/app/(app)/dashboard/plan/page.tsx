@@ -12,6 +12,7 @@ import SelectField from '@/components/app/SelectField';
 import MasteryBadge from '@/components/app/MasteryBadge';
 import ActionBadge from '@/components/app/ActionBadge';
 import { SUBJECT_LABELS } from '@/lib/subjects';
+import { notifyStudyEvent } from '@/lib/notifications/popups';
 import { listQuizDrafts, deleteQuizDraft, type QuizDraftRow } from '@/lib/quiz/drafts-api';
 import type { PlanSummary } from '@/app/api/dashboard/plan/route';
 import type { PlanAction, PlanDetail, PlanItem } from '@/app/api/dashboard/plan/[id]/route';
@@ -255,6 +256,7 @@ export default function PlanPage() {
         setFormError(data.error || 'Could not create this plan.');
         return;
       }
+      notifyStudyEvent();
       loadPlans();
       openDetail(data.id);
     } catch {

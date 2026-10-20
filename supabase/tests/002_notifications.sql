@@ -1,4 +1,4 @@
--- Self-rolling-back isolation/integrity checks. Run after migration 0019.
+-- Self-rolling-back isolation/integrity checks. Run after migrations 0019–0020.
 begin;
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-000000001901', 'notifications-test-a@example.invalid'),
@@ -18,6 +18,8 @@ insert into notification_preferences (user_id, quiz_results) values
   ('00000000-0000-4000-8000-000000001901', false), ('00000000-0000-4000-8000-000000001902', true);
 
 do $$ begin
+  if exists (select 1 from notifications where received_at is null) then raise exception 'Missing receipt time'; end if;
+  if exists (select 1 from notification_preferences where not popups) then raise exception 'Popup default disabled'; end if;
   if has_table_privilege('anon', 'notifications', 'select') then raise exception 'Anonymous inbox access'; end if;
   if has_table_privilege('authenticated', 'notifications', 'insert,update,delete') then raise exception 'Client notification write access'; end if;
   if has_table_privilege('authenticated', 'notification_preferences', 'insert,update,delete') then raise exception 'Client preferences write access'; end if;
@@ -43,6 +45,15 @@ on conflict (user_id, event_key) do nothing;
 do $$ begin
   if (select count(*) from notifications where user_id = '00000000-0000-4000-8000-000000001901') <> 1 then raise exception 'Duplicate event created'; end if;
   if exists (select 1 from notifications where user_id = '00000000-0000-4000-8000-000000001901' and (read_at is null or archived_at is null)) then raise exception 'Duplicate sync reset read/archive'; end if;
+end $$;
+
+do $$ declare original_read timestamptz; original_received timestamptz; begin
+  select read_at, received_at into original_read, original_received from notifications
+    where user_id = '00000000-0000-4000-8000-000000001901';
+  update notifications set archived_at = null where user_id = '00000000-0000-4000-8000-000000001901';
+  if exists (select 1 from notifications where user_id = '00000000-0000-4000-8000-000000001901'
+    and (archived_at is not null or read_at is distinct from original_read or received_at is distinct from original_received))
+    then raise exception 'Restore changed read/receipt state'; end if;
 end $$;
 
 delete from exam_plans where id = '00000000-0000-4000-8000-000000001911';
