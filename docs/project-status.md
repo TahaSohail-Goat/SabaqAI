@@ -1,5 +1,54 @@
 # Project status — what is real and what is a stub
 
+## Presentation source review — 2026-10-11
+
+The [hackathon technical guide](hackathon-technical-guide.md) maps the current code to the
+presentation, demo, and judge questions. This review did not rerun live services. Older rows below
+are historical in places: current source includes general streaming Chat, Chat transcription,
+password/account-deletion routes, quiz drafts, dashboard statistics, mastery, and computed exam
+plans. Code presence is not a new live verification of those flows. General Chat does not use
+the grounded Doubts retrieval/gate/citation pipeline. The old evaluation route/question set and
+`npm run eval` script are absent; no new retrieval-accuracy result is reported by this review.
+
+## Teammate checkout audit — 2026-10-09
+
+The checkout at `C:\Users\TAHA SOHAIL\Desktop\My_Projects\SabaqAI` is on
+`docs/vscode-local-recovery-handoff`. The recovery setup prompt has been read. The requested
+Google OAuth secret is saved in the ignored `.recovery/local-stack/.env`; this file did not
+previously exist, so there was no old assignment to comment out. Node 24, npm, WSL 2, and Docker
+Desktop are installed. The copied Desktop backup is restored in the separate local project
+`sabaq-ai-taha-local`: 8,594 chunks and embeddings, 494 chapters, 8,491 sections, and all 24
+original Auth users. One local test account was added; its credentials are in the ignored
+`.recovery/demo-login.json`. All six local services are running, and `.env.local` points only
+to `127.0.0.1:54321`, preserving the existing Jina/Gemini settings. The original backup and
+hosted project were not modified. App login/session checks passed. A Physics 10 Ohm's law
+question returned two citations matching stored rows (top score 0.622); an off-syllabus cooking
+question refused (HTTP 200). No keyword fallback warning appeared.
+
+All 498 source records now have local PDF bytes: 377 textbook chapter excerpts from 33
+checksum-matched books, plus 121 past/model papers. The papers include 115 checksum-matched
+originals, five upright 2024 subject excerpts from checksum-matched FBISE bundles, and the
+documented legacy Chemistry model duplicate using the verified 2025 source. Five previously
+null Storage paths were filled locally. Uploads were downloaded and hash-checked; PDF page
+counts and rendered samples were checked. Scanned pages using CCITT/JBIG2 were converted to
+JPEG-based copies for reader compatibility. This checkout has not been tested in an interactive
+browser. OCR text and embeddings were unchanged; avatar bytes are still missing.
+
+Actual Storage GET probes passed for all 498 records. The live `/api/ask/options` endpoint
+returned all 498 PDF links across 34 curriculum scopes. Storage listings and HEAD responses
+can report metadata even for missing files, so this route now probes a small PDF byte range
+in recovery mode before offering links. Authenticated dashboard, doubts, and syllabus pages
+returned HTTP 200. A generated Physics 10 quiz withheld answers before submission, graded
+successfully, and saved its attempt in quiz history. Database counts remain 8,594 chunks,
+494 chapters, and 8,491 sections. Recovery reports and source files are retained in ignored
+`.recovery/obtained/` and `.recovery/prepared/`.
+Start/stop helpers are in ignored `.recovery/start-local.cmd` and `.recovery/stop-local.cmd`.
+Google's authorization redirect uses the configured callback, but interactive Google login
+has not been tested here. `npm.cmd run lint` and `npm.cmd run build` passed. The first build
+ran out of memory with Docker and the dev server running; retrying with them temporarily
+stopped passed. The recovery results below describe the original recovery laptop, not this
+checkout.
+
 ## Local disaster recovery snapshot — 2026-10-09
 
 The D: drive PostgreSQL backup has been restored into a **separate local Supabase stack** on

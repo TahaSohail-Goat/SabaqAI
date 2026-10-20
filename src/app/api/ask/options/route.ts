@@ -21,6 +21,29 @@ const SOURCE_TYPES: AskSourceType[] = ['textbook', 'past_paper', 'model_paper'];
 // the actual bucket so each restored chapter can show its PDF while missing ones use OCR.
 const verifyPdfPresence = process.env.SOURCE_PDF_BYTES_AVAILABLE === 'false';
 
+async function hasPdfBytes(url: string): Promise<boolean> {
+  try {
+    // Storage listings and HEAD responses survive a database-only restore. Only a GET
+    // proves that the backing file exists; read a small prefix rather than a whole book.
+    const response = await fetch(url, {
+      headers: { Range: 'bytes=0-15' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+    const reader = response.body?.getReader();
+    if (!reader) return false;
+    try {
+      if (!response.ok) return false;
+      const { value } = await reader.read();
+      return value !== undefined && new TextDecoder().decode(value.slice(0, 5)) === '%PDF-';
+    } finally {
+      await reader.cancel();
+    }
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const board = searchParams.get('board') || DEFAULT_BOARD;
@@ -61,7 +84,13 @@ export async function GET(req: NextRequest) {
     if (storageError) {
       console.error('ask/options PDF listing failed:', storageError.message);
     } else {
-      for (const file of files ?? []) availablePdfPaths.add(`${storagePrefix}/${file.name}`);
+      const paths = (files ?? []).map((file) => `${storagePrefix}/${file.name}`);
+      // Limit recovery probes so a subject with many papers cannot flood Storage.
+      for (let offset = 0; offset < paths.length; offset += 4) {
+        await Promise.all(paths.slice(offset, offset + 4).map(async (path) => {
+          if (await hasPdfBytes(getSourcePdfUrl(admin, path))) availablePdfPaths.add(path);
+        }));
+      }
     }
   }
 

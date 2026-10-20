@@ -1,5 +1,38 @@
 # Run the recovered Sabaq AI in VS Code on this Windows laptop
 
+## Taha's local checkout
+
+Work stays on `docs/vscode-local-recovery-handoff` at
+`C:\Users\TAHA SOHAIL\Desktop\My_Projects\SabaqAI`. Its separate local Supabase project is
+`sabaq-ai-taha-local`; the app and API use `http://localhost:3000` and
+`http://127.0.0.1:54321`. No hosted database connection is used by this app's `.env.local`.
+
+Open Docker Desktop, then run these commands in VS Code's **Command Prompt** terminal:
+
+```bat
+cd /d "C:\Users\TAHA SOHAIL\Desktop\My_Projects\SabaqAI"
+.recovery\start-local.cmd
+```
+
+Open `http://localhost:3000/login`. The local test account credentials are in the ignored
+`.recovery\demo-login.json`; restored accounts can also be used if their passwords are known.
+To stop, press Ctrl+C in the app terminal and run `.recovery\stop-local.cmd`. The helpers stop
+containers without deleting volumes. Do not run the start helper while another dev server is
+already using port 3000. The helpers, CLI, configuration, and recovered database are local files
+and volumes, so they must be retained on this laptop.
+
+OCR text and embeddings are restored. All 498 source PDFs are available locally, including
+377 textbook chapters and 121 past/model papers. The live picker returned links for every
+source unit, and actual PDF downloads were checked. Avatar bytes are still missing.
+Recovered sources and audit reports are in ignored `.recovery/obtained/` and
+`.recovery/prepared/`; retain these alongside the Docker volumes. Login, grounded answering,
+off-syllabus refusal, and quiz generation/grading/history were exercised locally.
+For a tested question, choose Physics, Class 10, Textbook, Chapter 7 (Current Electricity)
+and ask "State Ohm's law and explain the relationship between voltage, current and resistance."
+Google's callback is configured, but interactive Google sign-in has not been tested here.
+
+## Original recovery laptop
+
 This guide uses VS Code's integrated **Command Prompt** terminal. It starts the recovered local
 Supabase stack and Next.js app from the D: drive. The restored database, embeddings, and PDF files
 are stored outside Git in local Docker volumes and `.recovery/`; cloning the repository alone will
