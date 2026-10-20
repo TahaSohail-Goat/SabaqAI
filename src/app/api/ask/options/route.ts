@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
-import { getSourcePdfUrl } from '@/lib/storage/source-pdfs';
+import { getSourcePdfUrl, SOURCE_PDF_BUCKET } from '@/lib/storage/source-pdfs';
 import { displayChapterTitle, type AskOptionsResponse, type AskSourceOption, type AskSourceType } from '@/lib/types';
 
 const DEFAULT_BOARD = 'FBISE';
@@ -17,6 +17,32 @@ const DEFAULT_CLASS_LEVEL = 10;
 const DEFAULT_SUBJECT = 'physics';
 
 const SOURCE_TYPES: AskSourceType[] = ['textbook', 'past_paper', 'model_paper'];
+// A database-only restore keeps Storage paths but loses the bytes. In recovery mode, check
+// the actual bucket so each restored chapter can show its PDF while missing ones use OCR.
+const verifyPdfPresence = process.env.SOURCE_PDF_BYTES_AVAILABLE === 'false';
+
+async function hasPdfBytes(url: string): Promise<boolean> {
+  try {
+    // Storage listings and HEAD responses survive a database-only restore. Only a GET
+    // proves that the backing file exists; read a small prefix rather than a whole book.
+    const response = await fetch(url, {
+      headers: { Range: 'bytes=0-15' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+    const reader = response.body?.getReader();
+    if (!reader) return false;
+    try {
+      if (!response.ok) return false;
+      const { value } = await reader.read();
+      return value !== undefined && new TextDecoder().decode(value.slice(0, 5)) === '%PDF-';
+    } finally {
+      await reader.cancel();
+    }
+  } catch {
+    return false;
+  }
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -49,6 +75,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(empty);
   }
 
+  const storagePrefix = `${board.toLowerCase()}/${classLevel}/${subject}`;
+  const availablePdfPaths = new Set<string>();
+  if (verifyPdfPresence) {
+    const { data: files, error: storageError } = await admin.storage
+      .from(SOURCE_PDF_BUCKET)
+      .list(storagePrefix, { limit: 1000 });
+    if (storageError) {
+      console.error('ask/options PDF listing failed:', storageError.message);
+    } else {
+      const paths = (files ?? []).map((file) => `${storagePrefix}/${file.name}`);
+      // Limit recovery probes so a subject with many papers cannot flood Storage.
+      for (let offset = 0; offset < paths.length; offset += 4) {
+        await Promise.all(paths.slice(offset, offset + 4).map(async (path) => {
+          if (await hasPdfBytes(getSourcePdfUrl(admin, path))) availablePdfPaths.add(path);
+        }));
+      }
+    }
+  }
+
   const bySourceType = new Map<AskSourceType, AskSourceOption['units']>(
     SOURCE_TYPES.map((sourceType) => [sourceType, []])
   );
@@ -72,7 +117,9 @@ export async function GET(req: NextRequest) {
       units.push({
         chapterNo: row.chapter_no,
         chapterTitle: displayChapterTitle(sourceType, row.chapter_no, row.chapter_title, subject),
-        pdfUrl: source.storage_path ? getSourcePdfUrl(admin, source.storage_path) : null,
+        pdfUrl: source.storage_path && (!verifyPdfPresence || availablePdfPaths.has(source.storage_path))
+          ? getSourcePdfUrl(admin, source.storage_path)
+          : null,
         pageFrom: pageNumbers.length > 0 ? Math.min(...pageNumbers) : null,
       });
     }
