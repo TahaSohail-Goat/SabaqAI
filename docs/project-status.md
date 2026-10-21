@@ -21,6 +21,9 @@ The failed job skipped notification tests and build, but the same-head Vercel Pr
 `7219407236` independently reported success. Production gating and the prior deployment's actual
 Node version remain unverified. The package engine selects Node 24 for future deployments;
 no existing deployment was reconfigured. See [CI investigation and deployment evidence](ci-cd.md).
+The first pushed fixes also passed every step in GitHub CI run `39568668414` and received a
+successful Vercel Preview status. That run exposed a remaining Node-20 declaration in the v4
+checkout/setup actions; both workflows now use their Node-24-based v6 releases as well.
 
 
 ## Local Ask PDFs recovered — 2026-10-21

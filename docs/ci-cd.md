@@ -22,6 +22,12 @@ Both Actions workflows and `package.json` / the lockfile root declare Node 24. T
 Supabase 2.112.4 clients require Node >=22; their realtime initialization needs a native WebSocket.
 The installed PDF.js also requires >=22.13 or >=24. Node 24 satisfies both constraints.
 
+The checkout and setup-node actions also use v6, whose action manifests declare `node24`.
+This is distinct from the application Node version selected by `node-version`. The first fixed
+[CI run 39568668414](https://github.com/TahaSohail-Goat/SabaqAI/actions/runs/39568668414)
+passed all steps but warned that v4 actions still targeted Node 20 internally; the follow-up
+action upgrades remove that declaration. `persist-credentials: false` remains in both workflows.
+
 The old `engines.node: ">=20"` admitted an unsupported runtime. It is now `24.x`, which also selects
 the Node major for subsequent Vercel builds and functions: Vercel documents that the package engine
 declaration overrides the project Node version setting. See
