@@ -16,6 +16,10 @@ const SUPPORT_SCORE = Number(process.env.SUPPORT_SCORE ?? 0.5);
 
 export function evaluateConfidence(chunks: RetrievedChunk[]): GuardrailResult {
   try {
+    if (![PASS_TOP1, BORDERLINE_TOP1, SUPPORT_SCORE].every((n) => Number.isFinite(n) && n >= 0 && n <= 1)
+      || BORDERLINE_TOP1 > PASS_TOP1 || chunks?.some((c) => !Number.isFinite(c.score) || c.score < -1 || c.score > 1)) {
+      return { decision: 'REFUSE', reason: 'low_similarity', top1: 0, support: 0 };
+    }
     if (!chunks || chunks.length === 0) {
       return { decision: 'REFUSE', reason: 'no_candidates', top1: 0, support: 0 };
     }

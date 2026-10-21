@@ -1,5 +1,90 @@
 # Project status — what is real and what is a stub
 
+## CI runtime and fresh-process test fixes — 2026-10-21
+
+Investigated [failed PR CI run 39555718273](https://github.com/TahaSohail-Goat/SabaqAI/actions/runs/39555718273).
+Node 20.20.2 caused the installed Supabase client's native-WebSocket initialization failure.
+The second failure was runtime-dependent ESM/CommonJS interoperability in the fresh-process
+threshold test, not a missing `evaluateConfidence` export. The original import failure was
+reproduced on Linux Node 20.20.2; the unchanged original test passed on Linux Node 24.22.0.
+Both Actions workflows and the package deployment engine now select Node 24. The child test
+explicitly loads tsx/CommonJS and keeps fresh-process refusal assertions, adding malformed-setting
+cases and a valid-settings PASS control. Production gate logic and dependency versions are unchanged.
+
+Actual checks: Windows Node 24.18.0 lint, 58 Ask tests and 16 notification tests passed. A separate
+credential-free Linux Node 24.22.0 copy completed npm ci, lint, the same 58 + 16 tests (none skipped)
+and the normal Turbopack production build. The earlier Windows-bind install was stopped for slow
+filesystem I/O; its npm cache was reused for the successful isolated Linux-filesystem run.
+No database restore, embedding/provider calls, hosting-setting edits or browser checks were made.
+
+The failed job skipped notification tests and build, but the same-head Vercel Preview deployment
+`7219407236` independently reported success. Production gating and the prior deployment's actual
+Node version remain unverified. The package engine selects Node 24 for future deployments;
+no existing deployment was reconfigured. See [CI investigation and deployment evidence](ci-cd.md).
+The first pushed fixes also passed every step in GitHub CI run `39568668414` and received a
+successful Vercel Preview status. That run exposed a remaining Node-20 declaration in the v4
+checkout/setup actions; both workflows now use their Node-24-based v6 releases as well.
+
+
+## Local Ask PDFs recovered — 2026-10-21
+
+[PDF recovery](ask-evolution/PDF_RECOVERY.md) and its local-only source catalog record 497 locally
+downloadable source PDFs: 377 textbook chapter excerpts and 120 papers. The missing
+source-pdfs bucket was recreated; checksum-matched caches and three original FBISE bundles supplied
+the bytes. Twelve scanned sources use faithful reader-compatible copies, with originals retained.
+Only 12 source storage paths differ from the backup; all OCR/chunk/vector/chapter/section and source
+identity fingerprints match before/after. One unproven Chemistry 9 model-paper 2026 remains OCR-only.
+All 497 current URLs passed actual app-options, range/MIME/signature/CORS checks; full download hashes
+and parser checks passed. The Physics 10 chapter-2 page-57 citation maps to chapter-PDF page 13, whose
+render matches the original pixel-for-pixel. Lint, 58 offline tests and local-overlay build passed.
+The rebuilt app is running at localhost:3100. Browser inventory is empty: actual citation clicks and
+canvas interaction are still unverified. No latency/model/gate changes or hosted writes were made.
+
+## Ask/Doubts latency audit — 2026-10-21
+
+[LATENCY_AUDIT.md](ask-evolution/LATENCY_AUDIT.md) traces the current implementation against the
+master harness and records four newly instrumented authenticated endpoint requests. The typo
+answered in 71,814ms, with understanding and support review dominating; the unsupported question
+refused in 14,660ms. The clear question received an upstream 504 during understanding and the
+ambiguous question an upstream 503. These are reliability failures, not successful feature checks.
+Application code, models, thresholds and enabled checks were unchanged for the investigation.
+Lint and the 58-test offline suite passed again. Browser inventory remains empty; concept-coverage,
+live reliability, broader numerical/language behavior and human/browser acceptance remain open.
+The audit server completed its measurements but was no longer listening when the audit resumed;
+do not assume the previously reported app ports are still running. No optimization was applied.
+
+## Ask/Doubts evolution — 2026-10-20
+
+Implemented on `evolved/asks-doubts` after updating main to `fe49875`. The existing endpoint/page now
+connect typed question understanding, signed clarification resumption, scoped full-question retrieval,
+bounded stored-section context, a final scored gate, structured teaching/examples, citation identity
+validation and default model support review. Provider/DB/configuration failures have a distinct typed
+operational error; no academic fallback is produced. Source-reader integration remains in place.
+General Chat and quizzes are unchanged. See [implementation](ask-evolution/IMPLEMENTATION.md),
+[actual checks](ask-evolution/EVALUATION.md) and [continuation record](ask-evolution/PROGRESS.md).
+
+Offline orchestrator/retrieval-adapter/render tests, lint and production build have passed. A real
+Gemini ambiguous question returned clarification with no retrieval/explanation. A clear-question
+normalization succeeded, then hosted retrieval failed: the configured Supabase hostname returned
+ENOTFOUND. Those checks do not establish live explanation quality or retrieval accuracy. The browser
+inventory had no available browser, so browser/mobile/source-click acceptance is still open.
+The user subsequently opened Docker for local testing; this machine initially had no Supabase
+containers/volumes or saved recovery setup. Local-stack preparation and tests are recorded in the
+continuation record rather than treating historical recovery rows below as this machine's state.
+The new isolated local stack now runs and passed the 22-assertion schema suite (rolled back).
+The supplied backup was subsequently restored for curriculum only: 8,594 embedded chunks, 494 chapters,
+498 sources and 8,491 sections. A separate approved local review account was created. Original hosted
+settings were preserved; the app runs with a private local overlay at localhost:3100. No re-embedding
+was needed. An independent live Gemini
+run with synthetic evidence completed explanation, citations and support review (three calls,
+84.7 seconds); it is not a real-corpus quality result. This caught and fixed a provider decoder-schema
+complexity error while retaining strict runtime validation. Current offline suite: 58 tests passed.
+A real typo evaporation question then completed local retrieval, teaching, citation rebuilding and
+support review; the stored page-57 source identity was checked through the document endpoint. Real
+clarification/resumption and invalid-scope/forged-option checks passed. Other recorded cases refused,
+hit a Gemini 503 or timed out; clear Ohm-law requests are not established as reliably answered. The
+full results include these failures. No browser/mobile or teacher-reviewed accuracy claim is made.
+
 ## In-app notifications (M15) — 2026-10-21
 
 Implemented the shared header bell/preview, sidebar entry, and `/notifications` inbox with
@@ -53,6 +138,7 @@ This release syncs every 15 seconds while visible, on navigation/focus, and afte
 saved-plan or persisted-quiz actions. It has no closed-browser delivery, email, push,
 Realtime subscription or scheduled worker. Expired rows are hidden; physical cleanup is deferred.
 The hosted migration has **not** been applied, and this feature is not reported as deployed there.
+
 
 
 ## Presentation source review — 2026-10-11

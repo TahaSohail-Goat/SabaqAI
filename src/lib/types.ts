@@ -16,6 +16,93 @@ export interface RetrievedChunk {
   score: number; // 1 - cosine distance
 }
 
+export interface AskScope {
+  board: string;
+  classLevel: number;
+  subject: string;
+  sourceType: AskSourceType;
+  chapterNo?: number;
+}
+
+export interface QuestionUnderstanding {
+  status: 'ready' | 'needs_clarification';
+  normalizedQuestion: string | null;
+  retrievalQuestion: string | null;
+  inputLanguage: 'en' | 'ur' | 'roman_ur' | 'mixed' | 'other';
+  intent: 'definition' | 'explanation' | 'comparison' | 'mechanism' | 'numerical' | 'derivation' | 'application' | 'example' | 'other';
+  concepts: string[];
+  corrections: { original: string; replacement: string }[];
+  ambiguityReasons: string[];
+  clarification: null | {
+    question: string;
+    options: { id: string; label: string; interpretedQuestion: string }[];
+    allowFreeText: true;
+  };
+}
+
+export interface AskInterpretation {
+  originalQuestion: string;
+  normalizedQuestion: string;
+  retrievalQuestion: string;
+}
+
+export interface EvidenceChunk extends Omit<RetrievedChunk, 'score'> {
+  score: number | null; // Context neighbors never inherit a seed's similarity.
+  board: string;
+  classLevel: number;
+  subject: string;
+  sourceId: string;
+  chapterId: string;
+  sectionId: string;
+  chunkIndex: number;
+  sourceLanguage: string;
+  role: 'seed' | 'context' | 'condition' | 'example' | 'definition';
+}
+
+export interface EvidenceBoundary {
+  scope: AskScope;
+  sourceIds: string[];
+  chapterIds: string[];
+  sectionIds: string[];
+  evidenceChunkIds: string[];
+  coveredAspects: { aspect: string; chunkIds: string[] }[];
+  missingRequestedAspects: string[];
+  constraints: string[];
+  coverage: 'sufficient' | 'partial' | 'insufficient';
+  truncated: boolean;
+}
+
+export interface TeachingStatement {
+  id: string;
+  aspect: 'core' | 'definition' | 'mechanism' | 'condition' | 'relationship' | 'formula' | 'comparison' | 'example';
+  text: string;
+  chunkIds: string[];
+  kind: 'explanation' | 'book_example' | 'illustration' | 'derivation';
+}
+
+export interface ExplanationBlock {
+  kind: 'direct_answer' | 'explanation' | 'example' | 'takeaway';
+  statementIds: string[];
+}
+
+export interface TeachingAnswer {
+  answerable: boolean;
+  language: Language;
+  coverage: 'sufficient' | 'partial' | 'insufficient';
+  statements: TeachingStatement[];
+  blocks: ExplanationBlock[];
+  missingAspects: string[];
+  // New numerical examples are deliberately omitted unless the bounded calculation is checkable.
+  calculation: null | {
+    statementId: string;
+    formulaChunkId: string;
+    formula: 'V=I*R' | 'R=V/I' | 'I=V/R';
+    inputs: { value: number; unit: 'V' | 'A' | 'ohm'; origin: 'student' | 'book' | 'assumed' }[];
+    result: number;
+    unit: 'V' | 'A' | 'ohm';
+  };
+}
+
 export interface GuardrailResult {
   decision: GateDecision;
   reason?: 'no_candidates' | 'low_similarity';
@@ -37,9 +124,14 @@ export type AskResponse =
       status: 'answered';
       confidence: { band: 'high' | 'medium'; top1: number; support: number };
       language: Language;
-      statements: { text: string; chunkIds: string[] }[];
+      statements: { id?: string; kind?: TeachingStatement['kind']; text: string; chunkIds: string[] }[];
       citations: Citation[];
       notCovered: string | null;
+      requestId?: string;
+      interpretation?: AskInterpretation;
+      blocks?: ExplanationBlock[];
+      boundary?: EvidenceBoundary;
+      supportReview?: 'model_reviewed' | 'disabled';
     }
   | {
       status: 'refused';
@@ -47,6 +139,24 @@ export type AskResponse =
       message: string;
       nearestChapters: { chapterNo: number; chapterTitle: string | null; score: number }[];
       suggestion: string;
+      requestId?: string;
+      interpretation?: AskInterpretation;
+    }
+  | {
+      status: 'needs_clarification';
+      requestId: string;
+      originalQuestion: string;
+      question: string;
+      options: { id: string; label: string }[];
+      context: string;
+      allowFreeText: true;
+    }
+  | {
+      status: 'error';
+      requestId: string;
+      code: 'invalid_request' | 'invalid_clarification' | 'rate_limited' | 'configuration' | 'unavailable' | 'invalid_output' | 'timeout';
+      message: string;
+      retryable: boolean;
     };
 
 // Open general-purpose chat (/chat) — a separate, ungrounded feature from /ask. No confidence

@@ -2,15 +2,19 @@
   "name": "sabaq-mvp",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "next dev -p 3000 -H localhost",
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
+
+    "test:ask": "tsx --test tests/ask/*.test.ts tests/ask/*.test.tsx",
+
     "test:notifications": "tsx --test tests/notifications.test.ts",
     "test:notifications:e2e": "node scripts/test-notifications-e2e.mjs",
+
     "ingest": "tsx scripts/ingest.ts",
     "crawl": "tsx scripts/crawl.ts",
     "crawl:dry": "tsx scripts/crawl.ts --dry-run"

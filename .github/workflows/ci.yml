@@ -10,16 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # This job never pushes back to the repo — no reason for the default GITHUB_TOKEN
           # to persist in the local git config for a later step or third-party action to read.
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install dependencies
         run: npm install
@@ -27,8 +27,13 @@ jobs:
       - name: Lint (type check)
         run: npm run lint
 
+
+      - name: Ask regression tests (offline)
+        run: npm run test:ask
+
       - name: Notification tests
         run: npm run test:notifications
+
 
       - name: Build
         run: npm run build

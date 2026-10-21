@@ -1,85 +1,81 @@
-# CI — what it does and how to fix it when it's red
+# CI and deployment checks
 
-This project has one automated check, defined in `.github/workflows/ci.yml`. It does **not**
-deploy anything — it only checks that the code is installable, type-safe, and buildable.
+## What runs
 
-## What runs, and when
+`.github/workflows/ci.yml` runs on pushes to `main` and on pull requests. Its Ubuntu job uses
+Node 24 and runs these steps in order:
 
-Every time you push to `main`, or open/update a pull request, GitHub runs three steps in order:
+1. `npm install`
+2. `npm run lint` (`tsc --noEmit`)
+3. `npm run test:ask` (offline fixtures, including a fixture PostgREST server)
+4. `npm run test:notifications` (offline unit tests)
+5. `npm run build`
 
-1. `npm install` — installs dependencies.
-2. `npm run lint` — type-checks the code (this project uses `tsc --noEmit` as its lint step, so
-   "lint" here really means "does TypeScript compile without errors").
-3. `npm run build` — runs `next build`, the same build Vercel or any host would run.
+A failed step prevents later steps in that job from running. No database or provider credentials
+are required. These tests do not establish live retrieval accuracy, provider reliability or browser
+behavior. The separate `weekly-crawl.yml` workflow also uses Node 24; running that workflow performs
+ingestion and is not necessary to check these CI fixes.
 
-If any step fails, the whole run is marked **red (failed)** and the later steps don't run. If all
-three pass, the run is **green**.
+## Runtime alignment
 
-No API keys or Supabase credentials are needed for this to pass — the app is written so that
-missing env vars are handled gracefully at build time (they just mean a feature returns "not
-configured" at runtime, not that the build crashes).
+Both Actions workflows and `package.json` / the lockfile root declare Node 24. The installed
+Supabase 2.112.4 clients require Node >=22; their realtime initialization needs a native WebSocket.
+The installed PDF.js also requires >=22.13 or >=24. Node 24 satisfies both constraints.
 
-## How to read a failed run on GitHub
+The checkout and setup-node actions also use v6, whose action manifests declare `node24`.
+This is distinct from the application Node version selected by `node-version`. The first fixed
+[CI run 39568668414](https://github.com/TahaSohail-Goat/SabaqAI/actions/runs/39568668414)
+passed all steps but warned that v4 actions still targeted Node 20 internally; the follow-up
+action upgrades remove that declaration. `persist-credentials: false` remains in both workflows.
 
-1. Go to your repo on GitHub → the **Actions** tab.
-2. You'll see a list of runs, one per push/PR. A red ✗ means it failed.
-3. Click the failed run, then click the **build** job on the left.
-4. Click to expand the step with the red ✗ (it'll be "Install dependencies", "Lint (type check)",
-   or "Build").
-5. Scroll to the bottom of that step's log — the actual error is almost always the last real
-   message before the step stops, not the first line.
+The old `engines.node: ">=20"` admitted an unsupported runtime. It is now `24.x`, which also selects
+the Node major for subsequent Vercel builds and functions: Vercel documents that the package engine
+declaration overrides the project Node version setting. See
+[Vercel Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).
+No hosted project setting was changed. The previous deployment's actual Node version was not read
+from its build log, and changing this declaration does not alter an already-running deployment.
 
-You can also see this directly on a pull request: GitHub shows a red ✗ or green ✓ next to the
-"CI" check near the merge box, and clicking "Details" takes you to the same log.
+## Investigation of the 2026-10-21 failures
 
-## Fixing the two most common failures
+[CI run 39555718273](https://github.com/TahaSohail-Goat/SabaqAI/actions/runs/39555718273)
+used Node 20.20.2 for PR #65 (head `5c16f49905f8e8e4495f2160dc2d0736681ec3dd`, tested merge
+`2729f71bb0a0b9a2c4db9199e9039c597bf18c6d`). Installation completed with engine warnings;
+the Ask step then reported 56 passing and two failing tests:
 
-### "Lint (type check)" failed
+- The real retrieval adapter fixture failed during Supabase client initialization because Node 20
+  lacked native WebSocket support. The fixture did not fail a curriculum-filter assertion.
+- The fresh-process malformed-threshold test used `--import tsx --input-type=module` and a named
+  ESM import. `guardrail.ts` really exports `evaluateConfidence`, but this package has no
+  `type: module`; under the failing Node 20 execution, tsx exposed that TypeScript module as
+  CommonJS. The forced ESM caller
+  depended on synthetic named-export inference through that transformation. TypeScript's
+  `module: esnext` / `moduleResolution: bundler` do not make the package an ESM runtime package.
 
-This means TypeScript found a type error — usually a typo, a wrong prop name, or a variable that
-could be `null`/`undefined` where the code assumes it can't be.
+The child process now uses `--require tsx/cjs --input-type=commonjs` and `require` explicitly.
+It still loads a fresh module for each environment and asserts refusal for NaN, Infinity, invalid
+support settings and inverted thresholds, plus a valid-settings PASS control. The test is neither
+removed nor skipped; the production gate and its export are unchanged. A package-wide ESM migration
+is unnecessary for this test and would affect unrelated scripts. The original fresh-process test
+also passed unchanged on Linux Node 24.22.0: the import failure is runtime-dependent, not a missing
+production export. An isolated Linux Node 20.20.2 run reproduced the original named-export error.
+Explicit CommonJS loading removes that interoperability dependency.
 
-1. Run it locally: `npm run lint`
-2. It prints the file and line number of the error, e.g. `src/app/page.tsx:42:10 - error TS2339:
-   Property 'foo' does not exist on type 'Bar'.`
-3. Open that file at that line, fix the type mismatch (often: add a null check, fix a typo, or
-   correct an import), save, and re-run `npm run lint` until it's clean.
-4. Commit and push — CI will re-run automatically.
+## Did those failures block deployment?
 
-### "Build" failed
+They blocked the remaining notification-test and build steps of that CI job. They did **not** block
+the Vercel Preview deployment for the same PR head: GitHub deployment `7219407236` reported
+`success`, "Deployment has completed", at `2026-10-21T06:30:00Z`, and the Vercel commit status was
+also successful. Its [deployment details](https://vercel.com/tahasohail85-5257s-projects/sabaq-ai/DdyhF6ywAtWRXu3uWu9vbqtpSokg)
+are separate from the failed CI check.
 
-This usually means either a lint error slipped through in a file lint doesn't cover, or something
-that only breaks in a production build (e.g. an import that doesn't exist, a page using a
-server-only API in client code).
+There is no deployment job or dependency on CI in this repository's workflows. The observed
+Preview success does not establish production promotion rules, branch protection requirements or
+Vercel project checks settings; those were not inspected. It also does not establish app behavior.
 
-1. Run it locally: `npm run build`
-2. Read the error output the same way — it names a file and usually says what's wrong.
-3. Fix, then re-run `npm run build` locally until it succeeds before pushing again.
+## Reproducing checks
 
-### "Build" failed with `spawn UNKNOWN` (Windows only)
-
-This one isn't your code. It's a stale Next.js/Turbopack cache, and it happens locally on Windows,
-not in CI. Fix:
-
-```bash
-rm -rf .next
-npm run build
-```
-
-`npm run lint` still type-checks correctly while this is happening, which is a good way to confirm
-your code is fine.
-
-### If it still doesn't make sense
-
-Copy the last 20–30 lines of the failed step's log and paste them into a chat with an assistant
-(or search the exact error message) — that's usually enough context to explain what broke, even
-if the Actions interface itself is confusing.
-
-## What this workflow deliberately does NOT do
-
-- It does not deploy anywhere (no Vercel, no hosting step).
-- It does not run security scans or evaluation scripts.
-- It does not require any secrets to be configured in GitHub.
-
-Those are separate things to add later, on purpose — this workflow's only job is "would this code
-install and build cleanly."
+Use Node 24, then run `npm ci`, `npm run lint`, both test commands above and `npm run build`.
+Read the first failed step's actual error before changing application behavior or infrastructure.
+For an Actions failure, open the run, its `build` job, then the failed step. Engine warnings alone
+are not proof that installation failed. No database restore, re-embedding or Supabase hosting
+change is needed for the failures documented here.

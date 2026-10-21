@@ -1,5 +1,11 @@
 # RAG — how it works (single-app version)
 
+The active Ask pipeline was extended on 2026-10-20 with conservative LLM question interpretation,
+signed clarification, source/section identity hydration, bounded same-section expansion, structured
+teaching and default support review. See [Ask implementation](ask-evolution/IMPLEMENTATION.md) for
+current contracts, exact-evidence budgets and failure semantics. The overview below predates that
+extension; General Chat retains its separate ungrounded policy.
+
 ```
 question
   → detect language (Urdu / Roman Urdu / English)
