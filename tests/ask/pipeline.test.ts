@@ -295,9 +295,21 @@ test('model/OCR instruction text cannot modify authoritative scope or supply pag
   assert.equal('url' in result.citations[0], false);
 });
 test('malformed threshold environment fails closed in a fresh module', () => {
-  const script = "import {evaluateConfidence} from './src/lib/ai/guardrail.ts'; console.log(JSON.stringify(evaluateConfidence([{score:0.9}])));";
-  const output = execFileSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', script], { env: { ...process.env, PASS_TOP1: 'NaN' }, encoding: 'utf8' });
-  assert.equal(JSON.parse(output).decision, 'REFUSE');
+  // This package has no type:module. Match tsx's CommonJS transformation explicitly;
+  // an ESM eval cannot rely on named-export inference for the transformed TS module.
+  const script = "const {evaluateConfidence} = require('./src/lib/ai/guardrail.ts'); console.log(JSON.stringify(evaluateConfidence([{score:0.9},{score:0.8}])));";
+  for (const [overrides, expected] of [
+    [{}, 'PASS'],
+    [{ PASS_TOP1: 'NaN' }, 'REFUSE'],
+    [{ BORDERLINE_TOP1: 'Infinity' }, 'REFUSE'],
+    [{ SUPPORT_SCORE: 'invalid' }, 'REFUSE'],
+    [{ PASS_TOP1: '0.5', BORDERLINE_TOP1: '0.6' }, 'REFUSE'],
+  ] as const) {
+    const output = execFileSync(process.execPath, ['--require', 'tsx/cjs', '--input-type=commonjs', '-e', script], {
+      env: { ...process.env, PASS_TOP1: '0.62', BORDERLINE_TOP1: '0.52', SUPPORT_SCORE: '0.5', ...overrides }, encoding: 'utf8',
+    });
+    assert.equal(JSON.parse(output).decision, expected, JSON.stringify(overrides));
+  }
 });
 test('simple provider grammar preserves shape while runtime enforces scientific-output bounds', () => {
   const wire = JSON.stringify(providerJsonSchema(teachingSchema));

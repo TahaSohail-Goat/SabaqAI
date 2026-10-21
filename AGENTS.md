@@ -70,7 +70,8 @@ npm run ingest -- --dry-run  # chunk and report; no API calls, no writes
 npm run eval                 # retrieval + refusal metrics
 ```
 
-Node 20+. npm, not pnpm or bun. CI runs install → lint → build on every push and PR.
+Node 24.x. npm, not pnpm or bun. CI runs install → lint → Ask tests → notification tests → build
+on pushes to main and on pull requests.
 
 **Always run `npm run lint` before declaring work done.** It type-checks the whole project.
 

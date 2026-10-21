@@ -1,5 +1,27 @@
 # Project status — what is real and what is a stub
 
+## CI runtime and fresh-process test fixes — 2026-10-21
+
+Investigated [failed PR CI run 39555718273](https://github.com/TahaSohail-Goat/SabaqAI/actions/runs/39555718273).
+Node 20.20.2 caused the installed Supabase client's native-WebSocket initialization failure.
+The second failure was runtime-dependent ESM/CommonJS interoperability in the fresh-process
+threshold test, not a missing `evaluateConfidence` export. The original import failure was
+reproduced on Linux Node 20.20.2; the unchanged original test passed on Linux Node 24.22.0.
+Both Actions workflows and the package deployment engine now select Node 24. The child test
+explicitly loads tsx/CommonJS and keeps fresh-process refusal assertions, adding malformed-setting
+cases and a valid-settings PASS control. Production gate logic and dependency versions are unchanged.
+
+Actual checks: Windows Node 24.18.0 lint, 58 Ask tests and 16 notification tests passed. A separate
+credential-free Linux Node 24.22.0 copy completed npm ci, lint, the same 58 + 16 tests (none skipped)
+and the normal Turbopack production build. The earlier Windows-bind install was stopped for slow
+filesystem I/O; its npm cache was reused for the successful isolated Linux-filesystem run.
+No database restore, embedding/provider calls, hosting-setting edits or browser checks were made.
+
+The failed job skipped notification tests and build, but the same-head Vercel Preview deployment
+`7219407236` independently reported success. Production gating and the prior deployment's actual
+Node version remain unverified. The package engine selects Node 24 for future deployments;
+no existing deployment was reconfigured. See [CI investigation and deployment evidence](ci-cd.md).
+
 
 ## Local Ask PDFs recovered — 2026-10-21
 
