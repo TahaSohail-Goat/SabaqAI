@@ -77,6 +77,7 @@ export default function NavItem({ href, icon: Icon, label, badge, disabled, onNa
     <>
       <span className={iconChipClasses}>
         <Icon className="w-[18px] h-[18px]" />
+        {collapsed && badge && <span aria-hidden="true" className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand ring-2 ring-surface-elevated" />}
       </span>
       {!collapsed && (
         <>
@@ -84,7 +85,7 @@ export default function NavItem({ href, icon: Icon, label, badge, disabled, onNa
           {badge && (
             <span
               className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
-                disabled ? 'bg-surface-muted text-text-2' : 'bg-brand/15 text-brand-dark'
+                disabled ? 'bg-surface-muted text-text-2' : active ? 'bg-nav-active-text text-nav-active-surface' : 'bg-brand/15 text-brand-dark'
               }`}
             >
               {badge}
@@ -110,7 +111,8 @@ export default function NavItem({ href, icon: Icon, label, badge, disabled, onNa
       className={classes}
       style={activeStyle}
       aria-current={active ? 'page' : undefined}
-      title={collapsed ? label : undefined}
+      title={collapsed ? (badge ? `${label}, ${badge} unread` : label) : undefined}
+      aria-label={collapsed ? (badge ? `${label}, ${badge} unread` : label) : undefined}
     >
       {content}
     </Link>

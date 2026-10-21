@@ -9,6 +9,7 @@ import EmptyState from '@/components/app/EmptyState';
 import SelectField from '@/components/app/SelectField';
 import QuizResultsSummary from '@/components/app/QuizResultsSummary';
 import { SUBJECT_LABELS } from '@/lib/subjects';
+import { notifyStudyEvent } from '@/lib/notifications/popups';
 import { loadPageProgress, savePageProgress, clearPageProgress } from '@/lib/persist/page-progress';
 import { getQuizDraft, saveQuizDraftAnswers, deleteQuizDraft } from '@/lib/quiz/drafts-api';
 import { summarizeAttempt, type AttemptItem } from '@/lib/quiz/feedback';
@@ -454,6 +455,7 @@ function QuizPageInner() {
         return;
       }
       setQuizGrade(data);
+      if (data.saved) notifyStudyEvent();
       setIsQuizSubmitted(true);
       // The grade route deleted the parked draft (it's a completed attempt now) — stop autosave.
       setServerDraftId(null);

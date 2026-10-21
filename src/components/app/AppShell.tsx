@@ -6,6 +6,7 @@ import type { CurrentUser, Profile } from '@/lib/auth/get-current-user';
 import Sidebar from '@/components/app/Sidebar';
 import Topbar from '@/components/app/Topbar';
 import IdleLogoutWatcher from '@/components/app/IdleLogoutWatcher';
+import { NotificationProvider } from '@/components/app/NotificationContext';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -38,6 +39,7 @@ export default function AppShell({ children, initialUser, initialProfile }: AppS
 
   return (
     <ScopeProvider initialUser={initialUser} initialProfile={initialProfile}>
+      <NotificationProvider>
       <IdleLogoutWatcher />
       <div className="min-h-screen bg-page flex">
         <Sidebar
@@ -51,6 +53,7 @@ export default function AppShell({ children, initialUser, initialProfile }: AppS
           <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 lg:py-8">{children}</main>
         </div>
       </div>
+      </NotificationProvider>
     </ScopeProvider>
   );
 }

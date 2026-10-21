@@ -1,5 +1,48 @@
 # API spec
 
+## Notifications (M15)
+
+All four endpoints require a real signed-in session and completed profile. Owner and curriculum
+scope come from the server, never the request body. These passive requests do not refresh the
+inactivity cookie. Apply migrations `0019_notifications.sql`, `0020_notification_popups.sql`,
+and `0021_notification_deletion.sql`
+before deploying the routes.
+
+- `GET /api/notifications?offset=0&view=inbox`: read-only, 20-row pages; non-negative numeric
+  offset below 100000. `view` accepts `inbox` (default), `unread`, or `archived`. Optional `kind`
+  accepts one notification kind; `q` searches titles case-insensitively, up to 100 characters.
+  Legacy `unread=true|false` is supported; archived + unread=true is rejected. Extra fields
+  are rejected. Returns `NotificationInboxResponse`: `items`, `unreadCount`, `archivedCount`,
+  `checkedAt`, `totalCount`, `hasMore`, `preferences`. `totalCount` follows all chosen filters;
+  unreadCount covers enabled inbox categories, archivedCount covers all archived categories.
+  Disabled categories remain accessible in Archived. All views exclude expired rows. No-store response.
+- `POST /api/notifications/sync`: no body needed. Generates idempotent in-app receipts from
+  current saved plans and recent completed attempts; returns `{ success: true }`.
+- `PATCH /api/notifications`: body `{ action: 'read' | 'unread' | 'archive' | 'restore' | 'delete', id: '<uuid>' }`,
+  `{ action: 'mark_all_read' }`, or `{ action: 'read_many' | 'archive_many' | 'restore_many' | 'delete_many', ids: ['<uuid>'] }`.
+  Bulk requests accept 1–50 ids, deduplicate them, and update only owned, current-scope,
+  unexpired rows in the expected archive state. Unavailable ids are skipped; if none match,
+  returns 404. Returns `{ success: true }`. Restore preserves read/receipt timestamps;
+  mark_all_read only affects enabled inbox categories. Unknown/extra fields are rejected.
+  Delete works on both inbox and archived rows, clears title/body and sets a deletion tombstone.
+  Deleted rows are excluded from all views/counts and authenticated direct reads, cannot be
+  restored or changed, and retain their event key so later sync cannot recreate them. Source
+  plans/attempts remain intact. Repeating an action on an already deleted id returns 404.
+- `PATCH /api/notifications/preferences`: body contains all four boolean fields
+  `{ examReminders, planUpdates, quizResults, popups }`; returns `{ preferences }`.
+
+Each item contains `id`, `kind`, `title`, `body`, `href`, `createdAt`, `receivedAt`, and nullable
+`readAt` and `archivedAt`. `createdAt` is the source event time; `receivedAt` is the receipt's
+database insertion time. `checkedAt` is the server read time used to establish a popup baseline.
+Kinds are `exam_reminder`, `plan_created`, `quiz_completed`; destinations are internal plan or
+solved-quiz routes. Errors use `{ error: string }`: 400 invalid input, 401 missing/expired auth,
+403 incomplete onboarding, 404 unavailable notification, 503 missing configuration/migration
+or a database failure. No fabricated notifications or unread count are returned on failure.
+
+See [notifications-plan.md](notifications-plan.md) for event/expiry rules and later phases.
+
+---
+
 Every route lives in `src/app/api/`. All requests and responses are JSON. Types are defined once
 in `src/lib/types.ts` — the app and this doc agree on them, so change the type file, not just this
 page.

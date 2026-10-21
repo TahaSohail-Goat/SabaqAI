@@ -66,6 +66,7 @@ Status reflects `docs/project-status.md` as of this writing.
 | **M12** | Evaluation Dashboard (internal) | Real | eval set |
 | **M13** | Settings & Account | **Frontend built** — theme/scope/logout real; password/delete disabled | M0 |
 | **M14** | Teacher / Parent view | Deferred — Phase 4 | M9 |
+| **M15** | Notifications | In-app implementation; see dated verification in project-status | M0, saved plans/quiz attempts, migration 0019 |
 
 ---
 
@@ -441,6 +442,11 @@ effort with the least airtime. Do not start it before M9 is real.
 ---
 
 ## 16. Cross-cutting requirements
+
+**M15 notification specification:** [notifications-plan.md](notifications-plan.md) defines the
+phased implementation, header bell and sidebar entry, event sources, API, ownership controls,
+and release checks. It is the source of truth for notification behavior. The in-app inbox reflects
+persisted study activity; it does not modify plans or perform email/push delivery.
 
 **Localisation.** Urdu at block level with `dir="rtl"`. Roman Urdu is an *input* mode, not a UI
 language. Interface strings are not yet externalised — required before UR ships.

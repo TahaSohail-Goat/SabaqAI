@@ -2,6 +2,8 @@ node_modules/
 .recovery/
 supabase/.temp/
 .next/
+.playwright-cli/
+output/playwright/
 .claude/
 tsconfig.tsbuildinfo
 .env
