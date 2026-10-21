@@ -22,6 +22,8 @@ export interface AskScope {
   subject: string;
   sourceType: AskSourceType;
   chapterNo?: number;
+  /** Exact stored chapter source, not a source category or invented book identifier. */
+  sourceId?: string;
 }
 
 export interface QuestionUnderstanding {
@@ -47,6 +49,7 @@ export interface AskInterpretation {
 }
 
 export interface EvidenceChunk extends Omit<RetrievedChunk, 'score'> {
+  selectionRank?: number; // Hybrid rank selects evidence; it is never confidence.
   score: number | null; // Context neighbors never inherit a seed's similarity.
   board: string;
   classLevel: number;
@@ -256,6 +259,8 @@ export function displayChapterTitle(
 }
 
 export interface AskUnit {
+  sourceId?: string; // Optional only for older persisted browser state.
+  sourceLanguage?: string;
   chapterNo: number;
   chapterTitle: string | null;
   /** Public URL to the real source PDF in Storage, or null if it hasn't been uploaded (e.g.

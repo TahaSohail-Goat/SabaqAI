@@ -1,5 +1,27 @@
 # Project status — what is real and what is a stub
 
+## Doubts hybrid retrieval and exact source selection — 2026-10-22
+
+On `doubt-finalize`, normal Ask now augments the complete corrected question's vector search with
+PostgreSQL full-text/concept hints in a single hybrid RPC. One understanding call extracts concepts;
+one Jina query embedding is reused. Fusion rank selects candidates while unchanged confidence
+thresholds use original cosine scores only. Bounded context requires relational/conditional relevance
+and merges overlapping read windows. Teaching requests concise, easy language and supported examples.
+Support review, clarification, citation validation, PDF rebasing and shared Quiz orchestration remain.
+
+The picker no longer collapses language/source records: it sends actual source UUIDs and the OCR
+reader enforces the same identity. Old browser selections require reselection; source-less API requests
+must be unambiguous. Internal legacy Quiz snapshots retain their chapter-scoped one-source selection.
+No book edition entity or complete concept-boundary detector is claimed.
+
+Migration 0023 is applied locally only. Both pgvector namespace layouts passed rolling-back SQL
+fixtures. Full-row corpus fingerprints were unchanged (494 chapters, 498 sources, 8,491 sections,
+8,594 chunks). Existing 83 tests passed before changes; expanded fixture coverage and actual check
+results are recorded in [hybrid retrieval report](ask-evolution/HYBRID_RETRIEVAL.md). Local SQL fixture
+queries measured a few milliseconds and hybrid was slower than vector-only; no endpoint speed or
+accuracy improvement is claimed. No live-provider/browser tests, hosted writes, re-embedding, OCR or
+PDF path changes were made. Hosted migration application remains required before rollout.
+
 ## Shared Ask service and Quiz review backend — 2026-10-21
 
 Implemented on `doubt-finalize` from integration base `a896a48`. `/api/ask` and the new authenticated

@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 120;
 
 const messages = {
-  invalid_request: 'Enter a complete question and a valid curriculum selection. See the selected board, class and subject.',
+  invalid_request: 'Enter a complete question and select a valid subject, source and chapter. If this selection was restored, select it again.',
   invalid_clarification: 'These choices expired or no longer match your selection. Please submit a clearer complete question again.',
   rate_limited: 'Please wait a moment before asking again; another question may still be running.',
   configuration: 'The textbook answer service is not configured. Please try again after the service is restored.',
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const body = askRequestSchema.safeParse(await readBoundedJson(req, signal));
     if (!body.success || body.data.question.length > config.maxInput) throw new AskFailure('invalid_request', 400);
     const input = body.data;
-    if (!scopeSchema.safeParse({ board: input.board, classLevel: input.classLevel, subject: input.subject, sourceType: input.sourceType, ...(input.chapterNo === undefined ? {} : { chapterNo: input.chapterNo }) }).success) throw new AskFailure('invalid_request', 400);
+    if (!scopeSchema.safeParse({ board: input.board, classLevel: input.classLevel, subject: input.subject, sourceType: input.sourceType, ...(input.chapterNo === undefined ? {} : { chapterNo: input.chapterNo }), ...(input.sourceId ? { sourceId: input.sourceId } : {}) }).success) throw new AskFailure('invalid_request', 400);
     const { user, profile } = await withinDeadline(getCurrentUserAndProfile(), signal);
     // Anonymous Ask remains public. Signed-in selections must match the real profile;
     // a model or unsigned browser field cannot grant another curriculum scope.

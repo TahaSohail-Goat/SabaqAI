@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from('chapters')
-    .select('chapter_no, chapter_title, chapter_sources(source_type, storage_path, sections(page_from))')
+    .select('chapter_no, chapter_title, chapter_sources(id, language_code, source_type, storage_path, sections(page_from))')
     .eq('board_code', board)
     .eq('class_level', classLevel)
     .eq('subject_code', subject)
@@ -99,14 +99,12 @@ export async function GET(req: NextRequest) {
   );
 
   for (const row of data ?? []) {
-    const seenForRow = new Set<string>();
     for (const source of row.chapter_sources ?? []) {
       const sourceType = source.source_type as AskSourceType;
       const units = bySourceType.get(sourceType);
-      // A chapter can carry both an 'en' and 'ur' source of the same type (see 0001_init.sql's
-      // chapter_sources unique constraint) — one entry per chapter is enough for this picker.
-      if (!units || seenForRow.has(sourceType)) continue;
-      seenForRow.add(sourceType);
+      // Different language/source records can have different bytes and page offsets.
+      // Expose the actual identity rather than collapsing them into a category.
+      if (!units) continue;
       // The absolute page (in the original source) that maps to page 1 of this unit's own
       // PDF — see AskUnit.pageFrom. Only textbook chapters carry a real offset (their PDF is
       // a rebuilt excerpt of the full book); other source types' sections have no page_from
@@ -115,6 +113,8 @@ export async function GET(req: NextRequest) {
         .map((s: { page_from: number | null }) => s.page_from)
         .filter((p): p is number => p != null);
       units.push({
+        sourceId: source.id,
+        sourceLanguage: source.language_code,
         chapterNo: row.chapter_no,
         chapterTitle: displayChapterTitle(sourceType, row.chapter_no, row.chapter_title, subject),
         pdfUrl: source.storage_path && (!verifyPdfPresence || availablePdfPaths.has(source.storage_path))

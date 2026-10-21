@@ -5,8 +5,8 @@ const numeric = (s: string) => s.includes('/') ? Number(s.split('/')[0]) / Numbe
 const isNumeric = (s: string) => /^[+-]?(?:\d|\.\d)/.test(s);
 const canonicalUnit = (unit: string) => ({ volts: 'v', volt: 'v', amperes: 'a', ampere: 'a', ohms: 'ohm', 'ω': 'ohm', metres: 'm', meters: 'm' }[unit.toLowerCase()] ?? unit.toLowerCase());
 const groups = [
-  ['not', 'no', 'never', "don't", "doesn't", 'cannot', "can't", 'nahi', 'nahin', 'نہیں', 'نہ'],
-  ['increase', 'increases', 'increasing', 'barhta', 'بڑھ'],
+  ['not', 'no', 'never', "don't", 'dont', "doesn't", 'doesnt', 'cannot', "can't", 'nahi', 'nahin', 'نہیں', 'نہ'],
+  ['increase', 'increases', 'increasing', 'increse', 'barhta', 'بڑھ'],
   ['decrease', 'decreases', 'decreasing', 'kam hota', 'kam hoti', 'کم'],
   ['before', 'pehle', 'پہلے'], ['after', 'baad', 'بعد'],
   ['constant', 'مستقل'], ['compare', 'comparison', 'difference', 'versus', 'vs', 'diffrence', 'فرق'],

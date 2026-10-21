@@ -27,8 +27,8 @@ export async function runAskService(input: GroundedAskInput, authorization: AskA
   if (input.mode === 'student_question') {
     const parsed = askRequestSchema.safeParse(input.request);
     if (!parsed.success) throw new AskFailure('invalid_request', 400);
-    const { board, classLevel, subject, sourceType, chapterNo } = parsed.data;
-    authorizeAskScope({ board, classLevel, subject, sourceType, ...(chapterNo === undefined ? {} : { chapterNo }) }, authorization);
+    const { board, classLevel, subject, sourceType, chapterNo, sourceId } = parsed.data;
+    authorizeAskScope({ board, classLevel, subject, sourceType, ...(chapterNo === undefined ? {} : { chapterNo }), ...(sourceId ? { sourceId } : {}) }, authorization);
     return runAsk(parsed.data, deps);
   }
   if (input.mode !== 'quiz_review') throw new AskFailure('invalid_request', 400);

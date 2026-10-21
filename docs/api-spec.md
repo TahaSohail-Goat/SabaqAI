@@ -1,5 +1,23 @@
 # API spec
 
+## Doubts exact source selection and hybrid retrieval
+
+`POST /api/ask` adds optional `sourceId: UUID`, the actual selected `chapter_sources.id`, to its strict
+existing request. The updated page always sends it with board/class/subject/sourceType/chapterNo.
+The server verifies its curriculum/source/chapter membership; it cannot override profile permissions.
+Source-less older requests are accepted only when the permitted source is unique, otherwise HTTP 400
+asks for reselection. Existing answer/refusal/clarification/error variants are unchanged. Signed
+clarification binds the source UUID too. Quiz's internal legacy chapter snapshots retain their existing
+source selection behavior; a browser cannot enable this through Ask input.
+
+`GET /api/ask/options` units add `sourceId` and `sourceLanguage`, with separate entries for each actual
+source and its own PDF URL/page offset. `GET /api/ask/document` accepts the same sourceId and verifies
+it before loading scoped OCR; ambiguous old requests fail rather than blend documents. Real PDF bytes
+and citation page rebasing remain unchanged. Migration 0023 provides the hybrid RPC; absent migration
+is an operational error, never a demo/keyword-only academic fallback.
+
+See [hybrid implementation and actual checks](ask-evolution/HYBRID_RETRIEVAL.md).
+
 ## Grounded Quiz review
 
 `POST /api/quiz/explain` requires the existing authenticated session and current curriculum profile.

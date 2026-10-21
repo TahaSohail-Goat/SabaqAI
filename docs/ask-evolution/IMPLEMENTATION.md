@@ -1,5 +1,10 @@
 # Ask/Doubts evolution
 
+2026-10-22 update on `doubt-finalize`: [hybrid retrieval](HYBRID_RETRIEVAL.md) supersedes the vector-only
+retrieval and source-category picker details below. The strict request now accepts a source UUID,
+the frontend supplies it, and the reader enforces it. Understanding, gate, validation and review
+contracts remain; legacy source-less calls must be unambiguous except internal Quiz chapter snapshots.
+
 Implemented on `evolved/asks-doubts`, based on `fe49875`. See [EVALUATION.md](EVALUATION.md)
 for executed checks and environment blockers. This is one Next.js app; no database migration,
 dependency, production fixture fallback, extra service or change to General Chat was introduced.

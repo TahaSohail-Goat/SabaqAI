@@ -57,7 +57,7 @@ export default function AskUnitSelector({ sourceType, units, value, onChange }: 
         aria-expanded={open}
       >
         <span className={`truncate ${value ? 'font-semibold text-navy' : 'font-medium text-text-3'}`}>
-          {value ? value.chapterTitle ?? `${meta.unitNoun} ${value.chapterNo}` : `Choose a ${meta.unitNoun.toLowerCase()}`}
+          {value?.sourceId ? `${value.chapterTitle ?? `${meta.unitNoun} ${value.chapterNo}`} (${value.sourceLanguage ?? 'source'})` : `Choose a ${meta.unitNoun.toLowerCase()}`}
         </span>
         <ChevronDown className={`w-4 h-4 text-text-3 ml-auto flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -68,10 +68,10 @@ export default function AskUnitSelector({ sourceType, units, value, onChange }: 
           className="absolute z-30 top-full mt-2 left-0 w-full max-h-72 overflow-y-auto rounded-2xl border border-border-strong bg-surface shadow-lg p-1.5"
         >
           {units.map((u) => {
-            const isActive = value?.chapterNo === u.chapterNo;
+            const isActive = Boolean(u.sourceId && value?.sourceId === u.sourceId);
             return (
               <button
-                key={u.chapterNo}
+                key={u.sourceId ?? u.chapterNo}
                 type="button"
                 role="option"
                 aria-selected={isActive}
@@ -85,7 +85,7 @@ export default function AskUnitSelector({ sourceType, units, value, onChange }: 
               >
                 <span className="flex-1 min-w-0">
                   <span className={`block text-[13px] font-semibold truncate ${isActive ? 'text-selected-text' : 'text-navy'}`}>
-                    {u.chapterTitle ?? `${meta.unitNoun} ${u.chapterNo}`}
+                    {u.chapterTitle ?? `${meta.unitNoun} ${u.chapterNo}`} ({u.sourceLanguage ?? 'source'})
                   </span>
                   <span className={`block text-[11px] mt-0.5 ${isActive ? 'text-selected-text/80' : 'text-text-2'}`}>
                     {meta.unitNoun} {u.chapterNo}

@@ -42,7 +42,7 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
   const parsed = askRequestSchema.safeParse(value);
   if (!parsed.success) throw new AskFailure('invalid_request', 400);
   const input = parsed.data;
-  const scopeResult = scopeSchema.safeParse({ board: input.board, classLevel: input.classLevel, subject: input.subject, sourceType: input.sourceType, ...(input.chapterNo === undefined ? {} : { chapterNo: input.chapterNo }) });
+  const scopeResult = scopeSchema.safeParse({ board: input.board, classLevel: input.classLevel, subject: input.subject, sourceType: input.sourceType, ...(input.chapterNo === undefined ? {} : { chapterNo: input.chapterNo }), ...(input.sourceId ? { sourceId: input.sourceId } : {}) });
   if (!scopeResult.success || input.question.length > config.maxInput) throw new AskFailure('invalid_request', 400);
   const scope = scopeResult.data;
   // Only the server-side service supplies this third argument. HTTP inputs are strict and
@@ -100,11 +100,11 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
   }
   const interpretation: AskInterpretation = { originalQuestion: input.question, normalizedQuestion: understanding.normalizedQuestion!, retrievalQuestion: understanding.retrievalQuestion! };
   trace.retrievalQueries = 1;
-  const seeds = independentSeeds(await stage('retrieval', () => retrieval.seeds(interpretation.retrievalQuestion, scope, config, signal)), scope);
+  const seeds = independentSeeds(await stage('retrieval', () => retrieval.seeds(interpretation.retrievalQuestion, scope, config, signal, { concepts: understanding.concepts, durations: trace.durations, allowUnselectedSource: Boolean(assessment) })), scope).slice(0, config.seeds);
   trace.seeds = seeds.length;
   const neighbors = config.expansion && seeds.length ? await stage('expansion', () => retrieval.neighbors(seeds, scope, config, signal)) : [];
   trace.expanded = neighbors.length;
-  const assembled = assembleEvidence(seeds, neighbors, scope, understanding.concepts, config);
+  const assembled = await stage('evidence_selection', async () => assembleEvidence(seeds, neighbors, scope, understanding.concepts, config, interpretation.retrievalQuestion));
   const evidence = assembled.evidence;
   let boundary = makeBoundary(scope, evidence, assembled.truncated);
   const envelope = { version: TEACHING_VERSION, originalQuestion: input.question, confirmedQuestion: interpretation.normalizedQuestion,

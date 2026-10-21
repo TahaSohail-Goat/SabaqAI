@@ -8,6 +8,7 @@ export const scopeSchema = z.object({
   subject: z.string().refine((s) => ALL_SUBJECT_CODES.includes(s)),
   sourceType: z.enum(['textbook', 'past_paper', 'model_paper']).default('textbook'),
   chapterNo: z.number().int().positive().max(9999).optional(),
+  sourceId: z.uuid().optional(),
 }).strict().refine((s) => isSubjectOfferedForClass(s.subject, s.classLevel));
 
 export const askRequestSchema = z.object({
@@ -17,6 +18,7 @@ export const askRequestSchema = z.object({
   subject: z.string(),
   sourceType: z.enum(['textbook', 'past_paper', 'model_paper']).default('textbook'),
   chapterNo: z.number().int().positive().max(9999).optional(),
+  sourceId: z.uuid().optional(),
   language: z.enum(['en', 'ur']).default('en'),
   clarification: z.object({
     context: z.string().max(24000),
