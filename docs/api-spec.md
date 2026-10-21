@@ -1,5 +1,21 @@
 # API spec
 
+## Grounded Quiz review
+
+`POST /api/quiz/explain` requires the existing authenticated session and current curriculum profile.
+Strict input: `{ attemptId: UUID, questionId: UUID, language?: 'en' | 'ur' }`. IDs refer to an owned
+submitted attempt and its persisted question, never the temporary token question ID. Migration 0022
+is required. `/api/quiz/grade` adds `attemptId` and `results[].persistedQuestionId` when saved;
+history detail adds `questions[].questionId`. Normal token IDs and existing grading fields remain.
+
+HTTP 200 distinguishes `explained`, `assessment_review`, `insufficient_support`, `not_eligible`.
+Other outcomes: 400 invalid input, 401 authentication, 403 profile/scope, 404 unavailable membership,
+429 rate/duplicate with Retry-After, 502 invalid provider output, 503 config/provider/DB failure,
+504 deadline, 499 caller cancellation. All carry request IDs and no-store. Public shapes live in
+`src/lib/types.ts`; [the developer handoff](ask-evolution/QUIZ_HANDOFF.md) documents full schemas,
+examples, eligibility, durable duplicate handling, source/PDF rendering and actual validation.
+Review never changes marks and does not treat a quiz key as textbook evidence.
+
 ## Notifications (M15)
 
 All four endpoints require a real signed-in session and completed profile. Owner and curriculum

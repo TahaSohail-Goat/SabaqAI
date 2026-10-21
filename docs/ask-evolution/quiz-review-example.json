@@ -1,0 +1,130 @@
+{
+    "status":  "explained",
+    "requestId":  "fixture-request",
+    "attemptId":  "22222222-2222-4222-8222-222222222222",
+    "questionId":  "33333333-3333-4333-8333-333333333333",
+    "explanation":  {
+                        "status":  "answered",
+                        "requestId":  "fixture-request",
+                        "interpretation":  {
+                                               "originalQuestion":  "What does Ohm\u0027s law state at constant temperature?",
+                                               "normalizedQuestion":  "What does Ohm\u0027s law state at constant temperature?",
+                                               "retrievalQuestion":  "What does Ohm\u0027s law state at constant temperature?"
+                                           },
+                        "confidence":  {
+                                           "band":  "medium",
+                                           "top1":  0.7,
+                                           "support":  1
+                                       },
+                        "language":  "en",
+                        "statements":  [
+                                           {
+                                               "id":  "s1",
+                                               "text":  "Ohm\u0027s law states that for a conductor at constant temperature, potential difference is proportional to current, expressed as V = IR where V is measured in volts, I in amperes, and R in ohms.",
+                                               "aspect":  "core",
+                                               "chunkIds":  [
+                                                                "fixture-ohm-core"
+                                                            ],
+                                               "kind":  "explanation"
+                                           },
+                                           {
+                                               "id":  "s2",
+                                               "text":  "The submitted response states that current is independent of voltage, which conflicts with Ohm\u0027s law because the potential difference is proportional to the current under constant temperature.",
+                                               "aspect":  "comparison",
+                                               "chunkIds":  [
+                                                                "fixture-ohm-core"
+                                                            ],
+                                               "kind":  "explanation"
+                                           },
+                                           {
+                                               "id":  "s3",
+                                               "text":  "The expected answer correctly reflects Ohm\u0027s law by establishing that voltage is proportional to current.",
+                                               "aspect":  "relationship",
+                                               "chunkIds":  [
+                                                                "fixture-ohm-core"
+                                                            ],
+                                               "kind":  "explanation"
+                                           }
+                                       ],
+                        "blocks":  [
+                                       {
+                                           "kind":  "direct_answer",
+                                           "statementIds":  [
+                                                                "s1"
+                                                            ]
+                                       },
+                                       {
+                                           "kind":  "explanation",
+                                           "statementIds":  [
+                                                                "s2",
+                                                                "s3"
+                                                            ]
+                                       }
+                                   ],
+                        "citations":  [
+                                          {
+                                              "chunkId":  "fixture-ohm-core",
+                                              "chapterNo":  14,
+                                              "chapterTitle":  "TEST Current Electricity",
+                                              "section":  "TEST Ohm law",
+                                              "pageFrom":  12,
+                                              "pageTo":  13,
+                                              "sourceType":  "textbook",
+                                              "excerpt":  "Ohm\u0027s law states V = IR. For a conductor at constant temperature, potential difference is proportional to current. V is measured in volts, I in amperes, R in ohms."
+                                          }
+                                      ],
+                        "boundary":  {
+                                         "scope":  {
+                                                       "board":  "FBISE",
+                                                       "classLevel":  10,
+                                                       "subject":  "physics",
+                                                       "sourceType":  "textbook",
+                                                       "chapterNo":  14
+                                                   },
+                                         "sourceIds":  [
+                                                           "fixture-source"
+                                                       ],
+                                         "chapterIds":  [
+                                                            "fixture-chapter"
+                                                        ],
+                                         "sectionIds":  [
+                                                            "fixture-section"
+                                                        ],
+                                         "evidenceChunkIds":  [
+                                                                  "fixture-ohm-core"
+                                                              ],
+                                         "coveredAspects":  [
+                                                                {
+                                                                    "aspect":  "core",
+                                                                    "chunkIds":  [
+                                                                                     "fixture-ohm-core"
+                                                                                 ]
+                                                                },
+                                                                {
+                                                                    "aspect":  "comparison",
+                                                                    "chunkIds":  [
+                                                                                     "fixture-ohm-core"
+                                                                                 ]
+                                                                },
+                                                                {
+                                                                    "aspect":  "relationship",
+                                                                    "chunkIds":  [
+                                                                                     "fixture-ohm-core"
+                                                                                 ]
+                                                                }
+                                                            ],
+                                         "missingRequestedAspects":  [
+
+                                                                     ],
+                                         "coverage":  "sufficient",
+                                         "truncated":  false,
+                                         "constraints":  [
+                                                             "Coverage describes retrieved passages, not the entire book. Academic coverage is checked after generation.",
+                                                             "Context expansion is limited to relevant chunks in the same stored section. One source language per chapter.",
+                                                             "Pages are stored section ranges; unknown pages remain unknown."
+                                                         ]
+                                     },
+                        "notCovered":  null,
+                        "supportReview":  "model_reviewed"
+                    }
+}

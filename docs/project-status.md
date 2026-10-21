@@ -1,5 +1,31 @@
 # Project status — what is real and what is a stub
 
+## Shared Ask service and Quiz review backend — 2026-10-21
+
+Implemented on `doubt-finalize` from integration base `a896a48`. `/api/ask` and the new authenticated
+`POST /api/quiz/explain` share `src/lib/ask/service.ts` and the existing orchestration pipeline.
+Quiz review loads an owned submitted answer/snapshot, authorizes current curriculum, skips free-form
+correction, and requires cited response comparison, expected-answer reasoning and independent support
+review. Supported explanation, insufficient support, assessment conflict, ineligibility and operational
+failures are typed separately. Normal Ask clarification/citation behavior remains compatible.
+
+Migration `0022_quiz_explanation_review.sql` adds immutable submission snapshots, explicit grading
+availability and durable lease coordination. It is applied locally only. Old answers are not given
+invented snapshots; they are unavailable for review. Grading/history now expose persisted identifiers.
+The review path does not modify marks, answer keys, submissions or attempt status. No Quiz generation,
+Quiz UI redesign, Practice implementation or triage implementation was added.
+
+Windows Node 24 lint and 83 offline Ask/Quiz tests passed; 16 notification tests passed. A credential-free
+Linux Node 24 install, lint, both test suites and production build passed. Local SQL
+assertions and two-client database integration use disposable assessment fixtures, not new accounts.
+Existing corpus fingerprints and assessment counts were preserved. Live Gemini checks with synthetic
+evidence completed supported review and an affirmative wrong-key conflict in 4,327 ms and 4,333 ms;
+an earlier generic response exposed and led to fixing a missing-comparison contract. These are not
+real-corpus accuracy/latency results. Browser/mobile and real-corpus Quiz teaching acceptance remain
+unverified. See [Quiz developer handoff](ask-evolution/QUIZ_HANDOFF.md) for exact contracts, checks,
+latencies, rollout prerequisite, duplicate/cancellation policy and limitations. Hosted data/settings,
+embeddings and source PDFs were untouched. No deployment is claimed.
+
 ## CI runtime and fresh-process test fixes — 2026-10-21
 
 Investigated [failed PR CI run 39555718273](https://github.com/TahaSohail-Goat/SabaqAI/actions/runs/39555718273).
