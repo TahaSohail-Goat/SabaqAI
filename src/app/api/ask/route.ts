@@ -1,172 +1,80 @@
+import { randomUUID, createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { retrieve, getNearestChapters } from '@/lib/ai/retrieval';
-import { evaluateConfidence } from '@/lib/ai/guardrail';
-import { generateGroundedAnswer } from '@/lib/ai/generation';
-import { validateCitations } from '@/lib/ai/citation';
-import { logQuestion } from '@/lib/qa-log';
 import { getCurrentUserAndProfile } from '@/lib/auth/get-current-user';
-import type { AskResponse, Language } from '@/lib/types';
+import { logQuestion } from '@/lib/qa-log';
+import { askRequestSchema, scopeSchema } from '@/lib/ask/contracts';
+import { readAskConfig, AskFailure } from '@/lib/ask/config';
+import { createAskProvider } from '@/lib/ask/provider';
+import { liveAskRetrieval, scoredEvidence } from '@/lib/ask/evidence';
+import { runAsk, newTrace } from '@/lib/ask/orchestrator';
+import { acquireAskSlot, readBoundedJson, withinDeadline } from '@/lib/ask/limits';
+import type { AskResponse } from '@/lib/types';
+
+export const runtime = 'nodejs';
+export const maxDuration = 120;
+
+const messages = {
+  invalid_request: 'Enter a complete question and a valid curriculum selection. See the selected board, class and subject.',
+  invalid_clarification: 'These choices expired or no longer match your selection. Please submit a clearer complete question again.',
+  rate_limited: 'Please wait a moment before asking again; another question may still be running.',
+  configuration: 'The textbook answer service is not configured. Please try again after the service is restored.',
+  unavailable: 'The textbook answer service is temporarily unavailable. Your question is still here; please try again.',
+  invalid_output: 'The answer service returned an incomplete response. Please try again.',
+  timeout: 'This question took too long to process. Your question is still here; please try again.',
+};
 
 export async function POST(req: NextRequest) {
-  const startedAt = Date.now();
+  const requestId = randomUUID(), startedAt = Date.now(), trace = newTrace();
+  let release: (() => void) | undefined;
+  let provider: ReturnType<typeof createAskProvider> | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let resultStatus = 'error';
+  let failureCode: string | undefined;
+  let anonymousCookie: string | undefined;
+  const setOwnerCookie = (response: NextResponse) => {
+    if (anonymousCookie) response.cookies.set('ask-owner', anonymousCookie, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', path: '/api/ask', maxAge: 1800 });
+    return response;
+  };
   try {
-    const body = await req.json();
-    const {
-      question,
-      // FBISE is the only board this app actually offers (Settings, signup, the crawler all
-      // agree) — PCTB was hardcoded here before, same mismatch bug Quiz/Syllabus also had.
-      board = 'FBISE',
-      classLevel = 10,
-      subject = 'physics',
-      language = 'en',
-      // Which book/paper the student picked on /ask — see /api/ask/options. Both optional so
-      // this route still works unscoped for any other caller; the /ask page itself always
-      // sends both once a student has made a selection.
-      sourceType,
-      chapterNo,
-    } = body;
-
-    // Best-effort attribution for qa_log, so "Questions asked" can actually be counted per
-    // student on the Dashboard — Ask itself still works fully for anonymous/demo sessions,
-    // this just doesn't get attributed to anyone in that case.
-    const { user } = await getCurrentUserAndProfile();
-    const userId = user?.id ?? null;
-
-    if (!question || typeof question !== 'string' || question.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Question is required' },
-        { status: 400 }
-      );
-    }
-
-    const trimmedQuestion = question.trim();
-
-    // 1. Vector / Keyword retrieval filtered by curriculum
-    const retrievedChunks = await retrieve({
-      normalisedQuery: trimmedQuestion,
-      board,
-      classLevel: Number(classLevel),
-      subject,
-      sourceType: typeof sourceType === 'string' && sourceType ? sourceType : undefined,
-      chapterNo: typeof chapterNo === 'number' ? chapterNo : undefined,
-    });
-
-    // 2. Confidence Gate
-    const guardrail = evaluateConfidence(retrievedChunks);
-
-    // CRITICAL: On REFUSE, the LLM is NEVER called.
-    if (guardrail.decision === 'REFUSE') {
-      const nearestChapters = getNearestChapters(retrievedChunks);
-      const refusalResponse: AskResponse = {
-        status: 'refused',
-        reason: guardrail.reason || 'low_similarity',
-        message:
-          language === 'ur'
-            ? 'یہ سوال آپ کے بورڈ سلیبس میں شامل نہیں ہے، اس لیے ہم نے اندازہ لگانے کے بجائے جواب روک دیا۔'
-            : "This isn't part of your registered board syllabus, or it isn't covered in the textbook yet, so we're not going to guess.",
-        nearestChapters,
-        suggestion:
-          nearestChapters.length > 0
-            ? `Try asking about ${nearestChapters[0].chapterTitle ?? `Chapter ${nearestChapters[0].chapterNo}`} instead, or rephrase with specific textbook terminology.`
-            : 'Try rephrasing with specific textbook chapter terminology.',
-      };
-
-      await logQuestion({
-        userId,
-        subject,
-        questionLanguage: language,
-        top1Score: guardrail.top1,
-        supportCount: guardrail.support,
-        decision: 'REFUSE',
-        refusalReason: guardrail.reason || 'low_similarity',
-        retrievedChunks,
-        latencyMs: Date.now() - startedAt,
-      });
-
-      return NextResponse.json(refusalResponse);
-    }
-
-    // 3. Grounded Generation (only on PASS or BORDERLINE)
-    const rawAnswer = await generateGroundedAnswer({
-      question: trimmedQuestion,
-      language: (language as Language) || 'en',
-      chunks: retrievedChunks,
-      board,
-      classLevel: Number(classLevel),
-      subject,
-    });
-
-    // 4. Citation Validation
-    const validation = validateCitations(rawAnswer, retrievedChunks);
-
-    if (!validation.ok) {
-      const nearestChapters = getNearestChapters(retrievedChunks);
-      const refusalResponse: AskResponse = {
-        status: 'refused',
-        reason: 'ungrounded_output',
-        message:
-          "The answer that came back couldn't be tied closely enough to specific textbook citations, so it's been held back rather than risk exam misinformation.",
-        nearestChapters,
-        suggestion: "Please try specifying a particular chapter or concept from the syllabus.",
-      };
-
-      await logQuestion({
-        userId,
-        subject,
-        questionLanguage: language,
-        top1Score: guardrail.top1,
-        supportCount: guardrail.support,
-        decision: guardrail.decision,
-        refusalReason: 'ungrounded_output',
-        retrievedChunks,
-        latencyMs: Date.now() - startedAt,
-      });
-
-      return NextResponse.json(refusalResponse);
-    }
-
-    const successResponse: AskResponse = {
-      status: 'answered',
-      confidence: {
-        band: guardrail.decision === 'PASS' ? 'high' : 'medium',
-        top1: guardrail.top1,
-        support: guardrail.support,
-      },
-      language: rawAnswer.language || (language as Language),
-      statements: validation.statements,
-      citations: validation.citations,
-      notCovered: rawAnswer.notCovered || null,
-    };
-
-    await logQuestion({
-      userId,
-      subject,
-      questionLanguage: language,
-      top1Score: guardrail.top1,
-      supportCount: guardrail.support,
-      decision: guardrail.decision,
-      retrievedChunks,
-      citedChunkIds: validation.citations.map((c) => c.chunkId),
-      latencyMs: Date.now() - startedAt,
-    });
-
-    return NextResponse.json(successResponse);
-  } catch (error: unknown) {
-    console.error('API /api/ask error:', error);
-    return NextResponse.json(
-      {
-        status: 'refused',
-        // Not an actual guardrail decision (retrieval never completed, so there's nothing to
-        // score) — reusing 'low_similarity' here is a label of convenience, not a claim, since
-        // it's the only reason value that doesn't imply a specific check ran and failed.
-        reason: 'low_similarity',
-        message: "Something went wrong on our end and we couldn't get an answer this time.",
-        // Retrieval never completed, so there is nothing to be "nearest" to. Say nothing
-        // rather than suggesting chapters we didn't actually score.
-        nearestChapters: [],
-        suggestion: 'Please try asking again in a moment.',
-      },
-      { status: 500 }
-    );
+    let config;
+    try { config = readAskConfig(); } catch { throw new AskFailure('configuration', 503); }
+    const controller = new AbortController();
+    timer = setTimeout(() => controller.abort(), config.timeout);
+    const signal = AbortSignal.any([req.signal, controller.signal]);
+    const body = askRequestSchema.safeParse(await readBoundedJson(req, signal));
+    if (!body.success || body.data.question.length > config.maxInput) throw new AskFailure('invalid_request', 400);
+    const input = body.data;
+    if (!scopeSchema.safeParse({ board: input.board, classLevel: input.classLevel, subject: input.subject, sourceType: input.sourceType, ...(input.chapterNo === undefined ? {} : { chapterNo: input.chapterNo }) }).success) throw new AskFailure('invalid_request', 400);
+    const { user, profile } = await withinDeadline(getCurrentUserAndProfile(), signal);
+    // Anonymous Ask remains public. Signed-in selections must match the real profile;
+    // a model or unsigned browser field cannot grant another curriculum scope.
+    if (user && !profile) throw new AskFailure('unavailable', 503, true);
+    if (user && profile && (profile.board !== input.board || profile.classLevel !== input.classLevel || !profile.subjects.includes(input.subject))) throw new AskFailure('invalid_request', 403);
+    const existing = req.cookies.get('ask-owner')?.value;
+    const anonymous = existing && /^[a-f0-9-]{36}$/.test(existing) ? existing : randomUUID();
+    if (!user) anonymousCookie = anonymous;
+    const owner = createHash('sha256').update(user ? `user:${user.id}` : `anonymous:${anonymous}`).digest('hex');
+    release = acquireAskSlot(owner);
+    provider = createAskProvider(config, signal);
+    const result = await withinDeadline(runAsk(input, { config, provider, retrieval: liveAskRetrieval, signal, requestId, owner, trace,
+      log: async (entry) => logQuestion({ userId: user?.id ?? null, subject: entry.scope.subject,
+        questionLanguage: entry.language, top1Score: entry.top1, supportCount: entry.support,
+        decision: entry.decision, refusalReason: entry.reason, retrievedChunks: scoredEvidence(entry.evidence),
+        citedChunkIds: entry.cited, latencyMs: Date.now() - startedAt }),
+    }), signal);
+    resultStatus = result.status;
+    const response = NextResponse.json(result, { headers: { 'Cache-Control': 'no-store', 'X-Request-Id': requestId } });
+    return setOwnerCookie(response);
+  } catch (error) {
+    const failure = error instanceof AskFailure ? error : new AskFailure('unavailable', 503, true);
+    failureCode = failure.code;
+    const result: AskResponse = { status: 'error', requestId, code: failure.code, message: messages[failure.code], retryable: failure.retryable };
+    return setOwnerCookie(NextResponse.json(result, { status: failure.httpStatus, headers: {
+      'Cache-Control': 'no-store', 'X-Request-Id': requestId, ...(failure.httpStatus === 429 ? { 'Retry-After': '60' } : {}),
+    } }));
+  } finally {
+    if (timer) clearTimeout(timer);
+    release?.();
+    console.info('[ask]', JSON.stringify({ requestId, status: resultStatus, failureCode, ...trace, calls: provider?.calls ?? 0, latencyMs: Date.now() - startedAt }));
   }
 }

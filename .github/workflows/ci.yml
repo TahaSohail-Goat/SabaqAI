@@ -27,5 +27,8 @@ jobs:
       - name: Lint (type check)
         run: npm run lint
 
+      - name: Ask regression tests (offline)
+        run: npm run test:ask
+
       - name: Build
         run: npm run build

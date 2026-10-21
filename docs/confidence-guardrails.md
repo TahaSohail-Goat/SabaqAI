@@ -1,5 +1,13 @@
 # Confidence Guardrail — the core feature
 
+2026-10-20: Ask now interprets the question and assembles bounded evidence **before** the final
+`evaluateConfidence()` call. Once it returns REFUSE there are no further model calls. The gate
+only sees genuine scored seeds retained in the final payload; contextual neighbors have null
+similarity and do not count as support. Duplicate/heavily overlapping bodies are removed first.
+Finite/range checks fail closed. Threshold values are unchanged by this feature; no calibration
+or new accuracy claim is made. See [active pipeline](ask-evolution/IMPLEMENTATION.md). Historical
+eval commands/starting thresholds below are not an up-to-date description of available tooling.
+
 This is why Sabaq AI is trustworthy. It must be simple, calibrated, and impossible to bypass.
 
 ## The decision

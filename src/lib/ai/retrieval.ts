@@ -22,6 +22,11 @@ export interface RetrievalInput {
    *  ever narrows further, never replaces that filter (AGENTS.md invariant 6). */
   sourceType?: string;
   chapterNo?: number;
+  signal?: AbortSignal;
+  /** The evolved path refuses configuration failures rather than answering from demo rows. */
+  requireLive?: boolean;
+  maxChunks?: number;
+  preserveQuery?: boolean;
 }
 
 // Roman Urdu transliteration & normalisation dictionary for Pakistani matric physics
@@ -55,17 +60,19 @@ export function normaliseQueryText(query: string): string {
 }
 
 export async function retrieve(input: RetrievalInput): Promise<RetrievedChunk[]> {
-  const normQuery = normaliseQueryText(input.normalisedQuery);
+  const normQuery = input.preserveQuery ? input.normalisedQuery : normaliseQueryText(input.normalisedQuery);
   const topK = Number(process.env.TOP_K ?? 20);
-  const maxChunks = Number(process.env.CONTEXT_MAX_CHUNKS ?? 6);
+  const maxChunks = input.maxChunks ?? Number(process.env.CONTEXT_MAX_CHUNKS ?? 6);
+
+  if (!input.board || !Number.isInteger(input.classLevel) || !input.subject || ![topK, maxChunks].every((n) => Number.isInteger(n) && n > 0 && n <= 100)) throw new Error('Invalid retrieval scope or limits.');
 
   const supabase = getServiceRoleClient();
 
   if (supabase) {
     // Embed the question once. Chunk vectors are already stored — never re-embed the corpus.
-    const queryVector = await embedText(normQuery, { task: 'retrieval.query' });
+    const queryVector = await embedText(normQuery, { task: 'retrieval.query', signal: input.signal });
 
-    const { data, error } = await supabase.rpc('match_content_chunks', {
+    const query = supabase.rpc('match_content_chunks', {
       query_embedding: queryVector,
       filter_board: input.board,
       filter_class: input.classLevel,
@@ -74,6 +81,7 @@ export async function retrieve(input: RetrievalInput): Promise<RetrievedChunk[]>
       filter_source_type: input.sourceType ?? null,
       filter_chapter_no: input.chapterNo ?? null,
     });
+    const { data, error } = await (input.signal ? query.abortSignal(input.signal) : query);
 
     if (error) {
       // Fail loudly. Returning [] here would look identical to "nothing matched", the gate would
@@ -105,10 +113,11 @@ export async function retrieve(input: RetrievalInput): Promise<RetrievedChunk[]>
       pageTo: row.page_to,
       sourceType: row.source_type,
       content: row.content,
-      score: Number(row.score.toFixed(3)),
+      score: row.score,
     }));
   }
 
+  if (input.requireLive) throw new Error('Live retrieval is not configured. See docs/setup.md.');
   warnFallbackOnce();
   return retrieveFromLocalCorpus(normQuery, input, maxChunks);
 }

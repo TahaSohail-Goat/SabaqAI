@@ -10,6 +10,12 @@ Status labels match `docs/project-status.md`.
 
 ## `POST /api/ask` — grounded answer or refusal
 
+**2026-10-20 contract update:** the evolved endpoint additionally returns `needs_clarification` and
+typed `error` variants. See [Ask evolution](ask-evolution/IMPLEMENTATION.md) for the complete active
+contract, signed resumption, limits and HTTP semantics. `answered` is retained for compatibility;
+partial answers use `boundary.coverage: "partial"`, explicit `notCovered`, structured blocks and
+validated canonical statements. Existing citation metadata remains rebuilt from stored rows.
+
 The core route. Everything else is supporting cast.
 
 **Request**
@@ -26,10 +32,11 @@ The core route. Everything else is supporting cast.
 }
 ```
 
-`question` is required and must be non-empty. The rest default to
-`FBISE / 10 / physics / en`. `language` is `"en"` or `"ur"` and controls the response language.
+`question`, `board`, numeric `classLevel`, and `subject` are required. Question input defaults to a
+1600-character limit. The server validates offered scopes and signed-in profile authorization.
+`language` is `"en"` (default) or `"ur"`; omitted sourceType defaults to `"textbook"`.
 
-`sourceType` (`"textbook" | "past_paper" | "model_paper" | "marking_scheme"`) and `chapterNo`
+`sourceType` (`"textbook" | "past_paper" | "model_paper"`) and `chapterNo`
 are both optional but always sent together by the `/doubts` page once a student has picked a
 source and a specific chapter/paper (see `GET /api/ask/options` below) — retrieval narrows to
 exactly that one source instead of searching everything ingested for the subject. Board +
@@ -89,11 +96,20 @@ working correctly, and the UI must not render it as an error.
 
 **Errors**
 
-- `400` — missing or empty `question`.
-- `500` — unexpected failure. Returns a refusal-shaped body so the UI never has to special-case it.
+- `400` — invalid input or expired/forged clarification; `403` — unauthorized signed-in scope.
+- `429` — rate/concurrency limit, with Retry-After.
+- `502` — malformed provider output; `503` — missing configuration or unavailable provider/database.
+- `504` — total request deadline reached.
+
+These return `{status:"error", requestId, code, message, retryable}`, never a fabricated evidence refusal.
+Clarification is HTTP 200 with `{status:"needs_clarification", requestId, originalQuestion, question,
+options:[{id,label}], context, allowFreeText:true}`. Resume by resending the original question and
+scope plus `clarification:{context, optionId}` or `clarification:{context, freeText}`. Choices are
+scope/owner/language/expiry-bound; no unsigned interpretedQuestion override is accepted.
 
 **The rule that must never break:** when the guardrail returns REFUSE, the LLM is not called. Not
 with a shorter prompt, not with a warning. Not called. See `docs/confidence-guardrails.md`.
+Understanding is a separate pre-gate interpretation stage; no model call occurs after final REFUSE.
 
 ---
 

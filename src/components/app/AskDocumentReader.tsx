@@ -191,7 +191,7 @@ function PdfDocumentView({ unit, pdfUrl, activeCitation }: { unit: AskUnit; pdfU
           <h4 className="text-sm font-bold text-navy leading-tight truncate">{unit.chapterTitle ?? `Chapter ${unit.chapterNo}`}</h4>
           <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-text-2">
             <ShieldCheck className="w-3.5 h-3.5 text-brand flex-shrink-0" />
-            <span>The real source PDF, not a reconstruction.</span>
+            <span>Source PDF pages.</span>
           </div>
         </div>
         {numPages > 0 && (
@@ -335,7 +335,7 @@ function TextDocumentView({
         <h4 className="text-sm font-bold text-navy leading-tight">{doc.chapterTitle ?? `Chapter ${doc.chapterNo}`}</h4>
         <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-text-2">
           <ShieldCheck className="w-3.5 h-3.5 text-brand" />
-          <span>Text version. The original PDF hasn&apos;t been uploaded for this source yet.</span>
+          <span>OCR text. The source PDF is unavailable for this selection.</span>
         </div>
       </div>
 

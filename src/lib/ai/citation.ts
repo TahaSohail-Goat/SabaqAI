@@ -17,6 +17,7 @@ export function validateCitations(
   answer: GroundedAnswer,
   retrieved: RetrievedChunk[],
 ): ValidationResult {
+  if (!answer.answerable) return { ok: false, statements: [], citations: [] };
   const retrievedById = new Map(retrieved.map((c) => [c.id, c]));
   const total = answer.statements.length;
 

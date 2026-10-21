@@ -4,10 +4,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   RefreshCw,
   ArrowRight,
-  CheckCircle2,
-  BookOpen,
-  AlertTriangle,
-  HelpCircle,
   WifiOff,
 } from 'lucide-react';
 import type { AskResponse, Citation, AskOptionsResponse, AskSourceType, AskUnit } from '@/lib/types';
@@ -16,6 +12,8 @@ import AskSubjectSelector from '@/components/app/AskSubjectSelector';
 import AskSourceSelector from '@/components/app/AskSourceSelector';
 import AskUnitSelector from '@/components/app/AskUnitSelector';
 import AskDocumentReader from '@/components/app/AskDocumentReader';
+import AskResultView from '@/components/app/AskResultView';
+import { askResponseSchema } from '@/lib/ask/contracts';
 import { ASK_SOURCE_TYPES } from '@/lib/ask/source-meta';
 import { loadPageProgress, savePageProgress } from '@/lib/persist/page-progress';
 
@@ -31,12 +29,7 @@ interface DoubtsProgress {
   selectedCitation: Citation | null;
 }
 
-// Shown when the question genuinely couldn't be sent/answered at all — a dropped connection,
-// a server that didn't respond, or a reply that wasn't even valid JSON (a gateway/proxy error
-// page, say). Distinct from a REFUSAL: /api/ask's own catch-all already turns every ordinary
-// server-side failure into a calm, refusal-shaped body (see its final catch block), so this
-// only ever fires for failures that happened before any response body could be read at all —
-// nothing here is a technical detail a student needs, just "try again."
+// Transport/invalid-envelope errors are distinct from typed service errors and evidence refusals.
 const CONNECTION_ERROR_MESSAGE = "Sabaq couldn't reach the server to answer that. Check your internet connection and try again.";
 
 export default function DoubtsPage() {
@@ -66,6 +59,27 @@ export default function DoubtsPage() {
   const [askResult, setAskResult] = useState<AskResponse | null>(null);
   const [askError, setAskError] = useState<string | null>(null);
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
+  const requestRef = useRef<AbortController | null>(null);
+  const sequenceRef = useRef(0);
+  const submitLock = useRef(false);
+  const languageRef = useRef(language);
+  const cancelRequest = () => {
+    requestRef.current?.abort();
+    requestRef.current = null;
+    sequenceRef.current++;
+    submitLock.current = false;
+    setIsAsking(false);
+  };
+  useEffect(() => {
+    cancelRequest();
+    return () => { requestRef.current?.abort(); sequenceRef.current++; submitLock.current = false; };
+    // Selection changes invalidate every older response, including clarification choices.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey, sourceType, unit?.chapterNo, language]);
+  useEffect(() => {
+    if (languageRef.current !== language) { setAskResult(null); setAskError(null); setSelectedCitation(null); }
+    languageRef.current = language;
+  }, [language]);
 
   // Tracks the last scope this effect actually ran for, to tell "the underlying scope really
   // changed" apart from "React re-invoked this same mount's effect a second time" — which
@@ -95,7 +109,9 @@ export default function DoubtsPage() {
         setSourceType(restored.sourceType);
         setUnit(restored.unit);
         setQuery(restored.query);
-        setAskResult(restored.askResult);
+        const valid = askResponseSchema.safeParse(restored.askResult);
+        // Clarification contexts are short lived; re-enter through normal validation on reload.
+        setAskResult(valid.success && valid.data.status !== 'needs_clarification' ? valid.data : null);
         setSelectedCitation(restored.selectedCitation);
       }
     } else if (isRealScopeChange) {
@@ -139,10 +155,18 @@ export default function DoubtsPage() {
   }, [scopeKey, sourceType, unit, query, askResult, selectedCitation]);
 
   const activeUnits = sourceType ? sources.find((s) => s.sourceType === sourceType)?.units ?? [] : [];
+  // Saved progress contains an old unit snapshot. Use current Storage availability and
+  // page offsets after options reload, so recovered PDFs do not stay stuck in OCR mode.
+  const readerUnit = unit ? activeUnits.find((candidate) => candidate.chapterNo === unit.chapterNo) ?? unit : null;
   const canAsk = Boolean(sourceType && unit);
 
-  const handleAsk = async () => {
-    if (!query.trim() || isAsking || !sourceType || !unit) return;
+  const handleAsk = async (options?: { question?: string; clarification?: { context: string; optionId?: string; freeText?: string } }) => {
+    const submittedQuestion = options?.question ?? query;
+    if (!submittedQuestion.trim() || submitLock.current || !sourceType || !unit) return;
+    submitLock.current = true;
+    const controller = new AbortController();
+    requestRef.current = controller;
+    const sequence = ++sequenceRef.current;
 
     setIsAsking(true);
     setAskResult(null);
@@ -153,31 +177,32 @@ export default function DoubtsPage() {
       const res = await fetch('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
-          question: query.trim(),
+          question: submittedQuestion,
           board,
           classLevel,
           subject,
           language,
           sourceType,
           chapterNo: unit.chapterNo,
+          clarification: options?.clarification,
         }),
       });
-      const data: AskResponse = await res.json();
+      const data = askResponseSchema.parse(await res.json());
+      if (controller.signal.aborted || sequence !== sequenceRef.current) return;
+      if (!res.ok && data.status !== 'error') throw new Error('Unexpected response.');
       setAskResult(data);
       if (data.status === 'answered' && data.citations.length > 0) {
         setSelectedCitation(data.citations[0]);
       }
     } catch (err) {
-      // Never reached /api/ask's own response handling at all — a dropped connection, or a
-      // reply that wasn't valid JSON. /api/ask's own catch-all already turns every ordinary
-      // server-side failure into a calm refusal instead of landing here, so whatever err.message
-      // says (a raw "Failed to fetch", a JSON parse error) is a debugging detail, not something
-      // a student should ever see — only the one fixed, friendly message goes on screen.
-      console.error('Ask error:', err);
+      if (controller.signal.aborted || sequence !== sequenceRef.current) return;
+      // Do not surface raw transport/provider details or interpret an unknown status as success.
+      console.error('Ask request could not be completed.');
       setAskError(CONNECTION_ERROR_MESSAGE);
     } finally {
-      setIsAsking(false);
+      if (sequence === sequenceRef.current) { setIsAsking(false); submitLock.current = false; requestRef.current = null; }
     }
   };
 
@@ -196,13 +221,14 @@ export default function DoubtsPage() {
               <span>Couldn&apos;t load your chapters and papers. Check your connection and reload the page.</span>
             </div>
           )}
-          <AskSubjectSelector value={subject} subjects={enrolledSubjects} onChange={setSubject} />
+          <AskSubjectSelector value={subject} subjects={enrolledSubjects} onChange={(next) => { cancelRequest(); setAskResult(null); setSubject(next); }} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <AskSourceSelector
               value={sourceType}
               sources={sources}
               loading={optionsLoading}
               onChange={(t) => {
+                cancelRequest();
                 setSourceType(t);
                 setUnit(null);
                 setAskResult(null);
@@ -220,6 +246,7 @@ export default function DoubtsPage() {
                 units={activeUnits}
                 value={unit}
                 onChange={(u) => {
+                  cancelRequest();
                   setUnit(u);
                   setAskResult(null);
                   setAskError(null);
@@ -238,7 +265,10 @@ export default function DoubtsPage() {
               id="question-input"
               rows={3}
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => { cancelRequest(); setQuery(e.target.value); setAskResult(null); setAskError(null); setSelectedCitation(null); }}
+              maxLength={1600}
+              aria-label="Your textbook question"
+              dir="auto"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -259,7 +289,7 @@ export default function DoubtsPage() {
               {isAsking ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Searching</span>
+                  <span>Working</span>
                 </>
               ) : (
                 <>
@@ -277,7 +307,8 @@ export default function DoubtsPage() {
             <div className="flex justify-center">
               <div className="w-8 h-8 rounded-full border-2 border-brand/20 border-t-brand animate-spin" />
             </div>
-            <div className="text-xs text-text-2">Searching the selected {unit?.chapterTitle ?? 'source'}…</div>
+            <div className="text-xs text-text-2">Working on your question using the selected {unit?.chapterTitle ?? 'source'}…</div>
+            <button type="button" onClick={cancelRequest} className="text-xs text-brand font-bold">Cancel</button>
           </div>
         )}
 
@@ -305,109 +336,21 @@ export default function DoubtsPage() {
           </div>
         )}
 
-        {/* Result */}
         {askResult && !isAsking && (
-          <div className="space-y-4 animate-fade-up">
-            {askResult.status === 'answered' ? (
-              <div className="bg-surface border border-border rounded-2xl p-6 space-y-5">
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-border">
-                  <div className="flex items-center gap-2 text-brand">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span className="text-xs font-bold uppercase tracking-wide">
-                      Grounded ({askResult.confidence.band === 'high' ? 'High' : 'Borderline'} confidence)
-                    </span>
-                  </div>
-                  <div className="text-[11px] font-mono text-text-2">
-                    Top-1: <span className="font-bold text-navy-2">{askResult.confidence.top1.toFixed(2)}</span> · Support: {askResult.confidence.support}
-                  </div>
-                </div>
-
-                <div className="space-y-3 text-navy-2 text-sm leading-relaxed" dir={askResult.language === 'ur' ? 'rtl' : 'ltr'}>
-                  {askResult.statements.map((stmt, sIdx) => (
-                    <div key={sIdx} className="bg-surface-2/60 p-4 rounded-xl border border-border/60">
-                      <span>{stmt.text}</span>
-                      <span className="inline-flex gap-1.5 ml-2">
-                        {stmt.chunkIds.map((cid, cIdx) => {
-                          const citeObj = askResult.citations.find((c) => c.chunkId === cid);
-                          const isActive = citeObj && selectedCitation?.chunkId === citeObj.chunkId;
-                          return (
-                            <button
-                              key={cIdx}
-                              type="button"
-                              onClick={() => citeObj && setSelectedCitation(citeObj)}
-                              title={citeObj ? `Jump to page ${citeObj.pageFrom} in ${citeObj.chapterTitle ?? `Chapter ${citeObj.chapterNo}`}` : undefined}
-                              className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md cursor-pointer transition-colors font-mono font-bold border ${
-                                isActive
-                                  ? 'bg-brand text-white border-brand'
-                                  : 'bg-brand-mint hover:bg-brand-light text-brand-dark border-brand/20'
-                              }`}
-                            >
-                              <span>[p. {citeObj?.pageFrom ?? '?'}]</span>
-                            </button>
-                          );
-                        })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {askResult.citations.map((cite, idx) => {
-                    const isActive = selectedCitation?.chunkId === cite.chunkId;
-                    const pageLabel = cite.pageFrom
-                      ? cite.pageTo && cite.pageTo !== cite.pageFrom
-                        ? `p. ${cite.pageFrom}–${cite.pageTo}`
-                        : `p. ${cite.pageFrom}`
-                      : null;
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setSelectedCitation(cite)}
-                        title={cite.excerpt}
-                        aria-pressed={isActive}
-                        className={`text-xs px-3 py-2 rounded-xl border flex items-center gap-2 transition-colors ${
-                          isActive
-                            ? 'bg-brand text-white border-brand'
-                            : 'bg-surface border-border text-navy-2 hover:border-brand/30'
-                        }`}
-                      >
-                        <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="font-semibold truncate max-w-[180px]">{cite.chapterTitle ?? `Ch ${cite.chapterNo}`}</span>
-                        {pageLabel && (
-                          <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${isActive ? 'bg-white/20' : 'bg-surface-2'}`}>
-                            {pageLabel}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              /* Refusal — calm, neutral, never styled as an error */
-              <div className="bg-surface border border-border rounded-2xl p-6 space-y-4">
-                <div className="flex items-center gap-3 pb-4 border-b border-border">
-                  <div className="p-2 rounded-full bg-warning/10 text-warning">
-                    <AlertTriangle className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-navy">Question refused</h3>
-                    <p className="text-[11px] text-text-2 mt-0.5">Skipped intentionally rather than guess.</p>
-                  </div>
-                </div>
-
-                <div className="bg-surface-2/50 p-4 rounded-xl text-sm text-navy-2 leading-relaxed">
-                  {askResult.message}
-                </div>
-
-                <div className="text-xs bg-surface-2/40 text-navy-2 p-3.5 rounded-xl flex items-start gap-3">
-                  <HelpCircle className="w-4 h-4 text-text-3 flex-shrink-0 mt-0.5" />
-                  <span>{askResult.suggestion}</span>
-                </div>
-              </div>
-            )}
-          </div>
+          <AskResultView
+            key={askResult.requestId ?? askResult.status}
+            result={askResult}
+            selectedCitation={selectedCitation}
+            onCitation={setSelectedCitation}
+            onRetry={() => handleAsk()}
+            onEdit={(question) => { setQuery(question); handleAsk({ question }); }}
+            onClarify={(optionId, freeText) => {
+              if (askResult.status === 'needs_clarification') handleAsk({
+                question: askResult.originalQuestion,
+                clarification: { context: askResult.context, optionId, freeText },
+              });
+            }}
+          />
         )}
       </div>
 
@@ -420,7 +363,7 @@ export default function DoubtsPage() {
             classLevel={classLevel}
             subject={subject}
             sourceType={sourceType}
-            unit={unit}
+            unit={readerUnit}
             activeCitation={selectedCitation}
           />
         </div>
