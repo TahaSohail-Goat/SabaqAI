@@ -1,4 +1,4 @@
-import type { AskResponse, AskScope, Language, QuestionUnderstanding, AskInterpretation, EvidenceChunk, TeachingAnswer } from '../types';
+import type { AskResponse, AskScope, Language, QuestionUnderstanding, AskInterpretation, EvidenceChunk, TeachingAnswer, GroundedAskResult, QuizReviewContext } from '../types';
 import { evaluateConfidence } from '../ai/guardrail';
 import { getNearestChapters } from '../ai/retrieval';
 import { askRequestSchema, scopeSchema, understandingSchema, teachingSchema, reviewSchema } from './contracts';
@@ -11,8 +11,11 @@ import type { AskProvider } from './provider';
 import { QUESTION_UNDERSTANDING_PROMPT, UNDERSTANDING_VERSION } from '../../prompts/question-understanding';
 import { TEACHING_PROMPT, TEACHING_VERSION } from '../../prompts/grounded-answer';
 import { SUPPORT_PROMPT, SUPPORT_VERSION, REPAIR_PROMPT } from '../../prompts/ask-support-review';
+import { QUIZ_TEACHING_RULES, QUIZ_SUPPORT_RULES, QUIZ_REVIEW_VERSION } from '../../prompts/quiz-review';
+import { quizTeachingSchema, quizSupportSchema } from '../quiz/explain-contracts';
 
 export interface AskTrace {
+  mode?: 'student_question' | 'quiz_review';
   understanding?: string; retrievalQueries: number; seeds: number; expanded: number; context: number;
   gate?: string; gateReason?: string; coverage?: string; truncated?: boolean; tokens?: number;
   citationRejections: number; supportRejections: number; repairs: number;
@@ -24,8 +27,11 @@ export interface AskDependencies {
   log?: (entry: { scope: AskScope; language: Language; evidence: EvidenceChunk[]; decision: 'PASS' | 'BORDERLINE' | 'REFUSE'; reason?: string; top1: number; support: number; cited: string[] }) => Promise<void>;
 }
 
-export async function runAsk(value: unknown, deps: AskDependencies): Promise<AskResponse> {
+export function runAsk(value: unknown, deps: AskDependencies): Promise<AskResponse>;
+export function runAsk(value: unknown, deps: AskDependencies, assessment: QuizReviewContext): Promise<GroundedAskResult>;
+export async function runAsk(value: unknown, deps: AskDependencies, assessment?: QuizReviewContext): Promise<GroundedAskResult> {
   const { provider, retrieval, config, signal, requestId, owner, trace } = deps;
+  trace.mode = assessment ? 'quiz_review' : 'student_question';
   let calls = 0;
   const json: AskProvider['json'] = async (...args) => {
     checkDeadline(signal);
@@ -39,6 +45,12 @@ export async function runAsk(value: unknown, deps: AskDependencies): Promise<Ask
   const scopeResult = scopeSchema.safeParse({ board: input.board, classLevel: input.classLevel, subject: input.subject, sourceType: input.sourceType, ...(input.chapterNo === undefined ? {} : { chapterNo: input.chapterNo }) });
   if (!scopeResult.success || input.question.length > config.maxInput) throw new AskFailure('invalid_request', 400);
   const scope = scopeResult.data;
+  // Only the server-side service supplies this third argument. HTTP inputs are strict and
+  // cannot select this mode, skip understanding or supply assessment keys.
+  const assessmentContext = assessment ? { questionType: assessment.questionType, options: assessment.options,
+    submittedResponse: assessment.response, expectedAnswer: assessment.expectedAnswer, credit: assessment.credit } : undefined;
+  const instruction = TEACHING_PROMPT + (assessment ? QUIZ_TEACHING_RULES : '');
+  const outputSchema = assessment ? quizTeachingSchema : teachingSchema;
   let question = input.question, attempt = 1;
   let understanding: QuestionUnderstanding | undefined;
   const stage = async <T>(name: string, action: () => Promise<T>) => {
@@ -77,7 +89,7 @@ export async function runAsk(value: unknown, deps: AskDependencies): Promise<Ask
       ambiguityReasons: ['A meaningful quantity, condition or scientific term changed.'],
       clarification: { question: 'Please write the complete question again, keeping its quantities, units and conditions.', options: [], allowFreeText: true } };
   }
-  trace.understanding = understanding.status;
+  trace.understanding = assessment ? 'structured_assessment' : understanding.status;
   if (understanding.status === 'needs_clarification') {
     if (attempt >= 2) throw new AskFailure('invalid_clarification', 400);
     const clarification = understanding.clarification!;
@@ -96,11 +108,12 @@ export async function runAsk(value: unknown, deps: AskDependencies): Promise<Ask
   const evidence = assembled.evidence;
   let boundary = makeBoundary(scope, evidence, assembled.truncated);
   const envelope = { version: TEACHING_VERSION, originalQuestion: input.question, confirmedQuestion: interpretation.normalizedQuestion,
-    retrievalQuestion: interpretation.retrievalQuestion, answerLanguage: input.language, scope, questionIntent: understanding.intent, boundary, evidence };
+    retrievalQuestion: interpretation.retrievalQuestion, answerLanguage: input.language, scope, questionIntent: understanding.intent, boundary, evidence,
+    ...(assessment ? { assessmentContext, assessmentVersion: QUIZ_REVIEW_VERSION } : {}) };
   // Only the exact final evidence payload authorizes the gate and citation allowlist.
   // Pre-gate normalization interprets input; no model call of any kind occurs after REFUSE.
   if (evidence.length) {
-    trace.tokens = await stage('token_count', () => provider.countTokens(TEACHING_PROMPT, envelope));
+    trace.tokens = await stage('token_count', () => provider.countTokens(instruction, envelope));
     if (trace.tokens > config.tokens) {
       // One bounded reduction/recount: measured tokens inform selection, but only the second
       // exact count authorizes this final payload. Never cut a question, formula or chunk in half.
@@ -109,7 +122,7 @@ export async function runAsk(value: unknown, deps: AskDependencies): Promise<Ask
       do { evidence.pop(); } while (evidence.length && Buffer.byteLength(JSON.stringify(evidence), 'utf8') > targetBytes);
       boundary = makeBoundary(scope, evidence, true); envelope.boundary = boundary;
       if (evidence.length) {
-        trace.tokens = await stage('token_recount', () => provider.countTokens(TEACHING_PROMPT, envelope));
+        trace.tokens = await stage('token_recount', () => provider.countTokens(instruction, envelope));
         if (trace.tokens > config.tokens) throw new AskFailure('invalid_output', 502, true);
       }
     }
@@ -125,9 +138,23 @@ export async function runAsk(value: unknown, deps: AskDependencies): Promise<Ask
     suggestion: input.language === 'ur' ? 'براہ کرم سوال کو مزید واضح کریں یا متعلقہ باب منتخب کریں۔' : 'Try a more specific question or explicitly select a relevant chapter.',
   });
   if (gate.decision === 'REFUSE') { await log(gate.reason); return refuse(gate.reason ?? 'low_similarity'); }
-  let raw = await stage('explanation', () => json('explanation', TEACHING_PROMPT, envelope, teachingSchema));
+  let raw = await stage('explanation', () => json('explanation', instruction, envelope, outputSchema));
   let answer: TeachingAnswer;
+  let assessmentVerdict: 'consistent' | 'conflict' | 'insufficient' | undefined;
+  let assessmentReferences: { responseComparisonIds: string[]; expectedAnswerReasonIds: string[] } | undefined;
   try {
+    if (assessment) {
+      const checked = quizTeachingSchema.parse(raw);
+      assessmentVerdict = checked.assessment.verdict;
+      const groups = [checked.assessment.statementIds, checked.assessment.responseComparisonIds, checked.assessment.expectedAnswerReasonIds];
+      if (assessmentVerdict === 'insufficient') { await log('ungrounded_output'); return refuse('ungrounded_output'); }
+      if (groups.some((ids) => !ids.length || new Set(ids).size !== ids.length || ids.some((id) => !checked.statements.some((s) => s.id === id)))) {
+        await log('ungrounded_output'); return refuse('ungrounded_output');
+      }
+      assessmentReferences = { responseComparisonIds: checked.assessment.responseComparisonIds, expectedAnswerReasonIds: checked.assessment.expectedAnswerReasonIds };
+      const { assessment: _assessment, ...teaching } = checked;
+      raw = teaching;
+    }
     let checked = checkTeaching(raw, evidence, input.language, interpretation.normalizedQuestion);
     if (checked.failures.length) {
       trace.citationRejections = checked.failures.filter((f) => f.includes('citation')).length;
@@ -146,10 +173,17 @@ export async function runAsk(value: unknown, deps: AskDependencies): Promise<Ask
   if (config.review) {
     let review;
     try {
-      review = checkReview(await stage('support_review', () => json('review', SUPPORT_PROMPT, { version: SUPPORT_VERSION, confirmedQuestion: interpretation.normalizedQuestion, answer,
+      const rawReview = await stage('support_review', () => json('review', SUPPORT_PROMPT + (assessment ? QUIZ_SUPPORT_RULES : ''), { version: SUPPORT_VERSION, confirmedQuestion: interpretation.normalizedQuestion, answer,
         // Other allowed passages may expose a missing condition/conflict, but cannot rescue
         // an unsupported claim: each verdict's references must still be in that claim's IDs.
-        evidence, scope }, reviewSchema)), answer);
+        evidence, scope, ...(assessment ? { assessmentContext, assessmentReferences, proposedAssessmentVerdict: assessmentVerdict } : {}) }, assessment ? quizSupportSchema : reviewSchema));
+      let reviewValue = rawReview;
+      if (assessment) {
+        const { assessmentVerdict: verdict, responseComparisonSupported, expectedAnswerReasonSupported, ...support } = quizSupportSchema.parse(rawReview);
+        if (verdict === 'insufficient' || verdict !== assessmentVerdict || !responseComparisonSupported || !expectedAnswerReasonSupported) { await log('ungrounded_output'); return refuse('ungrounded_output'); }
+        reviewValue = support;
+      }
+      review = checkReview(reviewValue, answer);
     } catch (error) {
       if (error instanceof AskFailure) throw error;
       throw new AskFailure('invalid_output', 502, true);
@@ -168,10 +202,11 @@ export async function runAsk(value: unknown, deps: AskDependencies): Promise<Ask
     missingRequestedAspects: answer.missingAspects };
   trace.coverage = boundary.coverage;
   await log(undefined, citations.citations.map((c) => c.chunkId));
-  return { status: 'answered', requestId, interpretation, confidence: { band: gate.decision === 'PASS' ? 'high' : 'medium', top1: gate.top1, support: gate.support },
+  const explanation: Extract<AskResponse, { status: 'answered' }> = { status: 'answered', requestId, interpretation, confidence: { band: gate.decision === 'PASS' ? 'high' : 'medium', top1: gate.top1, support: gate.support },
     language: input.language, statements: answer.statements, blocks: answer.blocks, citations: citations.citations, boundary,
     notCovered: answer.missingAspects.length ? `${input.language === 'ur' ? 'حاصل شدہ مواد میں ان پہلوؤں کے لیے کافی ثبوت نہیں: ' : 'The retrieved material does not establish: '}${answer.missingAspects.join('; ')}` : null,
     supportReview: config.review ? 'model_reviewed' : 'disabled' };
+  return assessmentVerdict === 'conflict' ? { status: 'assessment_review', explanation } : explanation;
 }
 
 export function newTrace(): AskTrace {

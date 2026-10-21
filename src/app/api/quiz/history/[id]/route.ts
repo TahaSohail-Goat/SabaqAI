@@ -13,6 +13,7 @@ import { getCurrentUserAndProfile } from '@/lib/auth/get-current-user';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
 import { summarizeAttempt, type AttemptItem, type QuestionType } from '@/lib/quiz/feedback';
 import type { GradedQuestionView } from '@/components/app/GradedQuestionCard';
+type ReviewableQuestionView = GradedQuestionView & { questionId: string };
 
 export interface QuizAttemptDetail {
   attempt: {
@@ -26,7 +27,7 @@ export interface QuizAttemptDetail {
     chapterTitle: string | null;
     topicLabel: string | null;
   };
-  questions: GradedQuestionView[];
+  questions: ReviewableQuestionView[];
   summary: ReturnType<typeof summarizeAttempt>;
 }
 
@@ -108,7 +109,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           r.points_possible != null ? Number(r.points_possible) : type === 'mcq' ? 1 : rubric?.max_score ?? 1;
         const pointsAwarded = r.points_awarded != null ? Number(r.points_awarded) : r.is_correct ? pointsPossible : 0;
 
-        const view: GradedQuestionView = {
+        const view: ReviewableQuestionView = {
+          questionId: qq.id,
           position: qq.position,
           stem: qq.stem,
           questionType: type,
@@ -136,7 +138,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         };
         return { view, item };
       })
-      .filter((x): x is { view: GradedQuestionView; item: AttemptItem } => x !== null)
+      .filter((x): x is { view: ReviewableQuestionView; item: AttemptItem } => x !== null)
       .sort((a, b) => a.view.position - b.view.position);
 
     const detail: QuizAttemptDetail = {

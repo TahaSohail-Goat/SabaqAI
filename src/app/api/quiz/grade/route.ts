@@ -20,6 +20,7 @@ import { getCurrentUserAndProfile } from '@/lib/auth/get-current-user';
 import { getGeminiClient } from '@/lib/gemini';
 
 export interface GradedQuestion {
+  gradingState: 'graded' | 'unavailable';
   questionId: string;
   questionType: 'mcq' | 'short' | 'long';
   selectedIndex: number | null;
@@ -44,14 +45,14 @@ interface TextGradeItem {
 /** One batched call grading every free-text answer in the attempt, rather than one call per
  *  question — keeps grading latency to a single extra LLM round-trip regardless of how many
  *  short/long questions the quiz has (up to 12: 10 short + 2 long). */
-async function gradeTextAnswers(items: TextGradeItem[]): Promise<Map<string, { pointsAwarded: number; feedback: string }>> {
-  const results = new Map<string, { pointsAwarded: number; feedback: string }>();
+async function gradeTextAnswers(items: TextGradeItem[]): Promise<Map<string, { pointsAwarded: number; feedback: string; gradingState: 'graded' | 'unavailable' }>> {
+  const results = new Map<string, { pointsAwarded: number; feedback: string; gradingState: 'graded' | 'unavailable' }>();
   if (items.length === 0) return results;
 
   const ai = getGeminiClient();
   if (!ai) {
     for (const item of items) {
-      results.set(item.questionId, { pointsAwarded: 0, feedback: 'Automatic grading is unavailable right now.' });
+      results.set(item.questionId, { pointsAwarded: 0, feedback: 'Automatic grading is unavailable right now.', gradingState: 'unavailable' });
     }
     return results;
   }
@@ -88,10 +89,12 @@ Return strictly a JSON array of objects in this shape:
       for (const raw of parsed) {
         const item = byId.get(raw?.questionId);
         if (!item) continue;
-        const rawPoints = typeof raw.pointsAwarded === 'number' ? raw.pointsAwarded : 0;
+        if (typeof raw.pointsAwarded !== 'number' || !Number.isFinite(raw.pointsAwarded)) continue;
+        const rawPoints = raw.pointsAwarded;
         const pointsAwarded = Math.max(0, Math.min(item.maxScore, rawPoints));
         results.set(item.questionId, {
           pointsAwarded,
+          gradingState: 'graded',
           feedback: typeof raw.feedback === 'string' ? raw.feedback : '',
         });
       }
@@ -103,7 +106,7 @@ Return strictly a JSON array of objects in this shape:
   // Any question the model's response omitted or malformed never gets left silently ungraded.
   for (const item of items) {
     if (!results.has(item.questionId)) {
-      results.set(item.questionId, { pointsAwarded: 0, feedback: 'Could not be graded automatically.' });
+      results.set(item.questionId, { pointsAwarded: 0, feedback: 'Could not be graded automatically.', gradingState: 'unavailable' });
     }
   }
   return results;
@@ -137,6 +140,7 @@ async function gradeAll(
     return {
       questionId: e.id,
       questionType: 'mcq',
+      gradingState: 'graded',
       selectedIndex,
       answerText: null,
       correctIndex: e.correctIndex,
@@ -150,10 +154,11 @@ async function gradeAll(
 
   const textResults: GradedQuestion[] = textEntries.map((e) => {
     const answerText = textFor(e.id);
-    const grade = textGrades.get(e.id) ?? { pointsAwarded: 0, feedback: null as string | null };
+    const grade = textGrades.get(e.id) ?? { pointsAwarded: 0, feedback: null as string | null, gradingState: 'unavailable' as const };
     return {
       questionId: e.id,
       questionType: e.questionType,
+      gradingState: grade.gradingState,
       selectedIndex: null,
       answerText,
       correctIndex: null,
@@ -207,6 +212,8 @@ export async function POST(req: NextRequest) {
     // first and only point a quiz + its attempt get written, and only because there's a real
     // submission in hand. A generated-but-abandoned quiz never reaches this code path at all.
     let quizId: string | null = null;
+    let attemptId: string | null = null;
+    const realIdByTokenId = new Map<string, string>();
     let saved = false;
     const { user } = await getCurrentUserAndProfile();
     const admin = getServiceRoleClient();
@@ -232,7 +239,7 @@ export async function POST(req: NextRequest) {
         // Token ids and real DB ids are unrelated (the token never touched the database) —
         // match them back up by array order, which both persistQuiz and questionsByPosition
         // preserve as position-ascending.
-        const realIdByTokenId = new Map(questionsByPosition.map((q, idx) => [q.id, persisted.questionIds[idx]]));
+        questionsByPosition.forEach((q, idx) => realIdByTokenId.set(q.id, persisted.questionIds[idx]));
 
         const attemptResults: AttemptResult[] = results.map((r) => ({
           questionId: realIdByTokenId.get(r.questionId) ?? r.questionId,
@@ -242,14 +249,15 @@ export async function POST(req: NextRequest) {
           pointsAwarded: r.pointsAwarded ?? 0,
           pointsPossible: r.pointsPossible ?? 1,
           feedback: r.feedback,
+          gradingState: r.gradingState,
         }));
-        await persistAttempt(admin, quizId, user.id, attemptResults);
-        saved = true;
+        attemptId = await persistAttempt(admin, quizId, user.id, attemptResults);
+        saved = attemptId !== null;
 
         // The quiz is now real normalized rows (quizzes/quiz_attempts) — drop its parked draft
         // so it moves from "in progress" to "completed" everywhere. Best-effort + ownership-
         // scoped; a stale draft would otherwise just expire on its own.
-        if (typeof draftId === 'string' && draftId) {
+        if (saved && typeof draftId === 'string' && draftId) {
           const { error: draftDeleteError } = await admin
             .from('quiz_drafts')
             .delete()
@@ -266,9 +274,10 @@ export async function POST(req: NextRequest) {
       score: results.filter((r) => r.correct).length,
       total: results.length,
       answered: results.filter((r) => r.selectedIndex !== null || r.answerText !== null).length,
-      results,
+      results: results.map((r) => ({ ...r, persistedQuestionId: saved ? realIdByTokenId.get(r.questionId) ?? null : null })),
       saved,
       quizId,
+      attemptId,
     });
   } catch (error) {
     console.error('Quiz grading error:', error);

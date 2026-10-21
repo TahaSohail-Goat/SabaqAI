@@ -197,6 +197,7 @@ export async function persistQuiz(
 }
 
 export interface AttemptResult {
+  gradingState: 'graded' | 'unavailable';
   questionId: string;
   /** MCQ: selected option index. short/long: the submitted free text. null = unanswered. */
   selectedIndex: number | null;
@@ -212,7 +213,7 @@ export async function persistAttempt(
   quizId: string,
   userId: string,
   results: AttemptResult[]
-): Promise<void> {
+): Promise<string | null> {
   // "Passed" a question = at least half credit — keeps score/total as simple counts (matching
   // existing Dashboard reads of quiz_attempts) while still letting individual answers carry
   // partial credit via quiz_attempt_answers.points_awarded.
@@ -227,7 +228,7 @@ export async function persistAttempt(
 
   if (attemptError || !attempt) {
     console.error('Quiz persist: quiz_attempts insert failed:', attemptError?.message);
-    return;
+    return null;
   }
 
   const { error: answersError } = await admin.from('quiz_attempt_answers').insert(
@@ -240,9 +241,12 @@ export async function persistAttempt(
       points_awarded: r.pointsAwarded,
       points_possible: r.pointsPossible,
       feedback: r.feedback,
+      grading_state: r.gradingState,
     }))
   );
   if (answersError) {
     console.error('Quiz persist: quiz_attempt_answers insert failed:', answersError.message);
+    return null;
   }
+  return attempt.id as string;
 }

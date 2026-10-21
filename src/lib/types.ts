@@ -198,6 +198,34 @@ export interface Citation {
   excerpt: string;
 }
 
+/** Assessment context is server-loaded, never academic evidence or an HTTP input. */
+export interface QuizReviewContext {
+  ownerId: string;
+  attemptId: string;
+  questionId: string;
+  version: string;
+  scope: AskScope;
+  question: string;
+  questionType: 'mcq' | 'short' | 'long';
+  options: string[];
+  response: string;
+  expectedAnswer: string;
+  credit: 'incorrect' | 'partial';
+}
+
+export type GroundedAskResult = AskResponse | {
+  status: 'assessment_review';
+  explanation: Extract<AskResponse, { status: 'answered' }>;
+};
+
+export interface QuizExplainRequest { attemptId: string; questionId: string; language?: Language }
+export type QuizExplainIneligible = 'not_submitted' | 'snapshot_unavailable' | 'grading_unavailable' | 'grading_changed' | 'unanswered' | 'correct' | 'unsupported_context';
+export type QuizExplainResponse =
+  | { status: 'explained' | 'assessment_review'; requestId: string; attemptId: string; questionId: string; explanation: Extract<AskResponse, { status: 'answered' }> }
+  | { status: 'insufficient_support'; requestId: string; refusal: Extract<AskResponse, { status: 'refused' }> }
+  | { status: 'not_eligible'; requestId: string; reason: QuizExplainIneligible }
+  | { status: 'error'; requestId: string; code: 'unauthenticated' | 'forbidden' | 'not_found' | 'duplicate_request' | 'cancelled' | Extract<AskResponse, { status: 'error' }>['code']; message: string; retryable: boolean; retryAfterSeconds?: number };
+
 // /api/ask/options — what a student can actually pick from before asking a question. Always
 // returns all four source types, even with an empty units array, so the UI can show an
 // honest "nothing ingested yet" state instead of hiding a category outright.

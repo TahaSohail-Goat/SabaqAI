@@ -6,7 +6,8 @@ import { askRequestSchema, scopeSchema } from '@/lib/ask/contracts';
 import { readAskConfig, AskFailure } from '@/lib/ask/config';
 import { createAskProvider } from '@/lib/ask/provider';
 import { liveAskRetrieval, scoredEvidence } from '@/lib/ask/evidence';
-import { runAsk, newTrace } from '@/lib/ask/orchestrator';
+import { newTrace } from '@/lib/ask/orchestrator';
+import { runAskService } from '@/lib/ask/service';
 import { acquireAskSlot, readBoundedJson, withinDeadline } from '@/lib/ask/limits';
 import type { AskResponse } from '@/lib/types';
 
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
     const owner = createHash('sha256').update(user ? `user:${user.id}` : `anonymous:${anonymous}`).digest('hex');
     release = acquireAskSlot(owner);
     provider = createAskProvider(config, signal);
-    const result = await withinDeadline(runAsk(input, { config, provider, retrieval: liveAskRetrieval, signal, requestId, owner, trace,
+    const result = await withinDeadline(runAskService({ mode: 'student_question', request: input }, { userId: user?.id ?? null, profile }, { config, provider, retrieval: liveAskRetrieval, signal, requestId, owner, trace,
       log: async (entry) => logQuestion({ userId: user?.id ?? null, subject: entry.scope.subject,
         questionLanguage: entry.language, top1Score: entry.top1, supportCount: entry.support,
         decision: entry.decision, refusalReason: entry.reason, retrievedChunks: scoredEvidence(entry.evidence),
