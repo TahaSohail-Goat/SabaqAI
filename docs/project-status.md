@@ -1,5 +1,17 @@
 # Project status — what is real and what is a stub
 
+## Groq provider fallback and local startup — 2026-10-23
+
+The shared Doubts/Quiz provider can switch from Gemini to the existing Groq text model for
+temporary service/connection failures or Gemini HTTP 429. It uses the existing single retry,
+call cap and deadline, with mandatory citation/grounding/adequacy validation. Groq token planning
+is explicitly estimated and actual reported prompt usage is checked before accepting output.
+Offline provider and compatibility tests pass; live probes confirmed switching but encountered
+Groq rate limiting and an invalid review, so a successful live fallback answer is not claimed.
+Local port 3100 is running with Webpack after the old dev process returned HTML 404 for login;
+the login endpoint now returns proper JSON through local Supabase Auth. No successful browser
+login was performed. See [checks, timings and limitations](ask-evolution/GROQ_FALLBACK.md).
+
 ## Temporary provider failures — 2026-10-23
 
 Local Ask failures were traced to Gemini before retrieval and to an explicit upstream HTTP 503

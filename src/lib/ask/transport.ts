@@ -2,7 +2,7 @@ import { AskFailure } from './config';
 
 const codes = ['ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'ENOTFOUND', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET'] as const;
 export type TransportCode = typeof codes[number] | 'fetch_failed';
-export type ProviderRetryCode = TransportCode | 'HTTP_502' | 'HTTP_503' | 'HTTP_504';
+export type ProviderRetryCode = TransportCode | 'HTTP_502' | 'HTTP_503' | 'HTTP_504' | 'HTTP_429';
 
 // Never log raw SDK errors: they may include a request URL, student text or credentials.
 // HTTP responses are not transport failures, including quota/auth/schema/service errors.

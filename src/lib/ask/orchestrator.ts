@@ -25,6 +25,8 @@ export interface AskTrace {
   repairSkipped?: 'budget' | 'no_evidence' | 'already_repaired';
   transportRetries?: number;
   providerRetryCode?: ProviderRetryCode;
+  provider?: 'gemini' | 'groq';
+  tokenCountMode?: 'exact' | 'estimate_with_usage_check';
   citationRejections: number; supportRejections: number; repairs: number;
   durations: Record<string, number>; sourceIds: string[];
 }
@@ -56,7 +58,8 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
     checkDeadline(signal);
     if (calls >= config.calls) throw new AskFailure('unavailable', 503, true);
     calls++;
-    return provider.json(...args);
+    try { return await provider.json(...args); }
+    finally { trace.provider = provider.providerName; trace.tokenCountMode = provider.tokenCountMode; }
   }, () => calls < config.calls);
   const countTokens: AskProvider['countTokens'] = (...args) => withTransportRetry(() => provider.countTokens(...args));
   const parsed = askRequestSchema.safeParse(value);
@@ -136,8 +139,8 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
   if (evidence.length) {
     trace.tokens = await stage('token_count', () => countTokens(instruction, envelope));
     if (trace.tokens > config.tokens) {
-      // One bounded reduction/recount: measured tokens inform selection, but only the second
-      // exact count authorizes this final payload. Never cut a question, formula or chunk in half.
+      // One bounded reduction/recount. Gemini counts exactly; Groq planning estimates are
+      // additionally checked against actual provider usage. Never cut a chunk in half.
       const ratio = Math.max(0, (config.tokens - 2500) / trace.tokens);
       const targetBytes = Math.floor(Buffer.byteLength(JSON.stringify(evidence), 'utf8') * ratio);
       do { evidence.pop(); } while (evidence.length && Buffer.byteLength(JSON.stringify(evidence), 'utf8') > targetBytes);
