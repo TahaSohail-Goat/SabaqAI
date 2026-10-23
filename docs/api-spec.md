@@ -1,5 +1,14 @@
 # API spec
 
+## Grounding and answer adequacy
+
+Ask/Quiz public response variants are unchanged. Reviewed answer coverage can now be partial when
+the requested mechanism or a subquestion is unsupported, with limitations rendered through existing
+`boundary.missingRequestedAspects` / `notCovered`. An inadequate answer is withheld even if its facts
+and citations are valid. The internal review contract requires adequacy, reasoning and example checks;
+clients cannot supply these verdicts. At most one evidence-backed repair and fresh independent review
+can run within the configured budget/deadline. See [implementation and checks](ask-evolution/ANSWER_ADEQUACY.md).
+
 ## Doubts exact source selection and hybrid retrieval
 
 `POST /api/ask` adds optional `sourceId: UUID`, the actual selected `chapter_sources.id`, to its strict

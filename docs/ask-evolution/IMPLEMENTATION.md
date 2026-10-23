@@ -154,8 +154,8 @@ Restore a working `NEXT_PUBLIC_SUPABASE_URL`, anon/service-role keys, embedding 
 | --- | --- | --- |
 | `ASK_QUERY_UNDERSTANDING_ENABLED` | true | false bypasses correction for rollback; direct input still validated |
 | `ASK_CONCEPT_EXPANSION_ENABLED` | true | false uses scoped scored seeds only |
-| `ASK_SUPPORT_REVIEW_ENABLED` | true | false explicitly returns supportReview=disabled |
-| `ASK_REPAIR_ENABLED` | false | one structure/citation repair followed by review |
+| `ASK_SUPPORT_REVIEW_ENABLED` | true | false refuses new answers; grounding and adequacy review are required |
+| `ASK_REPAIR_ENABLED` | false | optional structural repair; evidence-backed adequacy repair is automatic within the same one-attempt limit |
 | `ASK_MAX_INPUT_CHARS` | 1600 | 100–4000; UI and normalization currently cap at 1600 |
 | `ASK_MAX_SEED_CHUNKS` | 6 | 1–12; one indexed search, TOP_K still bounds RPC candidates |
 | `ASK_MAX_CONTEXT_CHUNKS` | 10 | 1–20; includes seeds and relevant neighbors |
@@ -163,7 +163,7 @@ Restore a working `NEXT_PUBLIC_SUPABASE_URL`, anon/service-role keys, embedding 
 | `ASK_MAX_CONTEXT_TOKENS` | 7000 | 500–16000; exact selected-model count after conservative selection |
 | `ASK_MAX_OUTPUT_TOKENS` | 4000 | 500–8000 per generation, including structured output |
 | `ASK_TOTAL_TIMEOUT_MS` | 110000 | 5000–120000; shared across stages, not reset per call |
-| `ASK_MAX_LLM_CALLS` | 4 | 2–4; default reviewed success uses three calls |
+| `ASK_MAX_LLM_CALLS` | 6 | 2–6; normal reviewed success uses three or four calls; one repair plus new review needs two spare slots |
 | `ASK_CLARIFICATION_TTL_SECONDS` | 600 | 60–1800 |
 | `ASK_CLARIFICATION_SECRET` | process random key | shared random secret ≥32 characters recommended for replicas |
 

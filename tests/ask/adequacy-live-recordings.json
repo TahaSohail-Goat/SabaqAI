@@ -1,0 +1,347 @@
+{
+  "provenance": "Actual local-corpus/live-Gemini outputs under the final adequacy schema, 2026-10-23. Offline replay is not a new provider test. Multipart error is explicitly a failed academic probe caused by an invalid alleged OCR quotation.",
+  "cases": [
+    {
+      "id": "reported",
+      "question": "how non contact forces work?",
+      "expectedAcademicOutcome": "partial",
+      "expected": "partial",
+      "providerOutputs": [
+        {
+          "stage": "understanding",
+          "output": {
+            "status": "ready",
+            "normalizedQuestion": "How do non-contact forces work?",
+            "retrievalQuestion": "How do non-contact forces work?",
+            "inputLanguage": "en",
+            "intent": "explanation",
+            "concepts": [
+              "non-contact forces",
+              "forces at a distance"
+            ],
+            "corrections": [],
+            "ambiguityReasons": [],
+            "clarification": null
+          }
+        },
+        {
+          "stage": "sufficiency",
+          "output": {
+            "coverage": "partial",
+            "coreSupported": true,
+            "support": [
+              {
+                "chunkId": "2ba6fc9f-df86-450b-bb34-309f9b5b19f0",
+                "quote": "The force which acts at a distance, without any physical contact between bodies is termed as non-contact force. This force acts even if the objects involved are not touching, also termed as action at a distance force."
+              }
+            ],
+            "missingAspects": [
+              "detailed underlying mechanism of how non-contact forces function beyond exchange particles and action-at-a-distance descriptions"
+            ]
+          }
+        },
+        {
+          "stage": "explanation",
+          "output": {
+            "answerable": true,
+            "language": "en",
+            "coverage": "partial",
+            "statements": [
+              {
+                "id": "s1",
+                "text": "A non-contact force is a force that acts at a distance without any physical contact between bodies, so it acts even if the objects involved are not touching.",
+                "aspect": "definition",
+                "chunkIds": [
+                  "2ba6fc9f-df86-450b-bb34-309f9b5b19f0"
+                ],
+                "kind": "explanation"
+              },
+              {
+                "id": "s2",
+                "text": "Non-contact forces are also termed as action at a distance forces, such as the gravitational force experienced by the moon because of the earth.",
+                "aspect": "example",
+                "chunkIds": [
+                  "2ba6fc9f-df86-450b-bb34-309f9b5b19f0"
+                ],
+                "kind": "book_example"
+              }
+            ],
+            "blocks": [
+              {
+                "kind": "direct_answer",
+                "statementIds": [
+                  "s1"
+                ]
+              },
+              {
+                "kind": "example",
+                "statementIds": [
+                  "s2"
+                ]
+              }
+            ],
+            "missingAspects": [
+              "detailed underlying mechanism of how non-contact forces function beyond exchange particles and action-at-a-distance descriptions"
+            ],
+            "calculation": null
+          }
+        },
+        {
+          "stage": "review",
+          "output": {
+            "coherent": true,
+            "coreSupported": true,
+            "adequacy": {
+              "verdict": "partial",
+              "reasoning": "addressed",
+              "example": "used",
+              "reason": "The explanation covers the definition and examples of non-contact forces, but the missing mechanism (how exchange particles mediate these forces) is explicitly stated as missing.",
+              "missingAspects": [
+                "detailed underlying mechanism of how non-contact forces function beyond exchange particles and action-at-a-distance descriptions"
+              ],
+              "repairEvidence": []
+            },
+            "verdicts": [
+              {
+                "statementId": "s1",
+                "verdict": "supported",
+                "chunkIds": [
+                  "2ba6fc9f-df86-450b-bb34-309f9b5b19f0"
+                ],
+                "reason": "The text states that the force which acts at a distance, without any physical contact between bodies, is termed as a non-contact force and acts even if objects are not touching."
+              },
+              {
+                "statementId": "s2",
+                "verdict": "supported",
+                "chunkIds": [
+                  "2ba6fc9f-df86-450b-bb34-309f9b5b19f0"
+                ],
+                "reason": "The text mentions action at a distance forces and gives the example of the gravitational force experienced by the moon because of the earth."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "definition",
+      "question": "What is a non-contact force?",
+      "expectedAcademicOutcome": "answered",
+      "expected": "answered",
+      "providerOutputs": [
+        {
+          "stage": "understanding",
+          "output": {
+            "status": "ready",
+            "normalizedQuestion": "What is a non-contact force?",
+            "retrievalQuestion": "What is a non-contact force?",
+            "inputLanguage": "en",
+            "intent": "definition",
+            "concepts": [
+              "non-contact force",
+              "force"
+            ],
+            "corrections": [],
+            "ambiguityReasons": [],
+            "clarification": null
+          }
+        },
+        {
+          "stage": "sufficiency",
+          "output": {
+            "coverage": "sufficient",
+            "coreSupported": true,
+            "support": [
+              {
+                "chunkId": "2ba6fc9f-df86-450b-bb34-309f9b5b19f0",
+                "quote": "The force which acts at a distance, without any physical contact between bodies is termed as non-contact force. This force acts even if the objects involved are not touching, also termed as action at a distance force."
+              }
+            ],
+            "missingAspects": []
+          }
+        },
+        {
+          "stage": "explanation",
+          "output": {
+            "answerable": true,
+            "language": "en",
+            "coverage": "sufficient",
+            "statements": [
+              {
+                "id": "s1",
+                "text": "A non-contact force is a force which acts at a distance without any physical contact between bodies, so it acts even if the objects involved are not touching.",
+                "aspect": "definition",
+                "chunkIds": [
+                  "2ba6fc9f-df86-450b-bb34-309f9b5b19f0"
+                ],
+                "kind": "explanation"
+              },
+              {
+                "id": "s2",
+                "text": "A non-contact force is also termed as an action at a distance force.",
+                "aspect": "core",
+                "chunkIds": [
+                  "2ba6fc9f-df86-450b-bb34-309f9b5b19f0"
+                ],
+                "kind": "explanation"
+              },
+              {
+                "id": "s3",
+                "text": "Examples of non-contact forces include gravitational force (such as the force experienced by the moon because of Earth), electrostatic force (such as the attractive force between a positively charged nucleus and a negatively charged electron), and magnetic force (such as the repulsive force between two North poles of magnets).",
+                "aspect": "example",
+                "chunkIds": [
+                  "2ba6fc9f-df86-450b-bb34-309f9b5b19f0"
+                ],
+                "kind": "book_example"
+              }
+            ],
+            "blocks": [
+              {
+                "kind": "direct_answer",
+                "statementIds": [
+                  "s1",
+                  "s2"
+                ]
+              },
+              {
+                "kind": "example",
+                "statementIds": [
+                  "s3"
+                ]
+              }
+            ],
+            "missingAspects": [],
+            "calculation": null
+          }
+        },
+        {
+          "stage": "review",
+          "output": {
+            "coherent": true,
+            "coreSupported": true,
+            "adequacy": {
+              "verdict": "complete",
+              "reasoning": "addressed",
+              "example": "used",
+              "reason": "The definition and examples of a non-contact force are fully addressed and supported by the text.",
+              "missingAspects": [],
+              "repairEvidence": []
+            },
+            "verdicts": [
+              {
+                "statementId": "s1",
+                "verdict": "supported",
+                "chunkIds": [
+                  "2ba6fc9f-df86-450b-bb34-309f9b5b19f0"
+                ],
+                "reason": "The text states that the force which acts at a distance, without any physical contact between bodies is termed as non-contact force and acts even if objects are not touching."
+              },
+              {
+                "statementId": "s2",
+                "verdict": "supported",
+                "chunkIds": [
+                  "2ba6fc9f-df86-450b-bb34-309f9b5b19f0"
+                ],
+                "reason": "The text explicitly states that this force is also termed as action at a distance force."
+              },
+              {
+                "statementId": "s3",
+                "verdict": "supported",
+                "chunkIds": [
+                  "2ba6fc9f-df86-450b-bb34-309f9b5b19f0"
+                ],
+                "reason": "The text provides gravitational force with the moon/earth example, electrostatic force with the nucleus/electron example, and magnetic force with the North poles example."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "partial",
+      "question": "What are non-contact forces? Give two textbook examples, then derive their exact force-distance equations.",
+      "expectedAcademicOutcome": "partial",
+      "expected": "error",
+      "providerOutputs": [
+        {
+          "stage": "understanding",
+          "output": {
+            "status": "ready",
+            "normalizedQuestion": "What are non-contact forces? Give two textbook examples, then derive their exact force-distance equations.",
+            "retrievalQuestion": "What are non-contact forces? Give two textbook examples, then derive their exact force-distance equations.",
+            "inputLanguage": "en",
+            "intent": "definition",
+            "concepts": [
+              "non-contact forces",
+              "gravitational force",
+              "electrostatic force",
+              "force-distance equations"
+            ],
+            "corrections": [],
+            "ambiguityReasons": [],
+            "clarification": null
+          }
+        },
+        {
+          "stage": "sufficiency",
+          "output": {
+            "coverage": "partial",
+            "coreSupported": true,
+            "support": [
+              {
+                "chunkId": "2ba6fc9f-df86-450b-bb34-309f9b5b19f0",
+                "quote": "The force which acts at a distance, without any physical contact between bodies is termed as non-contact force."
+              },
+              {
+                "chunkId": "2ba6fc9f-df86-450b-bb34-309f9b5b19f0",
+                "quote": "For example, the force experienced by moon because of earth. An attractive or repulsive force experienced by charged objects is called electrostatic force. For example the attractive force between a positively charged nucleus and negatively carbohydrate electron."
+              }
+            ],
+            "missingAspects": [
+              "derivation of exact force-distance equations"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "misleading-keywords",
+      "question": "How does a magnetic hard disk use non-contact forces to encode individual bits? Explain its storage mechanism.",
+      "expectedAcademicOutcome": "refused",
+      "expected": "refused",
+      "providerOutputs": [
+        {
+          "stage": "understanding",
+          "output": {
+            "status": "ready",
+            "normalizedQuestion": "How does a magnetic hard disk use non-contact forces to encode individual bits? Explain its storage mechanism.",
+            "retrievalQuestion": "How does a magnetic hard disk use non-contact forces to encode individual bits? Explain its storage mechanism.",
+            "inputLanguage": "en",
+            "intent": "mechanism",
+            "concepts": [
+              "magnetic hard disk",
+              "non-contact forces",
+              "encoding individual bits",
+              "storage mechanism"
+            ],
+            "corrections": [],
+            "ambiguityReasons": [],
+            "clarification": null
+          }
+        },
+        {
+          "stage": "sufficiency",
+          "output": {
+            "coverage": "insufficient",
+            "coreSupported": false,
+            "support": [],
+            "missingAspects": [
+              "magnetic hard disk storage mechanism",
+              "encoding individual bits using non-contact forces"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

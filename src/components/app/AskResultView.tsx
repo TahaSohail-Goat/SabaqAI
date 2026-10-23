@@ -42,7 +42,7 @@ export default function AskResultView({ result, selectedCitation, onCitation, on
   if (result.status === 'refused') return (
     <section className="bg-surface border border-border rounded-2xl p-6 space-y-4">
       {interpretationLine}
-      <div className="flex items-center gap-2 text-navy"><HelpCircle className="w-5 h-5" /><h3 className="text-sm font-bold">More textbook support needed</h3></div>
+      <div className="flex items-center gap-2 text-navy"><HelpCircle className="w-5 h-5" /><h3 className="text-sm font-bold">{result.reason === 'low_similarity' ? 'Search confidence too low' : result.reason === 'no_candidates' ? 'No passages retrieved' : 'Supported answer not confirmed'}</h3></div>
       <p className="text-sm text-navy-2" dir="auto">{result.message}</p>
       <p className="text-xs text-text-2" dir="auto">{result.suggestion}</p>
       {result.nearestChapters.length > 0 && <p className="text-xs text-text-2">Closest retrieved chapters: {result.nearestChapters.map((c) => c.chapterTitle ?? `Chapter ${c.chapterNo}`).join(', ')}</p>}

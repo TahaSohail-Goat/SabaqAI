@@ -108,9 +108,17 @@ export interface TeachingAnswer {
 
 export interface GuardrailResult {
   decision: GateDecision;
-  reason?: 'no_candidates' | 'low_similarity';
+  reason?: 'no_candidates' | 'low_similarity' | 'ungrounded_output';
   top1: number;
   support: number;
+}
+
+// Produced only by server-side excerpt validation, never accepted from an HTTP request.
+export interface SemanticEvidenceDecision {
+  coverage: 'sufficient' | 'partial' | 'insufficient';
+  supportingChunkIds: string[];
+  supportingExcerpts: { chunkId: string; quote: string }[];
+  missingAspects: string[];
 }
 
 // What the LLM must return. We parse against this; we do not scrape prose.

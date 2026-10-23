@@ -71,6 +71,14 @@ export const teachingSchema = z.object({
 
 export const reviewSchema = z.object({
   coherent: z.boolean(), coreSupported: z.boolean(),
+  adequacy: z.object({
+    verdict: z.enum(['complete', 'partial', 'inadequate']),
+    reasoning: z.enum(['addressed', 'missing_evidence', 'omitted', 'not_requested']),
+    example: z.enum(['used', 'available_but_missing', 'unavailable', 'not_needed']),
+    reason: z.string().trim().min(1).max(500),
+    missingAspects: z.array(z.string().trim().min(1).max(300)).max(8),
+    repairEvidence: z.array(z.object({ chunkId: z.string().min(1), quote: z.string().trim().min(24).max(1000) }).strict()).max(6),
+  }).strict(),
   verdicts: z.array(z.object({
     statementId: z.string(), verdict: z.enum(['supported', 'unsupported', 'uncertain']),
     chunkIds: z.array(z.string()).min(1).max(6), reason: z.string().min(1).max(300),

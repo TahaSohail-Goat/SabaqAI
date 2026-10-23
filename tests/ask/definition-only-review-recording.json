@@ -1,0 +1,54 @@
+{
+  "provenance": "One live Gemini review of the user-visible definition-only draft, replayed against the actual stored OCR fixture. No generation or database writes.",
+  "before": {
+    "answerable": true,
+    "language": "en",
+    "coverage": "sufficient",
+    "calculation": null,
+    "statements": [
+      {
+        "id": "s1",
+        "aspect": "definition",
+        "kind": "explanation",
+        "chunkIds": [
+          "2ba6fc9f-df86-450b-bb34-309f9b5b19f0"
+        ],
+        "text": "A non-contact force is a force that acts at a distance without any physical contact between bodies, meaning it acts even if the objects involved are not touching."
+      }
+    ],
+    "blocks": [
+      {
+        "kind": "direct_answer",
+        "statementIds": [
+          "s1"
+        ]
+      }
+    ],
+    "missingAspects": []
+  },
+  "structuralFailures": [],
+  "review": {
+    "coherent": true,
+    "coreSupported": true,
+    "adequacy": {
+      "verdict": "partial",
+      "reason": "The answer provides a clear definition of what a non-contact force is, but omits the explanation of how they work (such as through fundamental forces and exchange particles).",
+      "missingAspects": [
+        "mechanism of how non-contact forces work via exchange particles"
+      ],
+      "repairEvidence": []
+    },
+    "verdicts": [
+      {
+        "statementId": "s1",
+        "verdict": "supported",
+        "chunkIds": [
+          "2ba6fc9f-df86-450b-bb34-309f9b5b19f0"
+        ],
+        "reason": "The text explicitly states that a non-contact force acts at a distance without physical contact between bodies, even if the objects are not touching."
+      }
+    ]
+  },
+  "latencyMs": 4857,
+  "calls": 1
+}

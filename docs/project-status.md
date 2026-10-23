@@ -1,5 +1,36 @@
 # Project status — what is real and what is a stub
 
+## Separate answer adequacy and grounding review — 2026-10-23
+
+The current shared Ask/Quiz review separately assesses factual grounding and answer adequacy,
+including requested reasoning, useful concrete examples and multipart coverage. Definition-only
+how/why output cannot be accepted as complete or disguised as a useful partial explanation. Missing
+mechanisms remain explicit partial limitations; short definition answers remain valid when requested.
+The existing review call performs both checks. One evidence-backed repair can run only with budget
+for a fresh independent grounding/adequacy review; citation/source checks and deadlines still apply.
+The configurable ceiling is six for the possible four-plus-two sequence, while explicit lower caps
+are honored and ordinary adequate requests add no model call. No corpus or PDF metadata was changed.
+The prior cutoff fix is included in the same checkpoint; independent Class 9 catalogue work stays
+uncommitted. See [actual outputs, test results and latency limitations](ask-evolution/ANSWER_ADEQUACY.md).
+
+## Evidence-based Ask false-refusal fix — 2026-10-23
+
+On `doubt-finalize`, uncertain scoped evidence can receive a bounded exact-excerpt sufficiency
+assessment before the final confidence gate. Complete and independently useful partial support can
+authorize only BORDERLINE, with mandatory independent support review; insufficient evidence refuses
+before teaching. Thresholds and hybrid/source/chapter filters are unchanged. Citation reconstruction,
+PDF metadata and corpus remain untouched. Partial limitations cannot be erased by generation.
+Cutoff refusal copy now explicitly distinguishes search confidence from semantic insufficiency.
+
+Real local retrieval/live Gemini checks answered the reported non-contact-forces question with the
+stored definition/examples, returned a useful partial answer for an additional unsupported derivation,
+and refused general-relativity and magnetic-disk keyword traps. Earlier checks exposed partial-review
+and layout rejection issues which were corrected; rate-limit/network failures are documented rather
+than counted as academic results. The new stage adds latency, not a speed improvement. No score
+threshold was calibrated on this small probe. See [evidence, measured times and actual check results](ask-evolution/FALSE_REFUSAL_FIX.md).
+No database writes, re-embedding, hosted changes or merge occurred. The earlier acceptance catalogue
+and unrelated uncommitted files are preserved.
+
 ## Doubts hybrid retrieval and exact source selection — 2026-10-22
 
 On `doubt-finalize`, normal Ask now augments the complete corrected question's vector search with

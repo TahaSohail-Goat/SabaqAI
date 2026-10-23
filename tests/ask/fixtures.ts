@@ -33,7 +33,13 @@ export function answer(): TeachingAnswer {
   ], blocks: [{ kind: 'direct_answer', statementIds: ['s1'] }, { kind: 'example', statementIds: ['s2'] }], missingAspects: [], calculation: null };
 }
 
-export function fixtureDependencies(options: { understanding?: unknown; output?: unknown; review?: unknown; seeds?: EvidenceChunk[]; neighbors?: EvidenceChunk[]; failStage?: string } = {}) {
+export function fixtureAdequacy(checked: TeachingAnswer = answer()) {
+  return { verdict: checked.coverage === 'partial' ? 'partial' as const : 'complete' as const,
+    reasoning: 'addressed' as const, example: checked.statements.some((s) => s.aspect === 'example') ? 'used' as const : 'not_needed' as const,
+    reason: 'TEST fixture adequacy verdict, not a live semantic assessment.', missingAspects: checked.missingAspects, repairEvidence: [] };
+}
+
+export function fixtureDependencies(options: { understanding?: unknown; output?: unknown; review?: unknown; sufficiency?: unknown; seeds?: EvidenceChunk[]; neighbors?: EvidenceChunk[]; failStage?: string } = {}) {
   const stages: string[] = [];
   const outputs = { understanding: options.understanding ?? ready(), explanation: options.output ?? answer() };
   const provider: AskProvider = {
@@ -42,9 +48,10 @@ export function fixtureDependencies(options: { understanding?: unknown; output?:
       stages.push(stage);
       if (stage === options.failStage) throw new Error('fixture provider failure');
       if (stage === 'understanding') return structuredClone(outputs.understanding);
+      if (stage === 'sufficiency') return structuredClone(options.sufficiency ?? { coverage: 'insufficient', coreSupported: false, support: [], missingAspects: ['TEST fixture core unsupported.'] });
       if (stage === 'explanation' || stage === 'repair') return structuredClone(outputs.explanation);
       const checked = (payload as { answer: TeachingAnswer }).answer;
-      return options.review ?? { coherent: true, coreSupported: true, verdicts: checked.statements.map((s) => ({ statementId: s.id, verdict: 'supported', chunkIds: s.chunkIds, reason: 'TEST fixture support only.' })) };
+      return { adequacy: fixtureAdequacy(checked), ...(options.review && typeof options.review === 'object' ? options.review : { coherent: true, coreSupported: true, verdicts: checked.statements.map((s) => ({ statementId: s.id, verdict: 'supported', chunkIds: s.chunkIds, reason: 'TEST fixture support only.' })) }) };
     },
     async countTokens() { return 800; },
   };

@@ -12,6 +12,13 @@ function render(result: AskResponse) {
   return renderToStaticMarkup(<AskResultView result={result} selectedCitation={null} onCitation={() => {}} onClarify={() => {}} onEdit={() => {}} onRetry={() => {}} />);
 }
 
+test('retrieval cutoff copy does not claim the textbook was semantically insufficient', () => {
+  const html = render({ status: 'refused', reason: 'low_similarity', message: 'Whether the text answers your question was not assessed.', nearestChapters: [], suggestion: 'Try a clearer question.' });
+  assert.match(html, /Search confidence too low/);
+  assert.match(html, /was not assessed/);
+  assert.doesNotMatch(html, /More textbook support needed|Supported answer not confirmed/);
+});
+
 test('source picker identifies selected document language and asks legacy selections to be selected again', () => {
   const unit = { sourceId: '00000000-0000-4000-8000-000000000001', sourceLanguage: 'ur', chapterNo: 1, chapterTitle: 'TEST Chapter', pdfUrl: null, pageFrom: 31 };
   const html = renderToStaticMarkup(<AskUnitSelector sourceType="textbook" units={[unit]} value={unit} onChange={() => {}} />);

@@ -4,7 +4,7 @@ import { AskFailure, checkDeadline, type AskConfig } from './config';
 import { providerJsonSchema } from './provider-schema';
 
 export interface AskProvider {
-  json(stage: 'understanding' | 'explanation' | 'review' | 'repair', instruction: string, payload: unknown, schema: z.ZodType): Promise<unknown>;
+  json(stage: 'understanding' | 'sufficiency' | 'explanation' | 'review' | 'repair', instruction: string, payload: unknown, schema: z.ZodType): Promise<unknown>;
   countTokens(instruction: string, payload: unknown): Promise<number>;
   readonly calls: number;
 }
