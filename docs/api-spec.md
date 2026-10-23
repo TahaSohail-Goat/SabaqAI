@@ -322,43 +322,20 @@ draft never creates.
 
 ---
 
-## `POST /api/quiz/grade` — submit and grade
+## `POST /api/quiz/grade` ? submit and grade
 
-**Request**
+**Request:** `{ "quizToken": "<opaque AES-GCM token>", "answers": { "<questionId>": 1, "<writtenQuestionId>": "student text" }, "draftId"?: "<UUID>" }`.
+MCQs use zero-based option indexes; short/long questions use free text. Omitted questions are unanswered.
+A valid token lasts two hours. Generation does not save a completed quiz; submission saves it for an authenticated student when the local database is available.
 
-```json
-{
-  "answerToken": "8fJ2…opaque…",
-  "answers": { "q-14-1": 1, "q-14-2": 0 }
-}
-```
+**Response** (`200`) includes `score`, `total`, `answered`, `saved`, `quizId`, `attemptId`, and `results[]`. Each result has `questionId`, `questionType`, `gradingState`, `correct`, `pointsAwarded`, `pointsPossible`, `feedback`, and `persistedQuestionId` (when saved). MCQs additionally return the selected/correct option and explanation after submission. Written results have `answerText` and `review`.
 
-`answers` maps question id to the selected option index. Omitted questions count as unanswered.
+A graded written `review` has `correctAnswer` (exact textbook answer passages), `totalAwarded`, `totalPossible`, `totalDeducted`, and `criteria[]`. Each criterion has its one-mark expectation, `awarded`, `possible`, `deducted`, a specific reason, and a citation rebuilt from the stored textbook row (`chunkId`, chapter, section, page range, exact excerpt). The model can choose criterion grades and write reasons; it cannot supply citation metadata or excerpts. Source lookup uses the quiz chapter's board, class, subject, chapter number and textbook source type. Malformed results or missing source/criteria return `gradingState: "unavailable"`, `pointsAwarded: null`, and `review: null`; they are excluded from marked-summary calculations. Old two-hour quiz tokens without source-backed criteria are also unavailable for written grading.
+Blank written answers are marked zero directly from the verified criteria without a Gemini call.
 
-**Response** (`200`)
+Migration `0024_quiz_grading_review.sql` adds nullable `quiz_attempt_answers.grading_review` for history replay. Apply it to the local database before expecting new attempts to save. Until then, graded responses can still be shown live with `saved: false`, and older history remains readable. No migration or deployment to the hosted project is performed automatically.
 
-```json
-{
-  "score": 1,
-  "total": 2,
-  "answered": 2,
-  "results": [
-    {
-      "questionId": "q-14-1",
-      "selectedIndex": 1,
-      "correctIndex": 1,
-      "correct": true,
-      "explanation": "Current is the rate of flow of charge…"
-    }
-  ]
-}
-```
-
-Correct answers and explanations are returned **only here**, after submission.
-
-`400` if `answerToken` is missing, tampered with, or expired (tokens live 2 hours). Requires
-`QUIZ_SECRET` to be set in production — without it each server instance generates its own
-ephemeral key and grading fails intermittently across instances.
+`400` means the token is missing, invalid or expired, or `answers` has the wrong top-level shape. `QUIZ_SECRET` must be configured consistently across instances.
 
 ---
 

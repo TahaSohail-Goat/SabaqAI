@@ -1,5 +1,7 @@
 import React from 'react';
 import { CheckCircle2, XCircle, BookOpen } from 'lucide-react';
+import WrittenAnswerReview from './WrittenAnswerReview';
+import type { WrittenReview } from '@/lib/quiz/grading';
 
 // Read-only replay of one graded question — used on the quiz history detail page
 // (src/app/(app)/quiz/history/[id]/page.tsx). Mirrors the graded-state visual language of the
@@ -18,6 +20,8 @@ export interface GradedQuestionView {
   explanation: string | null;
   modelAnswer: string | null;
   feedback: string | null;
+  gradingState: 'graded' | 'unavailable';
+  review: WrittenReview | null;
   pointsAwarded: number | null;
   pointsPossible: number | null;
   section: string | null;
@@ -53,20 +57,22 @@ export default function GradedQuestionCard({ q }: { q: GradedQuestionView }) {
       {q.questionType === 'mcq' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
           {(q.options || []).map((opt, oIdx) => {
+            const isSelected = q.yourIndex === oIdx;
+            const isCorrectOption = q.correctIndex === oIdx;
             let optStyle = 'bg-surface-2 border-border text-navy-2';
-            if (oIdx === q.correctIndex) {
-              optStyle = 'bg-brand-light border-brand text-brand-dark font-semibold';
-            } else if (q.yourIndex === oIdx && !q.correct) {
-              optStyle = 'bg-error-bg border-error text-error';
+            if (isCorrectOption) {
+              optStyle = `bg-brand-light border-brand text-navy font-semibold ${isSelected ? 'ring-2 ring-brand ring-offset-1 ring-offset-surface' : ''}`;
+            } else if (isSelected && !q.correct) {
+              optStyle = 'bg-error-bg border-error text-navy font-semibold ring-2 ring-error ring-offset-1 ring-offset-surface';
             }
             return (
               <div
                 key={oIdx}
-                className={`p-3 rounded-lg border text-xs text-left flex items-center justify-between ${optStyle}`}
+                className={`p-3 rounded-lg border text-xs text-left flex items-center justify-between gap-2 ${optStyle}`}
               >
                 <span>{opt}</span>
-                {oIdx === q.correctIndex && <CheckCircle2 className="w-4 h-4 text-brand" />}
-                {q.yourIndex === oIdx && !q.correct && <XCircle className="w-4 h-4 text-error" />}
+                {isCorrectOption && <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold text-brand"><CheckCircle2 className="w-3.5 h-3.5" />{isSelected ? 'Your choice · Correct' : 'Correct answer'}</span>}
+                {isSelected && !isCorrectOption && <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold text-error"><XCircle className="w-3.5 h-3.5" />Your choice</span>}
               </div>
             );
           })}
@@ -95,7 +101,7 @@ export default function GradedQuestionCard({ q }: { q: GradedQuestionView }) {
         </div>
       )}
 
-      {q.questionType !== 'mcq' && q.modelAnswer && (
+      {q.questionType !== 'mcq' && !q.review && q.gradingState === 'graded' && q.modelAnswer && (
         <div className="bg-surface-2 p-3 rounded-lg border border-border text-xs space-y-1">
           <div className="font-semibold text-brand flex items-center gap-1.5">
             <BookOpen className="w-3.5 h-3.5" />
@@ -105,18 +111,22 @@ export default function GradedQuestionCard({ q }: { q: GradedQuestionView }) {
         </div>
       )}
 
-      {q.questionType !== 'mcq' && (q.feedback || q.pointsAwarded !== null) && (
+      {q.questionType !== 'mcq' && q.review && <WrittenAnswerReview
+        gradingState={q.gradingState} review={q.review} feedback={q.feedback} pointsPossible={q.pointsPossible}
+      />}
+
+      {q.questionType !== 'mcq' && !q.review && (q.feedback || q.pointsAwarded !== null) && (
         <div className="bg-surface-2 p-3 rounded-lg border border-border text-xs space-y-1">
           <div className="font-semibold text-brand flex items-center justify-between gap-1.5">
             <span className="flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5" />
               Feedback ({sectionLabel}):
             </span>
-            <span className="text-navy font-mono">
+            {q.gradingState === 'graded' && <span className="text-navy font-mono">
               {q.pointsAwarded ?? 0} / {q.pointsPossible ?? 1} marks
-            </span>
+            </span>}
           </div>
-          {q.feedback && <p className="text-navy-2">{q.feedback}</p>}
+          {q.feedback && <p className="text-navy-2">{q.gradingState === 'unavailable' ? 'Grading unavailable. ' : ''}{q.feedback}</p>}
         </div>
       )}
     </div>

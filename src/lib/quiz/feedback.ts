@@ -13,6 +13,7 @@
 export type QuestionType = 'mcq' | 'short' | 'long';
 
 export interface AttemptItem {
+  gradingState?: 'graded' | 'unavailable';
   questionType: QuestionType;
   /** sections.section_label, when the question's source chunk is known. */
   section: string | null;
@@ -39,6 +40,8 @@ export interface TypeStat {
 }
 
 export interface AttemptSummary {
+  ungradedCount: number;
+  gradedCount: number;
   /** Points-based, 0–100, rounded. The fine-grained score (partial credit counts). */
   scorePct: number;
   pointsAwarded: number;
@@ -100,14 +103,16 @@ function buildRecommendation(
 
 export function summarizeAttempt(items: AttemptItem[]): AttemptSummary {
   const totalCount = items.length;
-  const pointsAwarded = items.reduce((s, i) => s + i.pointsAwarded, 0);
-  const pointsPossible = items.reduce((s, i) => s + i.pointsPossible, 0);
-  const passedCount = items.filter((i) => i.correct).length;
+  const graded = items.filter((item) => item.gradingState !== 'unavailable');
+  const ungradedCount = totalCount - graded.length;
+  const pointsAwarded = graded.reduce((s, i) => s + i.pointsAwarded, 0);
+  const pointsPossible = graded.reduce((s, i) => s + i.pointsPossible, 0);
+  const passedCount = graded.filter((i) => i.correct).length;
   const answeredCount = items.filter((i) => i.answered).length;
   const scorePct = pointsPossible > 0 ? round((pointsAwarded / pointsPossible) * 100) : 0;
 
   const byType = { mcq: emptyType(), short: emptyType(), long: emptyType() } as Record<QuestionType, TypeStat>;
-  for (const i of items) {
+  for (const i of graded) {
     const t = byType[i.questionType];
     t.total += 1;
     if (i.correct) t.correct += 1;
@@ -117,7 +122,7 @@ export function summarizeAttempt(items: AttemptItem[]): AttemptSummary {
   }
 
   const bySection = new Map<string, { section: string; page: number | null; correct: number; total: number }>();
-  for (const i of items) {
+  for (const i of graded) {
     if (!i.section) continue;
     const entry = bySection.get(i.section) ?? { section: i.section, page: i.page, correct: 0, total: 0 };
     entry.total += 1;
@@ -140,6 +145,8 @@ export function summarizeAttempt(items: AttemptItem[]): AttemptSummary {
     .slice(0, 3);
 
   return {
+    ungradedCount,
+    gradedCount: graded.length,
     scorePct,
     pointsAwarded: Math.round(pointsAwarded * 100) / 100,
     pointsPossible: Math.round(pointsPossible * 100) / 100,
@@ -149,7 +156,11 @@ export function summarizeAttempt(items: AttemptItem[]): AttemptSummary {
     byType,
     weakestSections,
     strongestSections,
-    recommendation: buildRecommendation(scorePct, byType, weakestSections),
+    recommendation: graded.length === 0
+      ? 'No answers could be marked yet.'
+      : ungradedCount > 0
+        ? 'This is a partial result. Review the marked answers now and grade the remaining answers later.'
+        : buildRecommendation(scorePct, byType, weakestSections),
   };
 }
 

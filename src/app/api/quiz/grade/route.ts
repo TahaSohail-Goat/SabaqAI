@@ -17,105 +17,38 @@ import { openQuizToken, type QuizTokenQuestion } from '@/lib/quiz/answer-key';
 import { persistQuiz, persistAttempt, type PersistableQuestion, type AttemptResult } from '@/lib/quiz/persist';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
 import { getCurrentUserAndProfile } from '@/lib/auth/get-current-user';
-import { getGeminiClient } from '@/lib/gemini';
+import { gradeTextAnswers, type TextGradeItem } from '@/lib/quiz/grade-written';
+import { buildWrittenReview, quoteInSource } from '@/lib/quiz/grading';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { QuizGradedQuestion } from '@/lib/types';
 
-export interface GradedQuestion {
-  gradingState: 'graded' | 'unavailable';
-  questionId: string;
-  questionType: 'mcq' | 'short' | 'long';
-  selectedIndex: number | null;
-  answerText: string | null;
-  correctIndex: number | null;
-  correct: boolean;
-  explanation: string | null;
-  pointsAwarded: number | null;
-  pointsPossible: number | null;
-  feedback: string | null;
-}
+export type GradedQuestion = QuizGradedQuestion;
 
-interface TextGradeItem {
-  questionId: string;
-  stem: string;
-  modelAnswer: string;
-  rubric: string;
-  maxScore: number;
-  answerText: string;
-}
-
-/** One batched call grading every free-text answer in the attempt, rather than one call per
- *  question — keeps grading latency to a single extra LLM round-trip regardless of how many
- *  short/long questions the quiz has (up to 12: 10 short + 2 long). */
-async function gradeTextAnswers(items: TextGradeItem[]): Promise<Map<string, { pointsAwarded: number; feedback: string; gradingState: 'graded' | 'unavailable' }>> {
-  const results = new Map<string, { pointsAwarded: number; feedback: string; gradingState: 'graded' | 'unavailable' }>();
-  if (items.length === 0) return results;
-
-  const ai = getGeminiClient();
-  if (!ai) {
-    for (const item of items) {
-      results.set(item.questionId, { pointsAwarded: 0, feedback: 'Automatic grading is unavailable right now.', gradingState: 'unavailable' });
-    }
-    return results;
-  }
-
-  const prompt = `Grade each student answer below against its model answer and rubric. Award partial credit
-where reasonable — the student doesn't need to match the model answer word-for-word, just cover
-the substance the rubric asks for. Give brief, constructive feedback (1-2 sentences).
-
-${items
-  .map(
-    (item, idx) => `[QUESTION ${idx + 1}] id="${item.questionId}" maxScore=${item.maxScore}
-Question: ${item.stem}
-Model answer: ${item.modelAnswer}
-Rubric: ${item.rubric}
-Student answer: ${item.answerText || '(left blank)'}`
-  )
-  .join('\n\n')}
-
-Return strictly a JSON array of objects in this shape:
-[{"questionId":"<id>","pointsAwarded":<number between 0 and maxScore>,"feedback":"..."}]`;
-
-  try {
-    const res = await ai.models.generateContent({
-      model: process.env.CHAT_MODEL || 'gemini-3.5-flash-lite',
-      contents: prompt,
-      config: { responseMimeType: 'application/json', temperature: 0.1 },
-    });
-    const text = res.text?.trim();
-    const cleaned = text?.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-    const parsed = cleaned ? JSON.parse(cleaned) : null;
-
-    if (Array.isArray(parsed)) {
-      const byId = new Map(items.map((i) => [i.questionId, i]));
-      for (const raw of parsed) {
-        const item = byId.get(raw?.questionId);
-        if (!item) continue;
-        if (typeof raw.pointsAwarded !== 'number' || !Number.isFinite(raw.pointsAwarded)) continue;
-        const rawPoints = raw.pointsAwarded;
-        const pointsAwarded = Math.max(0, Math.min(item.maxScore, rawPoints));
-        results.set(item.questionId, {
-          pointsAwarded,
-          gradingState: 'graded',
-          feedback: typeof raw.feedback === 'string' ? raw.feedback : '',
-        });
-      }
-    }
-  } catch (err) {
-    console.warn('Quiz grading: text-answer grading call failed:', err);
-  }
-
-  // Any question the model's response omitted or malformed never gets left silently ungraded.
-  for (const item of items) {
-    if (!results.has(item.questionId)) {
-      results.set(item.questionId, { pointsAwarded: 0, feedback: 'Could not be graded automatically.', gradingState: 'unavailable' });
-    }
-  }
-  return results;
+async function loadTextSources(admin: SupabaseClient | null, chapterId: string | null, questions: QuizTokenQuestion[]): Promise<Map<string, TextGradeItem['source']>> {
+  const sources = new Map<string, TextGradeItem['source']>();
+  if (!admin || !chapterId) return sources;
+  const ids = [...new Set(questions.filter((q) => q.questionType !== 'mcq').map((q) => q.chunkId).filter((id): id is string => !!id))];
+  if (ids.length === 0) return sources;
+  const { data: chapter, error: chapterError } = await admin.from('chapters')
+    .select('board_code, class_level, subject_code, chapter_no').eq('id', chapterId).maybeSingle();
+  if (chapterError || !chapter) return sources;
+  const { data, error } = await admin.from('content_chunks_expanded')
+    .select('id, content, chapter_no, chapter_title, section, page_from, page_to')
+    .in('id', ids).eq('board', chapter.board_code).eq('class_level', chapter.class_level)
+    .eq('subject', chapter.subject_code).eq('chapter_no', chapter.chapter_no).eq('source_type', 'textbook');
+  if (error) return sources;
+  for (const row of data ?? []) sources.set(row.id, {
+    chunkId: row.id, chapterNo: row.chapter_no, chapterTitle: row.chapter_title,
+    section: row.section, pageFrom: row.page_from, pageTo: row.page_to, content: row.content,
+  });
+  return sources;
 }
 
 async function gradeAll(
   questions: QuizTokenQuestion[],
   selectedFor: (questionId: string) => number | null,
-  textFor: (questionId: string) => string | null
+  textFor: (questionId: string) => string | null,
+  sources: Map<string, TextGradeItem['source']>
 ): Promise<GradedQuestion[]> {
   const mcqEntries = questions.filter((q): q is Extract<QuizTokenQuestion, { questionType: 'mcq' }> => q.questionType === 'mcq');
   const textEntries = questions.filter((q) => q.questionType !== 'mcq') as Extract<
@@ -123,14 +56,15 @@ async function gradeAll(
     { questionType: 'short' | 'long' }
   >[];
 
-  const textItems: TextGradeItem[] = textEntries.map((e) => ({
-    questionId: e.id,
-    stem: e.stem,
-    modelAnswer: e.modelAnswer,
-    rubric: e.rubric,
-    maxScore: e.maxScore,
-    answerText: textFor(e.id) ?? '',
-  }));
+  const textItems: TextGradeItem[] = textEntries.flatMap((e) => {
+    const source = e.chunkId ? sources.get(e.chunkId) : null;
+    const answerText = textFor(e.id);
+    if (!source || !Array.isArray(e.criteria) || e.criteria.length !== e.maxScore ||
+        !e.criteria.every((c) => typeof c.id === 'string' && typeof c.expectation === 'string' &&
+          typeof c.sourceQuote === 'string' && quoteInSource(c.sourceQuote, source.content)) || !answerText) return [];
+    return [{ questionId: e.id, stem: e.stem, modelAnswer: e.modelAnswer, rubric: e.rubric,
+      answerText, criteria: e.criteria, source }];
+  });
 
   const textGrades = await gradeTextAnswers(textItems);
 
@@ -149,12 +83,22 @@ async function gradeAll(
       pointsAwarded: correct ? 1 : 0,
       pointsPossible: 1,
       feedback: null,
+      review: null,
     };
   });
 
   const textResults: GradedQuestion[] = textEntries.map((e) => {
     const answerText = textFor(e.id);
-    const grade = textGrades.get(e.id) ?? { pointsAwarded: 0, feedback: null as string | null, gradingState: 'unavailable' as const };
+    const source = e.chunkId ? sources.get(e.chunkId) : null;
+    const blankReview = !answerText && source && Array.isArray(e.criteria) && e.criteria.length === e.maxScore
+      ? buildWrittenReview(e.criteria.map((criterion) => ({
+          criterionId: criterion.id, awarded: 0,
+          reason: 'No answer was submitted, so this textbook marking point was not covered.',
+        })), e.criteria, source)
+      : null;
+    const grade = textGrades.get(e.id) ?? (blankReview
+      ? { pointsAwarded: 0, feedback: 'No answer submitted.', gradingState: 'graded' as const, review: blankReview }
+      : { pointsAwarded: null, feedback: 'Textbook evidence or marking criteria could not be verified. This answer has not been marked.', gradingState: 'unavailable' as const, review: null });
     return {
       questionId: e.id,
       questionType: e.questionType,
@@ -162,11 +106,12 @@ async function gradeAll(
       selectedIndex: null,
       answerText,
       correctIndex: null,
-      correct: grade.pointsAwarded >= e.maxScore * 0.5,
+      correct: grade.gradingState === 'graded' && grade.pointsAwarded !== null && grade.pointsAwarded >= e.maxScore * 0.5,
       explanation: null,
       pointsAwarded: grade.pointsAwarded,
       pointsPossible: e.maxScore,
       feedback: grade.feedback,
+      review: grade.review,
     };
   });
 
@@ -206,7 +151,9 @@ export async function POST(req: NextRequest) {
     };
 
     const questionsByPosition = [...token.questions].sort((a, b) => a.position - b.position);
-    const results = await gradeAll(questionsByPosition, selectedFor, textFor);
+    const admin = getServiceRoleClient();
+    const sources = await loadTextSources(admin, token.chapterId, questionsByPosition);
+    const results = await gradeAll(questionsByPosition, selectedFor, textFor, sources);
 
     // Nothing about this quiz has been recorded yet — /api/quiz never persists. This is the
     // first and only point a quiz + its attempt get written, and only because there's a real
@@ -216,9 +163,11 @@ export async function POST(req: NextRequest) {
     const realIdByTokenId = new Map<string, string>();
     let saved = false;
     const { user } = await getCurrentUserAndProfile();
-    const admin = getServiceRoleClient();
+    const reviewColumnAvailable = admin
+      ? !(await admin.from('quiz_attempt_answers').select('grading_review').limit(0)).error
+      : false;
 
-    if (user && admin && token.chapterId) {
+    if (user && admin && token.chapterId && reviewColumnAvailable) {
       const persistable: PersistableQuestion[] = questionsByPosition.map((q) => ({
         position: q.position,
         stem: q.stem,
@@ -250,6 +199,7 @@ export async function POST(req: NextRequest) {
           pointsPossible: r.pointsPossible ?? 1,
           feedback: r.feedback,
           gradingState: r.gradingState,
+          review: r.review,
         }));
         attemptId = await persistAttempt(admin, quizId, user.id, attemptResults);
         saved = attemptId !== null;
@@ -268,6 +218,8 @@ export async function POST(req: NextRequest) {
       } else {
         console.warn('Quiz grading: quiz persistence failed — this attempt will not be saved to history.');
       }
+    } else if (user && admin && token.chapterId && !reviewColumnAvailable) {
+      console.warn('Quiz grading: apply local migration 0024_quiz_grading_review.sql before saving attempts.');
     }
 
     return NextResponse.json({

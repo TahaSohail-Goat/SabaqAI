@@ -15,6 +15,7 @@
 // default RLS), and quiz_attempt_answers grew columns for free-text answers + partial credit.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { WrittenReview } from './grading';
 
 export type QuestionType = 'mcq' | 'short' | 'long';
 
@@ -206,6 +207,7 @@ export interface AttemptResult {
   pointsAwarded: number;
   pointsPossible: number;
   feedback: string | null;
+  review: WrittenReview | null;
 }
 
 export async function persistAttempt(
@@ -242,6 +244,7 @@ export async function persistAttempt(
       points_possible: r.pointsPossible,
       feedback: r.feedback,
       grading_state: r.gradingState,
+      grading_review: r.review,
     }))
   );
   if (answersError) {

@@ -1,4 +1,21 @@
 // Shared shapes. Keep these honest — the whole app agrees on them.
+import type { WrittenReview } from './quiz/grading';
+
+export interface QuizGradedQuestion {
+  gradingState: 'graded' | 'unavailable';
+  questionId: string;
+  questionType: 'mcq' | 'short' | 'long';
+  selectedIndex: number | null;
+  answerText: string | null;
+  correctIndex: number | null;
+  correct: boolean;
+  explanation: string | null;
+  pointsAwarded: number | null;
+  pointsPossible: number | null;
+  feedback: string | null;
+  review: WrittenReview | null;
+  persistedQuestionId?: string | null;
+}
 
 export type Language = 'ur' | 'en';
 export type InputMode = 'ur' | 'roman_ur' | 'en';
