@@ -148,3 +148,36 @@ No database/schema/storage changes, re-embedding, dependency changes or branch m
 The local server is kept separate from the isolated build. Exact staged paths were inspected and
 credential-pattern checks found no matches; backups, local accounts, recovery files, the unrelated
 catalogue and other pre-existing untracked work are excluded from this checkpoint.
+
+## Provider reliability follow-up
+
+The next browser failures were operational, not semantic refusals. Requests
+`6eaffaf8-edda-4283-8300-408019a1e495` and `46678f39-130f-47f3-b6a0-f143a1e61121`
+failed at understanding after about 10.6 seconds, without an upstream HTTP status in the older
+diagnostics. Request `6c632fa0-6736-47bf-85b1-bec62d0d0567` explicitly received Gemini HTTP 503
+during explanation. A separate request hit the original 110-second deadline during slow provider
+stages. Neither missing PDFs nor source/chapter selection caused those failures.
+
+Safe provider diagnostics now record only whitelisted retry codes and existing boolean/status
+metadata, never raw SDK errors, prompts, URLs or keys. Identified connection failures and HTTP
+502/503/504 can retry ONCE across the entire request. Quota, auth, malformed output and schema errors
+cannot trigger this retry. Each model attempt consumes a call slot; token counting shares the same
+one-retry allowance without adding a model call. Deadline/cancellation and two-slot repair reservations
+remain binding. Persistent upstream outage still returns a truthful operational failure.
+
+Ten offline transport regressions cover recovery, repeated failures, cross-stage retry sharing,
+explicit caps, HTTP quota/auth/service distinctions, abort/deadline handling and token counting.
+The local server was restarted to load the new implementation; a successful HTTP login response
+only establishes UI availability and is not counted as an Ask success.
+
+After restart, a real `POST http://localhost:3100/api/ask` for the original question returned HTTP
+200 and an answered result (`bc568f51-1c3b-47ec-8685-03ecc83e6f69`), three cited teaching statements,
+the correct Dynamics source and partial coverage. Client time was 49,348 ms; server trace 49,167 ms.
+Understanding took 16,386 ms, evidence assessment 11,867 ms, teaching 9,710 ms and review 7,708 ms.
+That successful request did not need a retry. Retry recovery/failure paths were tested with controlled
+fixtures, not by claiming an unobserved live retry. This is one successful HTTP check, not browser
+visual verification or a guarantee of upstream availability. The model was not switched.
+The updated commit-only export passed lint and 153 offline Ask/Quiz/UI tests (none skipped);
+the working tree's 160 tests include the seven separately uncommitted catalogue checks.
+The 16 notification tests passed. Production build was not repeated for this server-library-only
+follow-up; the earlier adequacy checkpoint's isolated production build result remains historical.

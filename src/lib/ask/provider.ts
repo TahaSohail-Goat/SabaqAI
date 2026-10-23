@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { getGeminiClient } from '../gemini';
 import { AskFailure, checkDeadline, type AskConfig } from './config';
 import { providerJsonSchema } from './provider-schema';
+import { AskTransientProviderFailure, providerRetryCode } from './transport';
 
 export interface AskProvider {
   json(stage: 'understanding' | 'sufficiency' | 'explanation' | 'review' | 'repair', instruction: string, payload: unknown, schema: z.ZodType): Promise<unknown>;
@@ -38,7 +39,9 @@ export function createAskProvider(config: AskConfig, signal: AbortSignal): AskPr
         checkDeadline(signal);
         const status = typeof error === 'object' && error !== null && 'status' in error && typeof error.status === 'number' ? error.status : undefined;
         const message = error instanceof Error ? error.message : '';
-        console.warn('[ask-provider]', JSON.stringify({ stage: _stage, status, schemaRejected: /schema|too many states|INVALID_ARGUMENT/i.test(message), quotaLimited: /RESOURCE_EXHAUSTED|quota|rate.limit/i.test(message) }));
+        const retryCode = providerRetryCode(error);
+        console.warn('[ask-provider]', JSON.stringify({ stage: _stage, status, retryCode, schemaRejected: /schema|too many states|INVALID_ARGUMENT/i.test(message), quotaLimited: /RESOURCE_EXHAUSTED|quota|rate.limit/i.test(message) }));
+        if (retryCode) throw new AskTransientProviderFailure(retryCode);
         throw new AskFailure('unavailable', 503, true);
       }
     },
@@ -54,6 +57,9 @@ export function createAskProvider(config: AskConfig, signal: AbortSignal): AskPr
       } catch (error) {
         if (error instanceof AskFailure) throw error;
         checkDeadline(signal);
+        const retryCode = providerRetryCode(error);
+        console.warn('[ask-provider]', JSON.stringify({ stage: 'token_count', retryCode }));
+        if (retryCode) throw new AskTransientProviderFailure(retryCode);
         throw new AskFailure('unavailable', 503, true);
       }
     },

@@ -1,5 +1,16 @@
 # Project status — what is real and what is a stub
 
+## Temporary provider failures — 2026-10-23
+
+Local Ask failures were traced to Gemini before retrieval and to an explicit upstream HTTP 503
+during explanation. An additional request exceeded the existing deadline during slow provider stages.
+The exact transport cause of the earlier no-status failures was not logged, so a specific DNS/socket
+cause is not claimed. Safe diagnostics now identify whitelisted connection and gateway/service codes.
+One bounded transient-provider retry is shared across the whole request, including token counting;
+model attempts consume the configured call budget and the original deadline is never reset. Quota,
+authentication, schema and other validation errors are not retried. Repeated failures still return
+an error, never a fabricated answer. No retrieval/grounding/adequacy safeguards or model settings changed.
+
 ## Separate answer adequacy and grounding review — 2026-10-23
 
 The current shared Ask/Quiz review separately assesses factual grounding and answer adequacy,

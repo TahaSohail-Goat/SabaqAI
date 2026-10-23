@@ -14,6 +14,7 @@ import { SUPPORT_PROMPT, SUPPORT_VERSION, REPAIR_PROMPT } from '../../prompts/as
 import { QUIZ_TEACHING_RULES, QUIZ_SUPPORT_RULES, QUIZ_REVIEW_VERSION } from '../../prompts/quiz-review';
 import { quizTeachingSchema, quizSupportSchema } from '../quiz/explain-contracts';
 import { checkSufficiency, sufficiencySchema, SUFFICIENCY_PROMPT } from './sufficiency';
+import { AskTransientProviderFailure, type ProviderRetryCode } from './transport';
 
 export interface AskTrace {
   mode?: 'student_question' | 'quiz_review';
@@ -22,6 +23,8 @@ export interface AskTrace {
   sufficiency?: 'sufficient' | 'partial' | 'insufficient';
   adequacy?: 'complete' | 'partial' | 'inadequate';
   repairSkipped?: 'budget' | 'no_evidence' | 'already_repaired';
+  transportRetries?: number;
+  providerRetryCode?: ProviderRetryCode;
   citationRejections: number; supportRejections: number; repairs: number;
   durations: Record<string, number>; sourceIds: string[];
 }
@@ -37,12 +40,25 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
   const { provider, retrieval, config, signal, requestId, owner, trace } = deps;
   trace.mode = assessment ? 'quiz_review' : 'student_question';
   let calls = 0;
-  const json: AskProvider['json'] = async (...args) => {
+  let transportRetried = false;
+  const withTransportRetry = async <T>(action: () => Promise<T>, hasBudget = () => true): Promise<T> => {
+    try { return await action(); } catch (error) {
+      checkDeadline(signal);
+      if (!(error instanceof AskTransientProviderFailure) || transportRetried || !hasBudget()) throw error;
+      transportRetried = true;
+      trace.transportRetries = 1; trace.providerRetryCode = error.retryCode;
+      // One retry across the ENTIRE request, not per stage. Each model attempt is counted;
+      // the original signal/deadline and the repair's two-slot reservation remain binding.
+      return action();
+    }
+  };
+  const json: AskProvider['json'] = async (...args) => withTransportRetry(async () => {
     checkDeadline(signal);
     if (calls >= config.calls) throw new AskFailure('unavailable', 503, true);
     calls++;
     return provider.json(...args);
-  };
+  }, () => calls < config.calls);
+  const countTokens: AskProvider['countTokens'] = (...args) => withTransportRetry(() => provider.countTokens(...args));
   const parsed = askRequestSchema.safeParse(value);
   if (!parsed.success) throw new AskFailure('invalid_request', 400);
   const input = parsed.data;
@@ -118,7 +134,7 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
   // Only the exact final evidence payload authorizes the gate and citation allowlist.
   // Pre-gate normalization interprets input; no model call of any kind occurs after REFUSE.
   if (evidence.length) {
-    trace.tokens = await stage('token_count', () => provider.countTokens(instruction, envelope));
+    trace.tokens = await stage('token_count', () => countTokens(instruction, envelope));
     if (trace.tokens > config.tokens) {
       // One bounded reduction/recount: measured tokens inform selection, but only the second
       // exact count authorizes this final payload. Never cut a question, formula or chunk in half.
@@ -127,7 +143,7 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
       do { evidence.pop(); } while (evidence.length && Buffer.byteLength(JSON.stringify(evidence), 'utf8') > targetBytes);
       boundary = makeBoundary(scope, evidence, true); envelope.boundary = boundary;
       if (evidence.length) {
-        trace.tokens = await stage('token_recount', () => provider.countTokens(instruction, envelope));
+        trace.tokens = await stage('token_recount', () => countTokens(instruction, envelope));
         if (trace.tokens > config.tokens) throw new AskFailure('invalid_output', 502, true);
       }
     }
@@ -149,7 +165,7 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
         envelope.evidenceAssessment = sufficiency;
         // The assessment is a plan, not new textbook evidence. Measure the final teaching
         // envelope again rather than silently adding unbudgeted instructions after counting.
-        trace.tokens = await stage('assessment_token_count', () => provider.countTokens(instruction, envelope));
+        trace.tokens = await stage('assessment_token_count', () => countTokens(instruction, envelope));
         if (trace.tokens > config.tokens) throw new AskFailure('invalid_output', 502, true);
       }
     } catch (error) {
@@ -199,7 +215,7 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
   const repair = async (previous: unknown, failures: unknown) => {
     checkDeadline(signal);
     const payload = { envelope, previous, failures };
-    const measured = await stage('repair_token_count', () => provider.countTokens(REPAIR_PROMPT, payload));
+    const measured = await stage('repair_token_count', () => countTokens(REPAIR_PROMPT, payload));
     if (measured > config.tokens) throw new AskFailure('invalid_output', 502, true);
     trace.repairs++;
     return stage('repair', () => json('repair', REPAIR_PROMPT + (assessment ? QUIZ_TEACHING_RULES : ''), payload, outputSchema));
