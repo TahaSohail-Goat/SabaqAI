@@ -7,6 +7,7 @@ import { getServiceRoleClient } from '@/lib/supabase/admin';
 import { getCurrentUserAndProfile } from '@/lib/auth/get-current-user';
 import { sealQuizToken, type QuizTokenQuestion } from '@/lib/quiz/answer-key';
 import { resolveChapterId, fetchRecentStems, type QuestionType } from '@/lib/quiz/persist';
+import { parseCriteria, type QuizCriterion } from '@/lib/quiz/grading';
 
 interface SourceChunk {
   id: string;
@@ -80,10 +81,11 @@ export interface QuizQuestionData {
   modelAnswer?: string;
   rubric?: string;
   maxScore?: number;
+  criteria?: QuizCriterion[];
 }
 
 /** What the browser actually receives: no correctIndex/explanation/modelAnswer/rubric. */
-export type PublicQuizQuestion = Omit<QuizQuestionData, 'correctIndex' | 'explanation' | 'modelAnswer' | 'rubric'>;
+export type PublicQuizQuestion = Omit<QuizQuestionData, 'correctIndex' | 'explanation' | 'modelAnswer' | 'rubric' | 'criteria'>;
 
 const SHORT_MAX_SCORE = 2;
 const LONG_MAX_SCORE = 5;
@@ -249,7 +251,8 @@ function validateText(
         console.warn(`Quiz: discarding ${type} question ${q.id ?? idx} — cites unknown chunk "${q.chunkId}"`);
         return null;
       }
-      if (!q.stem || !q.modelAnswer) {
+      const criteria = parseCriteria(q.criteria, maxScore, matchedChunk.content);
+      if (!q.stem || !q.modelAnswer || !criteria) {
         console.warn(`Quiz: discarding ${type} question ${q.id ?? idx} — malformed`);
         return null;
       }
@@ -262,6 +265,7 @@ function validateText(
         modelAnswer: q.modelAnswer,
         rubric: q.rubric ?? '',
         maxScore,
+        criteria,
         chunkId: matchedChunk.id,
         chapterNo: matchedChunk.chapterNo,
         page: matchedChunk.pageFrom ?? 0,
@@ -310,13 +314,13 @@ Return strictly a JSON array of objects in this shape:
       : `Based ONLY on the syllabus chunks below, generate ${count} ${
           type === 'short' ? 'short-answer (2-3 sentence)' : 'long-answer (detailed, multi-paragraph)'
         } questions for ${board} Class ${classLevel} ${subject}, ${scopeDesc}.
-For each question, provide a model answer and a brief grading rubric (what a correct answer must cover), and the chunkId it was derived from.${avoidBlock}
+For each question, provide a model answer, a brief grading rubric, and exactly ${type === 'short' ? SHORT_MAX_SCORE : LONG_MAX_SCORE} distinct one-mark criteria. Each criterion needs an expectation and an exact quote of at least 20 characters copied from the cited chunk that supports it. Use ONE chunk per question. Do not ask about content outside that chunk. If the passage cannot support this many distinct marking points, generate fewer questions.${avoidBlock}
 
 CONTEXT:
 ${chunkText}
 
 Return strictly a JSON array of objects in this shape:
-[{"id":"q-1","stem":"Question text here?","modelAnswer":"The ideal answer...","rubric":"Must mention X, Y, Z...","chunkId":"<a chunk id from above>"}]`;
+[{"id":"q-1","stem":"Question text here?","modelAnswer":"The ideal answer...","rubric":"Must mention X, Y, Z...","criteria":[{"expectation":"A distinct one-mark marking point","sourceQuote":"An exact sentence or phrase copied from the cited chunk"}],"chunkId":"<a chunk id from above>"}]`;
 
   const parsed = await callGemini(ai, model, prompt);
   if (!parsed) return [];
@@ -439,13 +443,14 @@ async function respondWithQuiz(
           modelAnswer: q.modelAnswer ?? '',
           rubric: q.rubric ?? '',
           maxScore: q.maxScore ?? SHORT_MAX_SCORE,
+          criteria: q.criteria ?? [],
         }
   );
 
   const quizToken = sealQuizToken({ chapterId: ctx.chapterId, topicLabel: null, questions: tokenQuestions });
 
   const publicQuestions: PublicQuizQuestion[] = questions.map(
-    ({ correctIndex: _correctIndex, explanation: _explanation, modelAnswer: _modelAnswer, rubric: _rubric, ...rest }) => rest
+    ({ correctIndex: _correctIndex, explanation: _explanation, modelAnswer: _modelAnswer, rubric: _rubric, criteria: _criteria, ...rest }) => rest
   );
 
   const draftId = await parkDraft(

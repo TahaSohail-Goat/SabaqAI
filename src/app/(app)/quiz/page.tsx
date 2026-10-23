@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { RefreshCw, CheckCircle2, XCircle, BookOpen, FileQuestion, Sparkles, History, ArrowDown, X } from 'lucide-react';
+import { RefreshCw, Check, CheckCircle2, XCircle, BookOpen, FileQuestion, Sparkles, History, ArrowDown, X } from 'lucide-react';
 import { useScope } from '@/components/app/ScopeContext';
 import EmptyState from '@/components/app/EmptyState';
 import SelectField from '@/components/app/SelectField';
@@ -13,6 +13,8 @@ import { notifyStudyEvent } from '@/lib/notifications/popups';
 import { loadPageProgress, savePageProgress, clearPageProgress } from '@/lib/persist/page-progress';
 import { getQuizDraft, saveQuizDraftAnswers, deleteQuizDraft } from '@/lib/quiz/drafts-api';
 import { summarizeAttempt, type AttemptItem } from '@/lib/quiz/feedback';
+import WrittenAnswerReview from '@/components/app/WrittenAnswerReview';
+import type { QuizGradedQuestion } from '@/lib/types';
 
 type QuestionType = 'mcq' | 'short' | 'long';
 
@@ -29,24 +31,11 @@ interface QuizQuestion {
   section: string;
 }
 
-interface GradedQuestion {
-  questionId: string;
-  questionType: QuestionType;
-  selectedIndex: number | null;
-  answerText: string | null;
-  correctIndex: number | null;
-  correct: boolean;
-  explanation: string | null;
-  pointsAwarded: number | null;
-  pointsPossible: number | null;
-  feedback: string | null;
-}
-
 interface QuizGrade {
   score: number;
   total: number;
   answered: number;
-  results: GradedQuestion[];
+  results: QuizGradedQuestion[];
 }
 
 interface Chapter {
@@ -466,7 +455,7 @@ function QuizPageInner() {
     }
   };
 
-  const gradeFor = (questionId: string): GradedQuestion | undefined =>
+  const gradeFor = (questionId: string): QuizGradedQuestion | undefined =>
     quizGrade?.results.find((r) => r.questionId === questionId);
 
   const isAnswered = (v: number | string | undefined) =>
@@ -486,6 +475,7 @@ function QuizPageInner() {
         section: q.section || null,
         page: q.page || null,
         correct: g?.correct ?? false,
+        gradingState: g?.gradingState ?? 'unavailable',
         pointsAwarded: g?.pointsAwarded ?? 0,
         pointsPossible,
         answered: (g?.selectedIndex ?? null) !== null || !!(g?.answerText && g.answerText.trim()),
@@ -696,16 +686,18 @@ function QuizPageInner() {
                 {q.questionType === 'mcq' ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                     {(q.options || []).map((opt, oIdx) => {
+                      const isSelected = selectedOpt === oIdx;
+                      const isCorrectOption = graded?.correctIndex === oIdx;
                       let optStyle = 'bg-surface-2 border-border text-navy-2 hover:border-border-strong';
 
                       if (graded) {
-                        if (oIdx === graded.correctIndex) {
-                          optStyle = 'bg-brand-light border-brand text-brand-dark font-semibold';
-                        } else if (selectedOpt === oIdx && !isCorrect) {
-                          optStyle = 'bg-error-bg border-error text-error';
+                        if (isCorrectOption) {
+                          optStyle = `bg-brand-light border-brand text-navy font-semibold ${isSelected ? 'ring-2 ring-brand ring-offset-1 ring-offset-surface' : ''}`;
+                        } else if (isSelected && !isCorrect) {
+                          optStyle = 'bg-error-bg border-error text-navy font-semibold ring-2 ring-error ring-offset-1 ring-offset-surface';
                         }
-                      } else if (selectedOpt === oIdx) {
-                        optStyle = 'bg-brand-mint border-brand text-brand-dark';
+                      } else if (isSelected) {
+                        optStyle = 'bg-selected-surface border-brand text-selected-text font-semibold ring-2 ring-brand ring-offset-1 ring-offset-surface shadow-sm';
                       }
 
                       return (
@@ -713,16 +705,14 @@ function QuizPageInner() {
                           key={oIdx}
                           type="button"
                           disabled={isQuizSubmitted}
+                          aria-pressed={isSelected}
                           onClick={() => setSelectedAnswers((prev) => ({ ...prev, [qIdx]: oIdx }))}
-                          className={`p-3 rounded-lg border text-xs text-left transition flex items-center justify-between ${optStyle}`}
+                          className={`p-3 rounded-lg border text-xs text-left transition flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${optStyle}`}
                         >
                           <span>{opt}</span>
-                          {graded && oIdx === graded.correctIndex && (
-                            <CheckCircle2 className="w-4 h-4 text-brand" />
-                          )}
-                          {graded && selectedOpt === oIdx && !isCorrect && (
-                            <XCircle className="w-4 h-4 text-error" />
-                          )}
+                          {!graded && isSelected && <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold"><Check className="w-3.5 h-3.5" />Selected</span>}
+                          {graded && isCorrectOption && <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold text-brand"><CheckCircle2 className="w-3.5 h-3.5" />{isSelected ? 'Your choice · Correct' : 'Correct answer'}</span>}
+                          {graded && isSelected && !isCorrectOption && <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold text-error"><XCircle className="w-3.5 h-3.5" />Your choice</span>}
                         </button>
                       );
                     })}
@@ -748,20 +738,12 @@ function QuizPageInner() {
                   </div>
                 )}
 
-                {graded && q.questionType !== 'mcq' && (
-                  <div className="bg-surface-2 p-3 rounded-lg border border-border text-xs space-y-1">
-                    <div className="font-semibold text-brand flex items-center justify-between gap-1.5">
-                      <span className="flex items-center gap-1.5">
-                        <BookOpen className="w-3.5 h-3.5" />
-                        Feedback ({q.section}):
-                      </span>
-                      <span className="text-navy font-mono">
-                        {graded.pointsAwarded ?? 0} / {graded.pointsPossible ?? q.maxScore ?? 1} marks
-                      </span>
-                    </div>
-                    <p className="text-navy-2">{graded.feedback}</p>
-                  </div>
-                )}
+                {graded && q.questionType !== 'mcq' && <WrittenAnswerReview
+                  gradingState={graded.gradingState}
+                  review={graded.review}
+                  feedback={graded.feedback}
+                  pointsPossible={graded.pointsPossible}
+                />}
               </div>
             );
           })}

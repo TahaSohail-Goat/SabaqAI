@@ -13,6 +13,7 @@ import { getCurrentUserAndProfile } from '@/lib/auth/get-current-user';
 import { getServiceRoleClient } from '@/lib/supabase/admin';
 import { summarizeAttempt, type AttemptItem, type QuestionType } from '@/lib/quiz/feedback';
 import type { GradedQuestionView } from '@/components/app/GradedQuestionCard';
+import type { WrittenReview } from '@/lib/quiz/grading';
 type ReviewableQuestionView = GradedQuestionView & { questionId: string };
 
 export interface QuizAttemptDetail {
@@ -41,13 +42,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'You need to be logged in to view this quiz.' }, { status: 401 });
     }
 
+    const reviewColumnAvailable = !(await admin.from('quiz_attempt_answers').select('grading_review').limit(0)).error;
     const { data: attempt, error } = await admin
       .from('quiz_attempts')
       .select(
         `id, user_id, score, total, answered, submitted_at,
          quizzes(topic_label, chapters(chapter_no, chapter_title, subject_code)),
          quiz_attempt_answers(
-           selected_option_index, answer_text, is_correct, points_awarded, points_possible, feedback,
+           selected_option_index, answer_text, is_correct, points_awarded, points_possible, feedback, grading_state,
+           ${reviewColumnAvailable ? 'grading_review,' : ''}
            quiz_questions(
              id, position, stem, question_type, chunk_id,
              quiz_options(option_index, option_text),
@@ -107,7 +110,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           (typeof r.answer_text === 'string' && r.answer_text.trim().length > 0);
         const pointsPossible =
           r.points_possible != null ? Number(r.points_possible) : type === 'mcq' ? 1 : rubric?.max_score ?? 1;
-        const pointsAwarded = r.points_awarded != null ? Number(r.points_awarded) : r.is_correct ? pointsPossible : 0;
+        const gradingState = r.grading_state === 'unavailable' ? 'unavailable' : 'graded';
+        const pointsAwarded = gradingState === 'unavailable' ? null : r.points_awarded != null ? Number(r.points_awarded) : r.is_correct ? pointsPossible : 0;
 
         const view: ReviewableQuestionView = {
           questionId: qq.id,
@@ -119,9 +123,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           yourIndex: r.selected_option_index,
           yourText: r.answer_text ?? null,
           correct: !!r.is_correct,
+          gradingState,
           explanation: key?.explanation ?? null,
           modelAnswer: rubric?.model_answer ?? null,
           feedback: r.feedback ?? null,
+          review: r.grading_review as WrittenReview | null,
           pointsAwarded,
           pointsPossible,
           section: meta?.section ?? null,
@@ -132,7 +138,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           section: meta?.section ?? null,
           page: meta?.page ?? null,
           correct: !!r.is_correct,
-          pointsAwarded,
+          gradingState,
+          pointsAwarded: pointsAwarded ?? 0,
           pointsPossible,
           answered,
         };

@@ -1,5 +1,43 @@
 # Project status — what is real and what is a stub
 
+## Quiz MCQ selection visibility — 2026-10-23
+
+The live Quiz choice now uses the shared selected-surface/text tokens, a visible outline, and a
+"Selected" marker before submission. After submission, the chosen and correct options receive
+separate labels and outlines; saved history uses the same distinction. This addresses the pale
+mint selection shown in the reported light-theme screenshot. `npm run lint` and `npm run build`
+passed. Browser automation was unavailable, so the rendered selection was not visually checked.
+
+## Source-backed written Quiz grading — 2026-10-23
+
+New short and long Quiz questions carry fixed one-mark criteria with exact quotes validated
+against their cited textbook chunk. At submission, the grade route reloads that chunk using
+board, class, subject, chapter and textbook filters, then asks Gemini for 0/0.5/1 on each
+criterion. The server validates the complete result, computes deductions, and reconstructs
+chapter/page/section/excerpts from stored rows. Live and history reviews show textbook
+answer passages copied from the stored source, each deduction and its source quote. Unanswered
+written questions are graded as zero directly against the same source-backed criteria without
+calling Gemini. Missing evidence, old tokens without criteria, provider failures and malformed
+grades are explicitly ungraded, and attempt summaries cover
+marked questions only. The existing deeper `/api/quiz/explain` review remains separate.
+
+Offline criterion/review tests, TypeScript checking and a production build passed. On the
+local restored database, additive migrations `0022_quiz_explanation_review.sql` (found missing)
+and `0024_quiz_grading_review.sql` are now applied. The 8,594 OCR chunks remained intact.
+A live Class 9 Physics quiz generated 58 questions; Gemini graded an answered written response
+with two cited deductions, the attempt saved, and the same review reopened from history.
+The first test exposed an incomplete model response for three blank written answers, prompting
+the deterministic blank-answer fix above. A repeat live quiz saved four written reviews and
+history replayed the submitted review; all four written questions had `graded` state. Generation
+still varies: Gemini produced malformed written questions in the repeat, so the quiz had four
+short answers and no long answers despite requesting the larger profile. Invalid questions were
+discarded rather than given invented citations.
+A separate five-mark long-answer test used a sealed token built from a real stored textbook chunk;
+Gemini graded it 0/5 with five source citations, and history replayed the result. This verifies
+the long-answer grading path, not the model's ability to generate a long question reliably.
+The first failed save left one local test attempt with no answer rows; it has not been deleted.
+The hosted Supabase project remains untouched.
+
 ## Sources-only fallback after both providers fail — 2026-10-23
 
 Doubts can return a separate `sources_only` result after both Gemini and Groq actually fail.

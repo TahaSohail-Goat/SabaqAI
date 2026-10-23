@@ -27,19 +27,23 @@ export default function QuizResultsSummary({ summary }: { summary: AttemptSummar
           <div>
             <h3 className="text-sm font-semibold text-navy">Results summary</h3>
             <p className="text-[11px] text-text-2">
-              {summary.passedCount} / {summary.totalCount} questions passed · {summary.answeredCount} answered
+              {summary.passedCount} / {summary.gradedCount} marked questions passed · {summary.answeredCount} answered
             </p>
           </div>
         </div>
         <div className="text-right">
           <div className={`font-display text-3xl font-semibold leading-none ${scoreTone(summary.scorePct)}`}>
-            {summary.scorePct}%
+            {summary.gradedCount > 0 ? `${summary.scorePct}%` : '—'}
           </div>
           <p className="text-[10px] text-text-2 mt-1">
-            {summary.pointsAwarded} / {summary.pointsPossible} marks
+            {summary.pointsAwarded} / {summary.pointsPossible} marked marks
           </p>
         </div>
       </div>
+
+      {summary.ungradedCount > 0 && <p className="text-xs text-navy-2 bg-quiz-light border border-quiz-border rounded-lg px-3 py-2">
+        {summary.ungradedCount} written answer{summary.ungradedCount === 1 ? ' is' : 's are'} awaiting grading. This summary covers marked answers only.
+      </p>}
 
       {typeRows.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

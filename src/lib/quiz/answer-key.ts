@@ -21,6 +21,7 @@
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import type { QuestionType } from '@/lib/quiz/persist';
+import type { QuizCriterion } from '@/lib/quiz/grading';
 
 export type QuizTokenQuestion =
   | {
@@ -42,6 +43,7 @@ export type QuizTokenQuestion =
       modelAnswer: string;
       rubric: string;
       maxScore: number;
+      criteria?: QuizCriterion[];
     };
 
 export interface QuizToken {
