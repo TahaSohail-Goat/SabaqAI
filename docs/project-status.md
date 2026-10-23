@@ -1,5 +1,16 @@
 # Project status — what is real and what is a stub
 
+## Sources-only fallback after both providers fail — 2026-10-23
+
+Doubts can return a separate `sources_only` result after both Gemini and Groq actually fail.
+It shows up to three stored OCR excerpts and existing source/PDF controls, clearly labeled as
+unassessed search results with no generated explanation. It reuses scoped seeds or retrieves the
+unchanged original question once when understanding failed first. Exact source/chapter authorization,
+normal final refusals, invalid-output handling, deadlines and Quiz behavior remain intact.
+Offline structure/UI/provider-failure checks and a real local hybrid-retrieval probe with simulated
+provider outages exercised this path. No real LLM outage or browser click was simulated in the
+running app. See [contract and validation results](ask-evolution/SOURCES_ONLY_FALLBACK.md).
+
 ## Groq provider fallback and local startup — 2026-10-23
 
 The shared Doubts/Quiz provider can switch from Gemini to the existing Groq text model for

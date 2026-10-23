@@ -194,7 +194,7 @@ export default function DoubtsPage() {
       if (controller.signal.aborted || sequence !== sequenceRef.current) return;
       if (!res.ok && data.status !== 'error') throw new Error('Unexpected response.');
       setAskResult(data);
-      if (data.status === 'answered' && data.citations.length > 0) {
+      if ((data.status === 'answered' || data.status === 'sources_only') && data.citations.length > 0) {
         setSelectedCitation(data.citations[0]);
       }
     } catch (err) {

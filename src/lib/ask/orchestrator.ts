@@ -27,6 +27,8 @@ export interface AskTrace {
   providerRetryCode?: ProviderRetryCode;
   provider?: 'gemini' | 'groq';
   tokenCountMode?: 'exact' | 'estimate_with_usage_check';
+  sourcesOnly?: boolean;
+  sourceCitationCount?: number;
   citationRejections: number; supportRejections: number; repairs: number;
   durations: Record<string, number>; sourceIds: string[];
 }

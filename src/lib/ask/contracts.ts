@@ -99,6 +99,11 @@ const boundarySchema = z.object({
 });
 // Used for network responses AND restored browser state. Unknown variants cannot render as success.
 export const askResponseSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('sources_only'), requestId: z.string(), originalQuestion: z.string(),
+    language: z.enum(['en', 'ur']), reason: z.literal('providers_unavailable'), message: z.string(),
+    scope: scopeSchema.safeExtend({ sourceId: z.uuid(), chapterNo: z.number().int().positive().max(9999) }),
+    citations: z.array(citationSchema).min(1).max(3),
+  }).strict(),
   z.object({ status: z.literal('answered'), requestId: z.string().optional(),
     confidence: z.object({ band: z.enum(['high', 'medium']), top1: z.number().finite(), support: z.number().int() }),
     language: z.enum(['en', 'ur']), statements: z.array(z.object({ id: z.string().optional(), kind: z.enum(['explanation', 'book_example', 'illustration', 'derivation']).optional(), text: z.string().trim().min(1).max(1800), chunkIds: z.array(z.string()).min(1) })).min(1),

@@ -26,6 +26,20 @@ export default function AskResultView({ result, selectedCitation, onCitation, on
       {result.retryable && <button type="button" onClick={onRetry} className="text-brand font-bold text-sm">Try again</button>}
     </div>
   );
+  if (result.status === 'sources_only') return (
+    <section aria-label="Source passages only" className="bg-surface border border-border rounded-2xl p-6 space-y-4" dir={result.language === 'ur' ? 'rtl' : 'ltr'}>
+      <h3 className="flex items-center gap-2 text-sm font-bold text-navy"><BookOpen className="w-5 h-5" />{result.language === 'ur' ? 'صرف نصابی حوالے' : 'Source passages only'}</h3>
+      <p className="text-sm text-navy-2">{result.message}</p>
+      <div className="space-y-4">{result.citations.map((citation) => <div key={citation.chunkId} className="text-sm">
+        <button type="button" onClick={() => onCitation(citation)} aria-pressed={selectedCitation?.chunkId === citation.chunkId} className="text-brand font-semibold text-start">
+          {citation.chapterTitle ?? `Chapter ${citation.chapterNo}`} · <bdi dir="ltr">{citation.pageFrom === null ? 'Page unknown' : `p. ${citation.pageFrom}`}</bdi>
+        </button>
+        <p className="mt-1 text-xs text-text-2">{result.language === 'ur' ? 'اصل OCR اقتباس' : 'Stored OCR excerpt'}</p>
+        <blockquote className="mt-1 text-sm text-navy-2 whitespace-pre-wrap" dir="auto">{citation.excerpt}</blockquote>
+      </div>)}</div>
+      <button type="button" onClick={onRetry} className="text-brand font-bold text-sm">{result.language === 'ur' ? 'وضاحت دوبارہ آزمائیں' : 'Retry explanation'}</button>
+    </section>
+  );
   if (result.status === 'needs_clarification') return (
     <section aria-label="Clarify your question" className="bg-surface border border-border rounded-2xl p-6 space-y-4">
       <p className="text-sm font-semibold text-navy" dir="auto">{result.question}</p>

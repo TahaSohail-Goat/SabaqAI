@@ -7,10 +7,21 @@ import AskUnitSelector from '../../src/components/app/AskUnitSelector';
 import { runAsk } from '../../src/lib/ask/orchestrator';
 import type { AskResponse } from '../../src/lib/types';
 import { ambiguous, request, fixtureDependencies } from './fixtures';
+import { citationFromChunk } from '../../src/lib/ai/citation';
+import { seed } from './fixtures';
 
 function render(result: AskResponse) {
   return renderToStaticMarkup(<AskResultView result={result} selectedCitation={null} onCitation={() => {}} onClarify={() => {}} onEdit={() => {}} onRetry={() => {}} />);
 }
+test('source-only UI has visible excerpts and source controls without explanation or grounding badges', () => {
+  const html = render({ status: 'sources_only', requestId: 'test', originalQuestion: request.question, language: 'en',
+    scope: { ...request, sourceId: '81855080-15fb-4971-b9da-5f1ddb616f74', chapterNo: 14 },
+    reason: 'providers_unavailable', message: 'No explanation was generated. Sources have not been assessed.', citations: [citationFromChunk(seed)] });
+  assert.match(html, /Source passages only/); assert.match(html, /Stored OCR excerpt/);
+  assert.match(html, /<blockquote/); assert.match(html, /p\. 12/); assert.match(html, /Retry explanation/);
+  assert.match(html, /No explanation was generated/);
+  assert.doesNotMatch(html, /Grounded in|retrieval confidence|Textbook example:|<details/);
+});
 
 test('retrieval cutoff copy does not claim the textbook was semantically insufficient', () => {
   const html = render({ status: 'refused', reason: 'low_similarity', message: 'Whether the text answers your question was not assessed.', nearestChapters: [], suggestion: 'Try a clearer question.' });

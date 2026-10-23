@@ -132,6 +132,16 @@ export interface GroundedAnswer {
 // What the /api/ask route returns to the browser.
 export type AskResponse =
   | {
+      status: 'sources_only';
+      requestId: string;
+      originalQuestion: string;
+      language: Language;
+      scope: AskScope & { sourceId: string; chapterNo: number };
+      reason: 'providers_unavailable';
+      message: string;
+      citations: Citation[];
+    }
+  | {
       status: 'answered';
       confidence: { band: 'high' | 'medium'; top1: number; support: number };
       language: Language;

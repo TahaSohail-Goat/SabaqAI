@@ -1,8 +1,25 @@
 # API spec
 
+## Sources-only availability fallback
+
+`POST /api/ask` may return HTTP 200 with `status: "sources_only"` after both Gemini and Groq
+have actually failed in that request. Fields: `requestId`, `originalQuestion`, `language`, exact
+selected `scope` (including source UUID and chapter), `reason: "providers_unavailable"`, a fixed
+honest `message`, and one to three stored-row `citations`. There are no answer statements,
+coverage/confidence verdicts or support-review success labels. The strict response schema rejects
+such extra fields. These are unassessed search results, not evidence that the question is answered.
+The existing reader opens their original stored page references with chapter-PDF rebasing.
+
+This student-question-only path reuses retrieved seeds or, if understanding failed first, searches
+the unchanged full question once within the verified selected source/chapter. It makes no third
+LLM call. It does not turn final refusals, invalid output, grounding/adequacy failures, expired
+deadlines, clarification requests or missing/foreign evidence into success. Source-less legacy
+requests retain their original error. Quiz review behavior is unchanged.
+
 ## Grounding and answer adequacy
 
-Ask/Quiz public response variants are unchanged. Reviewed answer coverage can now be partial when
+The adequacy change preserved existing response variants; the later availability fallback adds
+the distinct sources-only variant above. Reviewed answer coverage can be partial when
 the requested mechanism or a subquestion is unsupported, with limitations rendered through existing
 `boundary.missingRequestedAspects` / `notCovered`. An inadequate answer is withheld even if its facts
 and citations are valid. The internal review contract requires adequacy, reasoning and example checks;

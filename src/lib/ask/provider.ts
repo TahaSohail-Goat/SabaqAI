@@ -11,6 +11,7 @@ export interface AskProvider {
   readonly calls: number;
   readonly providerName?: 'gemini' | 'groq';
   readonly tokenCountMode?: 'exact' | 'estimate_with_usage_check';
+  readonly bothProvidersFailed?: boolean;
 }
 
 export function createAskProvider(config: AskConfig, signal: AbortSignal, options: {
@@ -25,7 +26,9 @@ export function createAskProvider(config: AskConfig, signal: AbortSignal, option
   const request = options.fetch ?? fetch;
   let active: 'gemini' | 'groq' = ai ? 'gemini' : 'groq';
   let calls = 0;
+  const failedProviders = new Set<'gemini' | 'groq'>();
   const switchOnFailure = (error: unknown): never => {
+    failedProviders.add(active);
     const status = error && typeof error === 'object' && 'status' in error ? error.status : undefined;
     const retryCode = providerRetryCode(error) ?? (status === 429 && active === 'gemini' && groqKey ? 'HTTP_429' : null);
     if (active === 'gemini' && groqKey && retryCode) {
@@ -38,6 +41,7 @@ export function createAskProvider(config: AskConfig, signal: AbortSignal, option
   };
   return {
     get calls() { return calls; },
+    get bothProvidersFailed() { return failedProviders.has('gemini') && failedProviders.has('groq'); },
     get providerName() { return active; },
     get tokenCountMode() { return active === 'gemini' ? 'exact' : 'estimate_with_usage_check'; },
     async json(_stage, instruction, payload, schema) {
