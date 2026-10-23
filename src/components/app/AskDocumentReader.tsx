@@ -275,6 +275,7 @@ function TextDocumentView({
       subject,
       sourceType,
       chapterNo: String(unit.chapterNo),
+      ...(unit.sourceId ? { sourceId: unit.sourceId } : {}),
     });
 
     // Fixed relative path, not an attacker-constructible URL — params only ever populate the

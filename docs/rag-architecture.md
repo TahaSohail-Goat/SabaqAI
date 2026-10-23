@@ -1,5 +1,17 @@
 # RAG — how it works (single-app version)
 
+2026-10-23: the shared Ask pipeline adds bounded pre-gate semantic sufficiency assessment for
+uncertain retrieved evidence. Exact seed excerpts must validate before final BORDERLINE admission;
+partial limitations survive teaching and independent support review. A final REFUSE remains terminal.
+Hybrid scores, scope filters, corpus and PDF citations are unchanged. See
+[actual evidence, decision flow and latency](ask-evolution/FALSE_REFUSAL_FIX.md).
+
+2026-10-22: the active Doubts/shared Quiz path now uses full-question vectors plus bounded PostgreSQL
+full-text hints, exact picked source identities, and relational context heuristics. Fusion ranking
+does not change cosine confidence scores or gate thresholds. The source picker and OCR reader share
+the same stored source UUID. See [current hybrid behavior and checks](ask-evolution/HYBRID_RETRIEVAL.md).
+The older overview below does not describe this hybrid path.
+
 The active Ask pipeline was extended on 2026-10-20 with conservative LLM question interpretation,
 signed clarification, source/section identity hydration, bounded same-section expansion, structured
 teaching and default support review. See [Ask implementation](ask-evolution/IMPLEMENTATION.md) for

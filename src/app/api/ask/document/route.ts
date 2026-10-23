@@ -3,7 +3,9 @@
 // /api/syllabus and /api/ask/options — no auth required.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceRoleClient } from '@/lib/supabase/admin';
+import { readSourceDocument } from '@/lib/ask/evidence';
+import { scopeSchema } from '@/lib/ask/contracts';
+import { AskFailure } from '@/lib/ask/config';
 import type { AskDocumentResponse, AskSourceType } from '@/lib/types';
 
 export async function GET(req: NextRequest) {
@@ -18,28 +20,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'board, classLevel, subject, sourceType and chapterNo are required.' }, { status: 400 });
   }
 
-  const admin = getServiceRoleClient();
-  if (!admin) {
-    return NextResponse.json({ error: 'Server is not configured for this yet.' }, { status: 500 });
+  const sourceId = searchParams.get('sourceId');
+  const scope = scopeSchema.safeParse({ board, classLevel, subject, sourceType, chapterNo, ...(sourceId ? { sourceId } : {}) });
+  if (!scope.success) return NextResponse.json({ error: 'Choose a valid source and chapter.' }, { status: 400 });
+  let rows;
+  try {
+    rows = (await readSourceDocument(scope.data, req.signal)).map((c) => ({ id: c.id, chapter_title: c.chapterTitle,
+      section: c.section, page_from: c.pageFrom, page_to: c.pageTo, chunk_index: c.chunkIndex, content: c.content }));
+  } catch (error) {
+    return NextResponse.json({ error: 'Could not load this source. Select the source and chapter again.' }, { status: error instanceof AskFailure ? error.httpStatus : 503 });
   }
-
-  const { data, error } = await admin
-    .from('content_chunks_expanded')
-    .select('id, chapter_title, section, page_from, page_to, chunk_index, content')
-    .eq('board', board)
-    .eq('class_level', classLevel)
-    .eq('subject', subject)
-    .eq('source_type', sourceType)
-    .eq('chapter_no', chapterNo)
-    .order('page_from', { ascending: true, nullsFirst: true })
-    .order('chunk_index', { ascending: true });
-
-  if (error) {
-    console.error('ask/document query failed:', error.message);
-    return NextResponse.json({ error: 'Failed to load this document.' }, { status: 500 });
-  }
-
-  const rows = data ?? [];
   if (rows.length === 0) {
     return NextResponse.json({ error: 'Nothing ingested for this selection.' }, { status: 404 });
   }

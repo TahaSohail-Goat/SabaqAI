@@ -1,5 +1,92 @@
 # Project status — what is real and what is a stub
 
+## Sources-only fallback after both providers fail — 2026-10-23
+
+Doubts can return a separate `sources_only` result after both Gemini and Groq actually fail.
+It shows up to three stored OCR excerpts and existing source/PDF controls, clearly labeled as
+unassessed search results with no generated explanation. It reuses scoped seeds or retrieves the
+unchanged original question once when understanding failed first. Exact source/chapter authorization,
+normal final refusals, invalid-output handling, deadlines and Quiz behavior remain intact.
+Offline structure/UI/provider-failure checks and a real local hybrid-retrieval probe with simulated
+provider outages exercised this path. No real LLM outage or browser click was simulated in the
+running app. See [contract and validation results](ask-evolution/SOURCES_ONLY_FALLBACK.md).
+
+## Groq provider fallback and local startup — 2026-10-23
+
+The shared Doubts/Quiz provider can switch from Gemini to the existing Groq text model for
+temporary service/connection failures or Gemini HTTP 429. It uses the existing single retry,
+call cap and deadline, with mandatory citation/grounding/adequacy validation. Groq token planning
+is explicitly estimated and actual reported prompt usage is checked before accepting output.
+Offline provider and compatibility tests pass; live probes confirmed switching but encountered
+Groq rate limiting and an invalid review, so a successful live fallback answer is not claimed.
+Local port 3100 is running with Webpack after the old dev process returned HTML 404 for login;
+the login endpoint now returns proper JSON through local Supabase Auth. No successful browser
+login was performed. See [checks, timings and limitations](ask-evolution/GROQ_FALLBACK.md).
+
+## Temporary provider failures — 2026-10-23
+
+Local Ask failures were traced to Gemini before retrieval and to an explicit upstream HTTP 503
+during explanation. An additional request exceeded the existing deadline during slow provider stages.
+The exact transport cause of the earlier no-status failures was not logged, so a specific DNS/socket
+cause is not claimed. Safe diagnostics now identify whitelisted connection and gateway/service codes.
+One bounded transient-provider retry is shared across the whole request, including token counting;
+model attempts consume the configured call budget and the original deadline is never reset. Quota,
+authentication, schema and other validation errors are not retried. Repeated failures still return
+an error, never a fabricated answer. No retrieval/grounding/adequacy safeguards or model settings changed.
+
+## Separate answer adequacy and grounding review — 2026-10-23
+
+The current shared Ask/Quiz review separately assesses factual grounding and answer adequacy,
+including requested reasoning, useful concrete examples and multipart coverage. Definition-only
+how/why output cannot be accepted as complete or disguised as a useful partial explanation. Missing
+mechanisms remain explicit partial limitations; short definition answers remain valid when requested.
+The existing review call performs both checks. One evidence-backed repair can run only with budget
+for a fresh independent grounding/adequacy review; citation/source checks and deadlines still apply.
+The configurable ceiling is six for the possible four-plus-two sequence, while explicit lower caps
+are honored and ordinary adequate requests add no model call. No corpus or PDF metadata was changed.
+The prior cutoff fix is included in the same checkpoint; independent Class 9 catalogue work stays
+uncommitted. See [actual outputs, test results and latency limitations](ask-evolution/ANSWER_ADEQUACY.md).
+
+## Evidence-based Ask false-refusal fix — 2026-10-23
+
+On `doubt-finalize`, uncertain scoped evidence can receive a bounded exact-excerpt sufficiency
+assessment before the final confidence gate. Complete and independently useful partial support can
+authorize only BORDERLINE, with mandatory independent support review; insufficient evidence refuses
+before teaching. Thresholds and hybrid/source/chapter filters are unchanged. Citation reconstruction,
+PDF metadata and corpus remain untouched. Partial limitations cannot be erased by generation.
+Cutoff refusal copy now explicitly distinguishes search confidence from semantic insufficiency.
+
+Real local retrieval/live Gemini checks answered the reported non-contact-forces question with the
+stored definition/examples, returned a useful partial answer for an additional unsupported derivation,
+and refused general-relativity and magnetic-disk keyword traps. Earlier checks exposed partial-review
+and layout rejection issues which were corrected; rate-limit/network failures are documented rather
+than counted as academic results. The new stage adds latency, not a speed improvement. No score
+threshold was calibrated on this small probe. See [evidence, measured times and actual check results](ask-evolution/FALSE_REFUSAL_FIX.md).
+No database writes, re-embedding, hosted changes or merge occurred. The earlier acceptance catalogue
+and unrelated uncommitted files are preserved.
+
+## Doubts hybrid retrieval and exact source selection — 2026-10-22
+
+On `doubt-finalize`, normal Ask now augments the complete corrected question's vector search with
+PostgreSQL full-text/concept hints in a single hybrid RPC. One understanding call extracts concepts;
+one Jina query embedding is reused. Fusion rank selects candidates while unchanged confidence
+thresholds use original cosine scores only. Bounded context requires relational/conditional relevance
+and merges overlapping read windows. Teaching requests concise, easy language and supported examples.
+Support review, clarification, citation validation, PDF rebasing and shared Quiz orchestration remain.
+
+The picker no longer collapses language/source records: it sends actual source UUIDs and the OCR
+reader enforces the same identity. Old browser selections require reselection; source-less API requests
+must be unambiguous. Internal legacy Quiz snapshots retain their chapter-scoped one-source selection.
+No book edition entity or complete concept-boundary detector is claimed.
+
+Migration 0023 is applied locally only. Both pgvector namespace layouts passed rolling-back SQL
+fixtures. Full-row corpus fingerprints were unchanged (494 chapters, 498 sources, 8,491 sections,
+8,594 chunks). Existing 83 tests passed before changes; expanded fixture coverage and actual check
+results are recorded in [hybrid retrieval report](ask-evolution/HYBRID_RETRIEVAL.md). Local SQL fixture
+queries measured a few milliseconds and hybrid was slower than vector-only; no endpoint speed or
+accuracy improvement is claimed. No live-provider/browser tests, hosted writes, re-embedding, OCR or
+PDF path changes were made. Hosted migration application remains required before rollout.
+
 ## Shared Ask service and Quiz review backend — 2026-10-21
 
 Implemented on `doubt-finalize` from integration base `a896a48`. `/api/ask` and the new authenticated

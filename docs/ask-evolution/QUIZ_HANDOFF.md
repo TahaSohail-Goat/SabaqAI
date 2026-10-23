@@ -1,5 +1,11 @@
 # Grounded Quiz review handoff
 
+2026-10-23: the shared review contract now requires separate adequacy, reasoning and concrete-example
+checks in the SAME review call. An evidence-backed inadequacy repair can run once with budget for a
+new independent review, preserving assessment verdict and comparison references. The configurable
+default ceiling is six; lower explicit caps and the original total deadline still apply. This
+supersedes older repair/call-budget notes below. See [current behavior and checks](ANSWER_ADEQUACY.md).
+
 Implemented on `doubt-finalize`, based on integration commit
 `a896a4846babeef51785b4c1ab12a28ea9744e0b`. PR target: `triage-branch`, not main.
 This adds requested backend review after grading. It does not change Quiz generation, build a

@@ -1,5 +1,19 @@
 # Confidence Guardrail — the core feature
 
+2026-10-23 adequacy follow-up: grounding alone no longer certifies answer completeness. The same
+independent review also evaluates requested reasoning, examples and omissions. A bounded one-repair
+path needs exact existing evidence and a new review inside the configured call/deadline budget.
+See [adequacy contract and actual checks](ask-evolution/ANSWER_ADEQUACY.md). Final REFUSE remains terminal.
+
+2026-10-23: scoped Ask/shared Quiz can now assess uncertain evidence **before the final gate**.
+Finite nonempty seeds below existing PASS_TOP1 receive one exact-excerpt sufficiency assessment,
+requiring independent support review for admission. Sufficient or useful partial support can
+authorize only BORDERLINE; insufficient support returns final REFUSE and no further model call.
+Scores and thresholds are unchanged; no new floor was calibrated. Strong-score and legacy callers
+retain their score path. Cutoff refusals explicitly say semantic sufficiency was not assessed.
+See [decision path, regressions and measured latency](ask-evolution/FALSE_REFUSAL_FIX.md).
+The score-only decision/table below describes the legacy path, not the new assessed path.
+
 2026-10-20: Ask now interprets the question and assembles bounded evidence **before** the final
 `evaluateConfidence()` call. Once it returns REFUSE there are no further model calls. The gate
 only sees genuine scored seeds retained in the final payload; contextual neighbors have null

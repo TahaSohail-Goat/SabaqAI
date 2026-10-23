@@ -4,7 +4,7 @@ import { explainQuiz, QuizExplainFailure } from '../../src/lib/quiz/explain';
 import { runAskService } from '../../src/lib/ask/service';
 import { quizExplainRequestSchema, quizExplainResponseSchema } from '../../src/lib/quiz/explain-contracts';
 import { AskFailure } from '../../src/lib/ask/config';
-import { fixtureDependencies, scope, answer as teaching, ambiguous } from './fixtures';
+import { fixtureDependencies, scope, seed, answer as teaching, ambiguous, fixtureAdequacy } from './fixtures';
 import type { QuizReviewStore } from '../../src/lib/quiz/explain-store';
 import type { AskProvider } from '../../src/lib/ask/provider';
 import type { QuizReviewContext } from '../../src/lib/types';
@@ -48,16 +48,18 @@ function fixture() {
     async countTokens(instruction, payload) { payloads.push({ stage: 'tokens', instruction, payload }); return 800; },
     async json(stage, instruction, payload) {
       payloads.push({ stage, instruction, payload });
-      if (stage === 'explanation') {
+      if (stage === 'sufficiency') return { coverage: 'sufficient', coreSupported: true,
+        support: [{ chunkId: seed.id, quote: seed.content }], missingAspects: [] };
+      if (stage === 'explanation' || stage === 'repair') {
         const explained = structuredClone(output);
         explained.statements.push({ id: 's3', aspect: 'comparison', kind: 'explanation', chunkIds: ['fixture-ohm-core'],
           text: `Your recorded response is "${snapshot.answerText ?? snapshot.options[snapshot.selectedIndex ?? 0]}". Compare it with the proportional voltage-current relationship at constant temperature; that relationship supplies the reasoning for the expected answer.` });
         explained.blocks.splice(1, 0, { kind: 'explanation', statementIds: ['s3'] });
         return { ...explained, assessment: { verdict, statementIds: ['s1'], responseComparisonIds: ['s3'], expectedAnswerReasonIds: ['s3'] } };
       }
-      if (stage === 'review') return { coherent: true, coreSupported: true, assessmentVerdict: reviewerVerdict ?? verdict, responseComparisonSupported: true, expectedAnswerReasonSupported: true,
+      if (stage === 'review') return { coherent: true, coreSupported: true, adequacy: fixtureAdequacy((payload as { answer: ReturnType<typeof teaching> }).answer), assessmentVerdict: reviewerVerdict ?? verdict, responseComparisonSupported: true, expectedAnswerReasonSupported: true,
         verdicts: (payload as { answer: ReturnType<typeof teaching> }).answer.statements.map((s) => ({ statementId: s.id, verdict: 'supported', chunkIds: s.chunkIds, reason: 'Invented fixture support only.' })) };
-      throw new Error('Quiz mode must not normalize, repair or clarify.');
+      throw new Error('Quiz mode must not normalize or clarify.');
     },
   };
   const deps = { ...base, provider, authorization: { userId: userId as string | null, profile: { board: scope.board, classLevel: scope.classLevel, subjects: [scope.subject] } as { board: string; classLevel: number; subjects: string[] } | null }, store };
@@ -92,6 +94,31 @@ test('partial written credit is eligible even with the old half-credit correct f
   f.sync();
   assert.equal((await explainQuiz(input, f.deps)).status, 'explained');
   assert.match(JSON.stringify(f.payloads), /partial/);
+});
+
+test('shared Quiz review can assess low-score evidence and still requires its assessment comparison review', async () => {
+  const f = fixture(), original = f.deps.retrieval.seeds;
+  f.deps.retrieval.seeds = async (...args) => (await original(...args)).map((c) => ({ ...c, score: 0.3 }));
+  assert.equal((await explainQuiz(input, f.deps)).status, 'explained');
+  assert.deepEqual(f.payloads.map((p) => p.stage), ['tokens', 'sufficiency', 'tokens', 'explanation', 'review']);
+  assert.equal(f.deps.trace.gate, 'BORDERLINE');
+});
+
+test('Quiz inadequacy repair preserves comparison references and gets fresh independent assessment review', async () => {
+  const f = fixture(), original = f.deps.provider.json;
+  let reviews = 0;
+  f.deps.provider.json = async (...args) => {
+    const result = await original(...args);
+    if (args[0] === 'review' && ++reviews === 1) return { ...(result as Record<string, unknown>), adequacy: {
+      verdict: 'inadequate', reason: 'TEST fixture requests clearer supported comparison.', missingAspects: ['Explain the comparison'], repairEvidence: [{ chunkId: seed.id, quote: seed.content }],
+      reasoning: 'omitted', example: 'not_needed',
+    } };
+    return result;
+  };
+  assert.equal((await explainQuiz(input, f.deps)).status, 'explained');
+  assert.equal(f.deps.trace.repairs, 1);
+  assert.equal(reviews, 2);
+  assert.deepEqual(f.payloads.map((p) => p.stage), ['tokens', 'explanation', 'review', 'tokens', 'repair', 'review']);
 });
 
 for (const state of ['unavailable', 'pending', 'failed']) test(`written grading ${state} is not an academically incorrect answer`, async () => {

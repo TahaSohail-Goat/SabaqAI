@@ -21,7 +21,9 @@ export function readAskConfig(env: Record<string, string | undefined> = process.
     tokens: integer('ASK_MAX_CONTEXT_TOKENS', 7000, 500, 16000),
     outputTokens: integer('ASK_MAX_OUTPUT_TOKENS', 4000, 500, 8000),
     timeout: integer('ASK_TOTAL_TIMEOUT_MS', 110000, 5000, 120000),
-    calls: integer('ASK_MAX_LLM_CALLS', 4, 2, 4),
+    // Four routine stages plus, only when necessary, one repair and independent re-review.
+    // Explicit lower budgets still win; the orchestrator reserves both repair slots.
+    calls: integer('ASK_MAX_LLM_CALLS', 6, 2, 6),
     ttl: integer('ASK_CLARIFICATION_TTL_SECONDS', 600, 60, 1800),
   };
 }

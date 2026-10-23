@@ -13,6 +13,15 @@ export interface ValidationResult {
   citations: Citation[];
 }
 
+/** Stored source metadata only; also used for explicitly non-answer source browsing. */
+export function citationFromChunk(c: Pick<RetrievedChunk, 'id' | 'chapterNo' | 'chapterTitle' | 'section' | 'pageFrom' | 'pageTo' | 'sourceType' | 'content'>): Citation {
+  return {
+    chunkId: c.id, chapterNo: c.chapterNo, chapterTitle: c.chapterTitle, section: c.section,
+    pageFrom: c.pageFrom, pageTo: c.pageTo, sourceType: c.sourceType,
+    excerpt: c.content.slice(0, 400),
+  };
+}
+
 export function validateCitations(
   answer: GroundedAnswer,
   retrieved: RetrievedChunk[],
@@ -33,16 +42,7 @@ export function validateCitations(
   const usedIds = new Set(kept.flatMap((s) => s.chunkIds));
   const citations: Citation[] = [...usedIds].map((id) => {
     const c = retrievedById.get(id)!;
-    return {
-      chunkId: c.id,
-      chapterNo: c.chapterNo,
-      chapterTitle: c.chapterTitle,
-      section: c.section,
-      pageFrom: c.pageFrom,
-      pageTo: c.pageTo,
-      sourceType: c.sourceType,
-      excerpt: c.content.slice(0, 400), // from the DB row, never from the model
-    };
+    return citationFromChunk(c); // from the DB row, never from the model
   });
 
   return { ok: true, statements: kept, citations };

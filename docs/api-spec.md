@@ -1,5 +1,49 @@
 # API spec
 
+## Sources-only availability fallback
+
+`POST /api/ask` may return HTTP 200 with `status: "sources_only"` after both Gemini and Groq
+have actually failed in that request. Fields: `requestId`, `originalQuestion`, `language`, exact
+selected `scope` (including source UUID and chapter), `reason: "providers_unavailable"`, a fixed
+honest `message`, and one to three stored-row `citations`. There are no answer statements,
+coverage/confidence verdicts or support-review success labels. The strict response schema rejects
+such extra fields. These are unassessed search results, not evidence that the question is answered.
+The existing reader opens their original stored page references with chapter-PDF rebasing.
+
+This student-question-only path reuses retrieved seeds or, if understanding failed first, searches
+the unchanged full question once within the verified selected source/chapter. It makes no third
+LLM call. It does not turn final refusals, invalid output, grounding/adequacy failures, expired
+deadlines, clarification requests or missing/foreign evidence into success. Source-less legacy
+requests retain their original error. Quiz review behavior is unchanged.
+
+## Grounding and answer adequacy
+
+The adequacy change preserved existing response variants; the later availability fallback adds
+the distinct sources-only variant above. Reviewed answer coverage can be partial when
+the requested mechanism or a subquestion is unsupported, with limitations rendered through existing
+`boundary.missingRequestedAspects` / `notCovered`. An inadequate answer is withheld even if its facts
+and citations are valid. The internal review contract requires adequacy, reasoning and example checks;
+clients cannot supply these verdicts. At most one evidence-backed repair and fresh independent review
+can run within the configured budget/deadline. See [implementation and checks](ask-evolution/ANSWER_ADEQUACY.md).
+
+## Doubts exact source selection and hybrid retrieval
+
+`POST /api/ask` adds optional `sourceId: UUID`, the actual selected `chapter_sources.id`, to its strict
+existing request. The updated page always sends it with board/class/subject/sourceType/chapterNo.
+The server verifies its curriculum/source/chapter membership; it cannot override profile permissions.
+Source-less older requests are accepted only when the permitted source is unique, otherwise HTTP 400
+asks for reselection. Existing answer/refusal/clarification/error variants are unchanged. Signed
+clarification binds the source UUID too. Quiz's internal legacy chapter snapshots retain their existing
+source selection behavior; a browser cannot enable this through Ask input.
+
+`GET /api/ask/options` units add `sourceId` and `sourceLanguage`, with separate entries for each actual
+source and its own PDF URL/page offset. `GET /api/ask/document` accepts the same sourceId and verifies
+it before loading scoped OCR; ambiguous old requests fail rather than blend documents. Real PDF bytes
+and citation page rebasing remain unchanged. Migration 0023 provides the hybrid RPC; absent migration
+is an operational error, never a demo/keyword-only academic fallback.
+
+See [hybrid implementation and actual checks](ask-evolution/HYBRID_RETRIEVAL.md).
+
 ## Grounded Quiz review
 
 `POST /api/quiz/explain` requires the existing authenticated session and current curriculum profile.

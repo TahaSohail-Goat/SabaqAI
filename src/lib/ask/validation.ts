@@ -5,6 +5,12 @@ import { protectedSpans } from './preservation';
 
 export function checkTeaching(value: unknown, evidence: EvidenceChunk[], language: string, question = ''): { answer: TeachingAnswer; failures: string[] } {
   const answer = teachingSchema.parse(value);
+  // A layout tag must not turn an ordinary cited explanation into a claimed book example.
+  // Keep its prose, statement kind and references unchanged and render it as explanation.
+  // All academic, citation, block-membership and independent support checks still apply.
+  answer.blocks = answer.blocks.map((block) => block.kind === 'example'
+    && block.statementIds.every((id) => answer.statements.some((s) => s.id === id && s.aspect === 'example' && s.kind === 'explanation'))
+    ? { ...block, kind: 'explanation' } : block);
   const failures: string[] = [];
   const known = new Map(evidence.map((c) => [c.id, c]));
   if (answer.language !== language) failures.push('Wrong answer language.');
@@ -59,13 +65,38 @@ export function checkTeaching(value: unknown, evidence: EvidenceChunk[], languag
   return { answer, failures };
 }
 
-export function checkReview(value: unknown, answer: TeachingAnswer): SupportReview {
+export function checkReview(value: unknown, answer: TeachingAnswer, evidence: EvidenceChunk[] = [], intent?: { question: string; kind: string }): SupportReview {
   const review = reviewSchema.parse(value);
   const expected = new Map(answer.statements.map((s) => [s.id, s]));
   if (review.verdicts.length !== expected.size || new Set(review.verdicts.map((v) => v.statementId)).size !== expected.size) throw new Error('Reviewer statement set mismatch.');
   for (const verdict of review.verdicts) {
     const statement = expected.get(verdict.statementId);
     if (!statement || verdict.chunkIds.some((id) => !statement.chunkIds.includes(id)) || new Set(verdict.chunkIds).size !== verdict.chunkIds.length) throw new Error('Reviewer invented source identity.');
+  }
+  const adequacy = review.adequacy;
+  // Explicit omissions take precedence over an optimistic summary label. This only
+  // tightens admission; repair still needs exact existing evidence and a fresh review.
+  if (adequacy.reasoning === 'omitted' || adequacy.example === 'available_but_missing') adequacy.verdict = 'inadequate';
+  if ((adequacy.verdict === 'complete' && adequacy.missingAspects.length)
+    || (adequacy.verdict === 'partial' && !adequacy.missingAspects.length)
+    || (adequacy.verdict !== 'inadequate' && adequacy.repairEvidence.length))
+    throw new Error('Contradictory adequacy review.');
+  const known = new Map(evidence.map((c) => [c.id, c]));
+  for (const reference of adequacy.repairEvidence) {
+    const source = known.get(reference.chunkId);
+    if (!source || !source.content.replace(/\s+/gu, ' ').includes(reference.quote.replace(/\s+/gu, ' ').trim()))
+      throw new Error('Adequacy repair evidence is not a retrieved excerpt.');
+  }
+  if (adequacy.reasoning === 'missing_evidence' && adequacy.verdict === 'complete') {
+    review.adequacy = { ...adequacy, verdict: 'partial', missingAspects: ['Requested source-supported reasoning or mechanism'] };
+  }
+  // This is a narrow consistency check, not a word/paragraph quota or a substitute for
+  // semantic review. The interpreter can explicitly identify a definition request.
+  if (adequacy.verdict !== 'inadequate' && intent && intent.kind !== 'definition'
+    && /\b(?:how|why|kaise|kyun)\b|کیسے|کیوں/iu.test(intent.question)
+    && answer.statements.every((s) => s.aspect === 'definition')) {
+    review.adequacy = { ...review.adequacy, verdict: 'inadequate', reason: 'A definition-only answer does not explain the requested how/why.',
+      missingAspects: ['Requested explanation'], repairEvidence: [] };
   }
   return review;
 }

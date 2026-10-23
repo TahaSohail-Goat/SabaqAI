@@ -1,5 +1,5 @@
-import type { AskResponse, AskScope, Language, QuestionUnderstanding, AskInterpretation, EvidenceChunk, TeachingAnswer, GroundedAskResult, QuizReviewContext } from '../types';
-import { evaluateConfidence } from '../ai/guardrail';
+import type { AskResponse, AskScope, Language, QuestionUnderstanding, AskInterpretation, EvidenceChunk, TeachingAnswer, GroundedAskResult, QuizReviewContext, SemanticEvidenceDecision } from '../types';
+import { evaluateConfidence, needsEvidenceAssessment } from '../ai/guardrail';
 import { getNearestChapters } from '../ai/retrieval';
 import { askRequestSchema, scopeSchema, understandingSchema, teachingSchema, reviewSchema } from './contracts';
 import { AskFailure, checkDeadline, type AskConfig } from './config';
@@ -13,11 +13,22 @@ import { TEACHING_PROMPT, TEACHING_VERSION } from '../../prompts/grounded-answer
 import { SUPPORT_PROMPT, SUPPORT_VERSION, REPAIR_PROMPT } from '../../prompts/ask-support-review';
 import { QUIZ_TEACHING_RULES, QUIZ_SUPPORT_RULES, QUIZ_REVIEW_VERSION } from '../../prompts/quiz-review';
 import { quizTeachingSchema, quizSupportSchema } from '../quiz/explain-contracts';
+import { checkSufficiency, sufficiencySchema, SUFFICIENCY_PROMPT } from './sufficiency';
+import { AskTransientProviderFailure, type ProviderRetryCode } from './transport';
 
 export interface AskTrace {
   mode?: 'student_question' | 'quiz_review';
   understanding?: string; retrievalQueries: number; seeds: number; expanded: number; context: number;
   gate?: string; gateReason?: string; coverage?: string; truncated?: boolean; tokens?: number;
+  sufficiency?: 'sufficient' | 'partial' | 'insufficient';
+  adequacy?: 'complete' | 'partial' | 'inadequate';
+  repairSkipped?: 'budget' | 'no_evidence' | 'already_repaired';
+  transportRetries?: number;
+  providerRetryCode?: ProviderRetryCode;
+  provider?: 'gemini' | 'groq';
+  tokenCountMode?: 'exact' | 'estimate_with_usage_check';
+  sourcesOnly?: boolean;
+  sourceCitationCount?: number;
   citationRejections: number; supportRejections: number; repairs: number;
   durations: Record<string, number>; sourceIds: string[];
 }
@@ -33,16 +44,30 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
   const { provider, retrieval, config, signal, requestId, owner, trace } = deps;
   trace.mode = assessment ? 'quiz_review' : 'student_question';
   let calls = 0;
-  const json: AskProvider['json'] = async (...args) => {
+  let transportRetried = false;
+  const withTransportRetry = async <T>(action: () => Promise<T>, hasBudget = () => true): Promise<T> => {
+    try { return await action(); } catch (error) {
+      checkDeadline(signal);
+      if (!(error instanceof AskTransientProviderFailure) || transportRetried || !hasBudget()) throw error;
+      transportRetried = true;
+      trace.transportRetries = 1; trace.providerRetryCode = error.retryCode;
+      // One retry across the ENTIRE request, not per stage. Each model attempt is counted;
+      // the original signal/deadline and the repair's two-slot reservation remain binding.
+      return action();
+    }
+  };
+  const json: AskProvider['json'] = async (...args) => withTransportRetry(async () => {
     checkDeadline(signal);
     if (calls >= config.calls) throw new AskFailure('unavailable', 503, true);
     calls++;
-    return provider.json(...args);
-  };
+    try { return await provider.json(...args); }
+    finally { trace.provider = provider.providerName; trace.tokenCountMode = provider.tokenCountMode; }
+  }, () => calls < config.calls);
+  const countTokens: AskProvider['countTokens'] = (...args) => withTransportRetry(() => provider.countTokens(...args));
   const parsed = askRequestSchema.safeParse(value);
   if (!parsed.success) throw new AskFailure('invalid_request', 400);
   const input = parsed.data;
-  const scopeResult = scopeSchema.safeParse({ board: input.board, classLevel: input.classLevel, subject: input.subject, sourceType: input.sourceType, ...(input.chapterNo === undefined ? {} : { chapterNo: input.chapterNo }) });
+  const scopeResult = scopeSchema.safeParse({ board: input.board, classLevel: input.classLevel, subject: input.subject, sourceType: input.sourceType, ...(input.chapterNo === undefined ? {} : { chapterNo: input.chapterNo }), ...(input.sourceId ? { sourceId: input.sourceId } : {}) });
   if (!scopeResult.success || input.question.length > config.maxInput) throw new AskFailure('invalid_request', 400);
   const scope = scopeResult.data;
   // Only the server-side service supplies this third argument. HTTP inputs are strict and
@@ -100,69 +125,115 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
   }
   const interpretation: AskInterpretation = { originalQuestion: input.question, normalizedQuestion: understanding.normalizedQuestion!, retrievalQuestion: understanding.retrievalQuestion! };
   trace.retrievalQueries = 1;
-  const seeds = independentSeeds(await stage('retrieval', () => retrieval.seeds(interpretation.retrievalQuestion, scope, config, signal)), scope);
+  const seeds = independentSeeds(await stage('retrieval', () => retrieval.seeds(interpretation.retrievalQuestion, scope, config, signal, { concepts: understanding.concepts, durations: trace.durations, allowUnselectedSource: Boolean(assessment) })), scope).slice(0, config.seeds);
   trace.seeds = seeds.length;
   const neighbors = config.expansion && seeds.length ? await stage('expansion', () => retrieval.neighbors(seeds, scope, config, signal)) : [];
   trace.expanded = neighbors.length;
-  const assembled = assembleEvidence(seeds, neighbors, scope, understanding.concepts, config);
+  const assembled = await stage('evidence_selection', async () => assembleEvidence(seeds, neighbors, scope, understanding.concepts, config, interpretation.retrievalQuestion));
   const evidence = assembled.evidence;
   let boundary = makeBoundary(scope, evidence, assembled.truncated);
   const envelope = { version: TEACHING_VERSION, originalQuestion: input.question, confirmedQuestion: interpretation.normalizedQuestion,
     retrievalQuestion: interpretation.retrievalQuestion, answerLanguage: input.language, scope, questionIntent: understanding.intent, boundary, evidence,
+    evidenceAssessment: null as SemanticEvidenceDecision | null,
     ...(assessment ? { assessmentContext, assessmentVersion: QUIZ_REVIEW_VERSION } : {}) };
   // Only the exact final evidence payload authorizes the gate and citation allowlist.
   // Pre-gate normalization interprets input; no model call of any kind occurs after REFUSE.
   if (evidence.length) {
-    trace.tokens = await stage('token_count', () => provider.countTokens(instruction, envelope));
+    trace.tokens = await stage('token_count', () => countTokens(instruction, envelope));
     if (trace.tokens > config.tokens) {
-      // One bounded reduction/recount: measured tokens inform selection, but only the second
-      // exact count authorizes this final payload. Never cut a question, formula or chunk in half.
+      // One bounded reduction/recount. Gemini counts exactly; Groq planning estimates are
+      // additionally checked against actual provider usage. Never cut a chunk in half.
       const ratio = Math.max(0, (config.tokens - 2500) / trace.tokens);
       const targetBytes = Math.floor(Buffer.byteLength(JSON.stringify(evidence), 'utf8') * ratio);
       do { evidence.pop(); } while (evidence.length && Buffer.byteLength(JSON.stringify(evidence), 'utf8') > targetBytes);
       boundary = makeBoundary(scope, evidence, true); envelope.boundary = boundary;
       if (evidence.length) {
-        trace.tokens = await stage('token_recount', () => provider.countTokens(instruction, envelope));
+        trace.tokens = await stage('token_recount', () => countTokens(instruction, envelope));
         if (trace.tokens > config.tokens) throw new AskFailure('invalid_output', 502, true);
       }
     }
   }
   trace.context = evidence.length; trace.truncated = boundary.truncated; trace.sourceIds = boundary.sourceIds;
   const scored = scoredEvidence(evidence);
-  const gate = evaluateConfidence(scored);
+  let sufficiency: SemanticEvidenceDecision | undefined;
+  // Low cosine is a triage signal, not proof that the text cannot answer the question.
+  // Assess only the exact budgeted, scoped payload BEFORE the final gate. Independent
+  // review is mandatory for this path; neither an error nor a disabled review can admit it.
+  if (config.review && needsEvidenceAssessment(scored)) {
+    try {
+      sufficiency = await stage('evidence_sufficiency', async () => checkSufficiency(
+        await json('sufficiency', SUFFICIENCY_PROMPT, {
+          confirmedQuestion: interpretation.normalizedQuestion, scope, evidence,
+        }, sufficiencySchema), evidence));
+      trace.sufficiency = sufficiency.coverage;
+      if (sufficiency.coverage !== 'insufficient') {
+        envelope.evidenceAssessment = sufficiency;
+        // The assessment is a plan, not new textbook evidence. Measure the final teaching
+        // envelope again rather than silently adding unbudgeted instructions after counting.
+        trace.tokens = await stage('assessment_token_count', () => countTokens(instruction, envelope));
+        if (trace.tokens > config.tokens) throw new AskFailure('invalid_output', 502, true);
+      }
+    } catch (error) {
+      if (error instanceof AskFailure) throw error;
+      throw new AskFailure('invalid_output', 502, true);
+    }
+  }
+  const gate = evaluateConfidence(scored, sufficiency);
   trace.gate = gate.decision; trace.gateReason = gate.reason;
   const log = (reason?: string, cited: string[] = []) => deps.log?.({ scope, language: input.language, evidence, decision: gate.decision, reason, top1: gate.top1, support: gate.support, cited });
   const refuse = (reason: 'no_candidates' | 'low_similarity' | 'ungrounded_output'): AskResponse => ({
     status: 'refused', requestId, interpretation, reason, nearestChapters: getNearestChapters(scored),
-    message: input.language === 'ur' ? 'منتخب مواد میں اس سوال کے لیے کافی ثبوت نہیں ملے، اس لیے ہم اندازہ نہیں لگائیں گے۔' : 'The retrieved material does not support a reliable answer to this question, so we will not guess.',
+    message: reason === 'low_similarity'
+      ? (input.language === 'ur' ? 'تلاش کے نتائج اعتماد کی حد سے کم تھے۔ متن کی معنوی کفایت کا جائزہ نہیں لیا گیا۔' : 'The search results did not meet the retrieval confidence requirement. Whether the text answers your question was not assessed.')
+      : reason === 'no_candidates'
+        ? (input.language === 'ur' ? 'منتخب دائرے میں قابل استعمال اقتباسات حاصل نہیں ہوئے۔' : 'No usable passages were retrieved within your selected scope.')
+        : (input.language === 'ur' ? 'منتخب مواد سے قابل اعتماد جواب کی تصدیق نہیں ہو سکی، اس لیے ہم اندازہ نہیں لگائیں گے۔' : 'We could not validate a supported answer from the retrieved passages, so we will not guess.'),
     suggestion: input.language === 'ur' ? 'براہ کرم سوال کو مزید واضح کریں یا متعلقہ باب منتخب کریں۔' : 'Try a more specific question or explicitly select a relevant chapter.',
   });
   if (gate.decision === 'REFUSE') { await log(gate.reason); return refuse(gate.reason ?? 'low_similarity'); }
+  // Adequacy cannot be established by citation identity alone or by a disabled review.
+  if (!config.review) { await log('ungrounded_output'); return refuse('ungrounded_output'); }
   let raw = await stage('explanation', () => json('explanation', instruction, envelope, outputSchema));
   let answer: TeachingAnswer;
   let assessmentVerdict: 'consistent' | 'conflict' | 'insufficient' | undefined;
   let assessmentReferences: { responseComparisonIds: string[]; expectedAnswerReasonIds: string[] } | undefined;
-  try {
+  const parseCandidate = (value: unknown) => {
     if (assessment) {
-      const checked = quizTeachingSchema.parse(raw);
+      const checked = quizTeachingSchema.parse(value);
+      if (assessmentVerdict && checked.assessment.verdict !== assessmentVerdict) return null;
       assessmentVerdict = checked.assessment.verdict;
       const groups = [checked.assessment.statementIds, checked.assessment.responseComparisonIds, checked.assessment.expectedAnswerReasonIds];
-      if (assessmentVerdict === 'insufficient') { await log('ungrounded_output'); return refuse('ungrounded_output'); }
+      if (assessmentVerdict === 'insufficient') return null;
       if (groups.some((ids) => !ids.length || new Set(ids).size !== ids.length || ids.some((id) => !checked.statements.some((s) => s.id === id)))) {
-        await log('ungrounded_output'); return refuse('ungrounded_output');
+        return null;
       }
       assessmentReferences = { responseComparisonIds: checked.assessment.responseComparisonIds, expectedAnswerReasonIds: checked.assessment.expectedAnswerReasonIds };
       const { assessment: _assessment, ...teaching } = checked;
-      raw = teaching;
+      value = teaching;
     }
-    let checked = checkTeaching(raw, evidence, input.language, interpretation.normalizedQuestion);
+    const checked = checkTeaching(value, evidence, input.language, interpretation.normalizedQuestion);
+    if (sufficiency?.coverage === 'partial' && checked.answer.answerable) {
+      checked.answer = { ...checked.answer, coverage: 'partial', missingAspects: [...new Set([...sufficiency.missingAspects, ...checked.answer.missingAspects])] };
+    }
+    return checked;
+  };
+  const repair = async (previous: unknown, failures: unknown) => {
+    checkDeadline(signal);
+    const payload = { envelope, previous, failures };
+    const measured = await stage('repair_token_count', () => countTokens(REPAIR_PROMPT, payload));
+    if (measured > config.tokens) throw new AskFailure('invalid_output', 502, true);
+    trace.repairs++;
+    return stage('repair', () => json('repair', REPAIR_PROMPT + (assessment ? QUIZ_TEACHING_RULES : ''), payload, outputSchema));
+  };
+  try {
+    let checked = parseCandidate(raw);
+    if (!checked) { await log('ungrounded_output'); return refuse('ungrounded_output'); }
     if (checked.failures.length) {
       trace.citationRejections = checked.failures.filter((f) => f.includes('citation')).length;
-      if (!config.repair) { await log('ungrounded_output'); return refuse('ungrounded_output'); }
-      trace.repairs++;
-      raw = await stage('repair', () => json('repair', REPAIR_PROMPT, { envelope, previous: raw, failures: checked.failures }, teachingSchema));
-      checked = checkTeaching(raw, evidence, input.language, interpretation.normalizedQuestion);
-      if (checked.failures.length) { await log('ungrounded_output'); return refuse('ungrounded_output'); }
+      if (!config.repair || calls + 2 > config.calls) { await log('ungrounded_output'); return refuse('ungrounded_output'); }
+      raw = await repair(raw, checked.failures);
+      checked = parseCandidate(raw);
+      if (!checked || checked.failures.length) { await log('ungrounded_output'); return refuse('ungrounded_output'); }
     }
     answer = checked.answer;
   } catch (error) {
@@ -170,10 +241,10 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
     throw new AskFailure('invalid_output', 502, true);
   }
   if (!answer.answerable) { await log('ungrounded_output'); return refuse('ungrounded_output'); }
-  if (config.review) {
+  for (;;) {
     let review;
     try {
-      const rawReview = await stage('support_review', () => json('review', SUPPORT_PROMPT + (assessment ? QUIZ_SUPPORT_RULES : ''), { version: SUPPORT_VERSION, confirmedQuestion: interpretation.normalizedQuestion, answer,
+      const rawReview = await stage(trace.repairs ? 'support_review_after_repair' : 'support_review', () => json('review', SUPPORT_PROMPT + (assessment ? QUIZ_SUPPORT_RULES : ''), { version: SUPPORT_VERSION, confirmedQuestion: interpretation.normalizedQuestion, originalQuestion: input.question, questionIntent: understanding.intent, answer,
         // Other allowed passages may expose a missing condition/conflict, but cannot rescue
         // an unsupported claim: each verdict's references must still be in that claim's IDs.
         evidence, scope, ...(assessment ? { assessmentContext, assessmentReferences, proposedAssessmentVerdict: assessmentVerdict } : {}) }, assessment ? quizSupportSchema : reviewSchema));
@@ -183,17 +254,39 @@ export async function runAsk(value: unknown, deps: AskDependencies, assessment?:
         if (verdict === 'insufficient' || verdict !== assessmentVerdict || !responseComparisonSupported || !expectedAnswerReasonSupported) { await log('ungrounded_output'); return refuse('ungrounded_output'); }
         reviewValue = support;
       }
-      review = checkReview(reviewValue, answer);
+      review = checkReview(reviewValue, answer, evidence, { question: interpretation.normalizedQuestion, kind: understanding.intent });
     } catch (error) {
       if (error instanceof AskFailure) throw error;
       throw new AskFailure('invalid_output', 502, true);
     }
     trace.supportRejections = review.verdicts.filter((v) => v.verdict !== 'supported').length;
+    trace.adequacy = review.adequacy.verdict;
     if (!review.coreSupported || !review.coherent || trace.supportRejections) {
-      // Never blindly filter a causal chain. Repair needs another complete validation/review;
-      // the four-call cap intentionally disallows a second review after support failure.
+      // Adequacy repair cannot rescue unsupported academic content or missing evidence.
       await log('ungrounded_output'); return refuse('ungrounded_output');
     }
+    if (review.adequacy.verdict === 'inadequate') {
+      if (trace.repairs || !review.adequacy.repairEvidence.length || calls + 2 > config.calls) {
+        trace.repairSkipped = trace.repairs ? 'already_repaired' : !review.adequacy.repairEvidence.length ? 'no_evidence' : 'budget';
+        await log('ungrounded_output'); return refuse('ungrounded_output');
+      }
+      // Reserve BOTH repair and a fresh independent review. Neither may exceed the original cap.
+      try {
+        const previousLimitations = [...answer.missingAspects];
+        const repaired = parseCandidate(await repair(raw, review.adequacy));
+        if (!repaired || repaired.failures.length || !repaired.answer.answerable) { await log('ungrounded_output'); return refuse('ungrounded_output'); }
+        answer = repaired.answer;
+        if (previousLimitations.length) answer = { ...answer, coverage: 'partial', missingAspects: [...new Set([...previousLimitations, ...answer.missingAspects])] };
+      } catch (error) {
+        if (error instanceof AskFailure) throw error;
+        throw new AskFailure('invalid_output', 502, true);
+      }
+      continue;
+    }
+    if (review.adequacy.verdict === 'partial') {
+      answer = { ...answer, coverage: 'partial', missingAspects: [...new Set([...answer.missingAspects, ...review.adequacy.missingAspects])] };
+    }
+    break;
   }
   const citations = citationsFor(answer, evidence);
   if (!citations.ok) { await log('ungrounded_output'); return refuse('ungrounded_output'); }

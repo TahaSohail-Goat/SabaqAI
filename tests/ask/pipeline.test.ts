@@ -13,7 +13,7 @@ import { issueClarification, resumeClarification } from '../../src/lib/ask/clari
 import { evaluateConfidence } from '../../src/lib/ai/guardrail';
 import { validateCitations } from '../../src/lib/ai/citation';
 import { acquireAskSlot, readBoundedJson, withinDeadline } from '../../src/lib/ask/limits';
-import { seed, neighbor, scope, request, ready, ambiguous, answer, fixtureDependencies } from './fixtures';
+import { seed, neighbor, scope, request, ready, ambiguous, answer, fixtureDependencies, fixtureAdequacy } from './fixtures';
 
 test('clear question follows understanding → retrieval → explanation → review with canonical blocks', async () => {
   const deps = fixtureDependencies();
@@ -112,11 +112,11 @@ test('missing givens and gibberish use free text without invented topics', async
   assert.equal(result.status, 'needs_clarification'); if (result.status === 'needs_clarification') assert.equal(result.options.length, 0);
   assert.equal(deps.stages.includes('explanation'), false);
 });
-test('REFUSE means no explanation or support call, and nearest chapters are actual or empty', async () => {
+test('final REFUSE means no subsequent explanation or support call; candidate assessment precedes it', async () => {
   for (const seeds of [[], [{ ...seed, score: 0.1 }]]) {
     const deps = fixtureDependencies({ seeds });
     const result = await runAsk(request, deps);
-    assert.equal(result.status, 'refused'); assert.deepEqual(deps.stages, ['understanding']);
+    assert.equal(result.status, 'refused'); assert.deepEqual(deps.stages, seeds.length ? ['understanding', 'sufficiency'] : ['understanding']);
     if (result.status === 'refused') assert.equal(result.nearestChapters.length, seeds.length);
   }
 });
@@ -181,7 +181,7 @@ test('answerable false with plausible claims never becomes academic success', as
   assert.equal((await runAsk(request, fixtureDependencies({ output }))).status, 'refused');
 });
 test('reviewer omitted, duplicate, invented statement and citation IDs are invalid', () => {
-  const good = { coherent: true, coreSupported: true, verdicts: answer().statements.map((s) => ({ statementId: s.id, verdict: 'supported', chunkIds: s.chunkIds, reason: 'fixture' })) };
+  const good = { coherent: true, coreSupported: true, adequacy: fixtureAdequacy(), verdicts: answer().statements.map((s) => ({ statementId: s.id, verdict: 'supported', chunkIds: s.chunkIds, reason: 'fixture' })) };
   assert.equal(checkReview(good, answer()).verdicts.length, 2);
   for (const verdicts of [good.verdicts.slice(0, 1), [good.verdicts[0], good.verdicts[0]], [good.verdicts[0], { ...good.verdicts[1], statementId: 'invented' }], good.verdicts.map((v) => ({ ...v, chunkIds: ['invented'] }))]) assert.throws(() => checkReview({ ...good, verdicts }, answer()));
 });
@@ -235,14 +235,14 @@ test('rewrites cannot invent givens, swap quantity-unit pairs or change an equat
   ]) assert.ok(preservationFailures(original, changed).length, original);
   assert.deepEqual(preservationFailures('Use 0.05 volts', 'Use 5e-2 V'), []);
 });
-test('call cap prevents another model stage and disabled review is explicit', async () => {
+test('call cap prevents another model stage and disabled review cannot assert adequacy', async () => {
   const deps = fixtureDependencies(); deps.config.calls = 2;
   await assert.rejects(runAsk(request, deps), (e: unknown) => e instanceof AskFailure && e.code === 'unavailable');
   assert.deepEqual(deps.stages, ['understanding', 'explanation']);
   const disabled = fixtureDependencies(); disabled.config.review = false;
   const result = await runAsk(request, disabled);
-  assert.equal(result.status, 'answered'); if (result.status === 'answered') assert.equal(result.supportReview, 'disabled');
-  assert.deepEqual(disabled.stages, ['understanding', 'explanation']);
+  assert.equal(result.status, 'refused');
+  assert.deepEqual(disabled.stages, ['understanding']);
 });
 test('model token count rejects an oversized exact prompt before explanation', async () => {
   const deps = fixtureDependencies(); deps.provider.countTokens = async () => 999999;

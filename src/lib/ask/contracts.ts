@@ -8,6 +8,7 @@ export const scopeSchema = z.object({
   subject: z.string().refine((s) => ALL_SUBJECT_CODES.includes(s)),
   sourceType: z.enum(['textbook', 'past_paper', 'model_paper']).default('textbook'),
   chapterNo: z.number().int().positive().max(9999).optional(),
+  sourceId: z.uuid().optional(),
 }).strict().refine((s) => isSubjectOfferedForClass(s.subject, s.classLevel));
 
 export const askRequestSchema = z.object({
@@ -17,6 +18,7 @@ export const askRequestSchema = z.object({
   subject: z.string(),
   sourceType: z.enum(['textbook', 'past_paper', 'model_paper']).default('textbook'),
   chapterNo: z.number().int().positive().max(9999).optional(),
+  sourceId: z.uuid().optional(),
   language: z.enum(['en', 'ur']).default('en'),
   clarification: z.object({
     context: z.string().max(24000),
@@ -69,6 +71,14 @@ export const teachingSchema = z.object({
 
 export const reviewSchema = z.object({
   coherent: z.boolean(), coreSupported: z.boolean(),
+  adequacy: z.object({
+    verdict: z.enum(['complete', 'partial', 'inadequate']),
+    reasoning: z.enum(['addressed', 'missing_evidence', 'omitted', 'not_requested']),
+    example: z.enum(['used', 'available_but_missing', 'unavailable', 'not_needed']),
+    reason: z.string().trim().min(1).max(500),
+    missingAspects: z.array(z.string().trim().min(1).max(300)).max(8),
+    repairEvidence: z.array(z.object({ chunkId: z.string().min(1), quote: z.string().trim().min(24).max(1000) }).strict()).max(6),
+  }).strict(),
   verdicts: z.array(z.object({
     statementId: z.string(), verdict: z.enum(['supported', 'unsupported', 'uncertain']),
     chunkIds: z.array(z.string()).min(1).max(6), reason: z.string().min(1).max(300),
@@ -89,6 +99,11 @@ const boundarySchema = z.object({
 });
 // Used for network responses AND restored browser state. Unknown variants cannot render as success.
 export const askResponseSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('sources_only'), requestId: z.string(), originalQuestion: z.string(),
+    language: z.enum(['en', 'ur']), reason: z.literal('providers_unavailable'), message: z.string(),
+    scope: scopeSchema.safeExtend({ sourceId: z.uuid(), chapterNo: z.number().int().positive().max(9999) }),
+    citations: z.array(citationSchema).min(1).max(3),
+  }).strict(),
   z.object({ status: z.literal('answered'), requestId: z.string().optional(),
     confidence: z.object({ band: z.enum(['high', 'medium']), top1: z.number().finite(), support: z.number().int() }),
     language: z.enum(['en', 'ur']), statements: z.array(z.object({ id: z.string().optional(), kind: z.enum(['explanation', 'book_example', 'illustration', 'derivation']).optional(), text: z.string().trim().min(1).max(1800), chunkIds: z.array(z.string()).min(1) })).min(1),

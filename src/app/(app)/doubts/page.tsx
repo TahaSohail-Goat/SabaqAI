@@ -157,12 +157,12 @@ export default function DoubtsPage() {
   const activeUnits = sourceType ? sources.find((s) => s.sourceType === sourceType)?.units ?? [] : [];
   // Saved progress contains an old unit snapshot. Use current Storage availability and
   // page offsets after options reload, so recovered PDFs do not stay stuck in OCR mode.
-  const readerUnit = unit ? activeUnits.find((candidate) => candidate.chapterNo === unit.chapterNo) ?? unit : null;
-  const canAsk = Boolean(sourceType && unit);
+  const readerUnit = unit?.sourceId ? activeUnits.find((candidate) => candidate.sourceId === unit.sourceId) ?? null : null;
+  const canAsk = Boolean(sourceType && readerUnit);
 
   const handleAsk = async (options?: { question?: string; clarification?: { context: string; optionId?: string; freeText?: string } }) => {
     const submittedQuestion = options?.question ?? query;
-    if (!submittedQuestion.trim() || submitLock.current || !sourceType || !unit) return;
+    if (!submittedQuestion.trim() || submitLock.current || !sourceType || !readerUnit?.sourceId) return;
     submitLock.current = true;
     const controller = new AbortController();
     requestRef.current = controller;
@@ -185,7 +185,8 @@ export default function DoubtsPage() {
           subject,
           language,
           sourceType,
-          chapterNo: unit.chapterNo,
+          chapterNo: readerUnit.chapterNo,
+          sourceId: readerUnit.sourceId,
           clarification: options?.clarification,
         }),
       });
@@ -193,7 +194,7 @@ export default function DoubtsPage() {
       if (controller.signal.aborted || sequence !== sequenceRef.current) return;
       if (!res.ok && data.status !== 'error') throw new Error('Unexpected response.');
       setAskResult(data);
-      if (data.status === 'answered' && data.citations.length > 0) {
+      if ((data.status === 'answered' || data.status === 'sources_only') && data.citations.length > 0) {
         setSelectedCitation(data.citations[0]);
       }
     } catch (err) {

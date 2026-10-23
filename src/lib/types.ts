@@ -22,6 +22,8 @@ export interface AskScope {
   subject: string;
   sourceType: AskSourceType;
   chapterNo?: number;
+  /** Exact stored chapter source, not a source category or invented book identifier. */
+  sourceId?: string;
 }
 
 export interface QuestionUnderstanding {
@@ -47,6 +49,7 @@ export interface AskInterpretation {
 }
 
 export interface EvidenceChunk extends Omit<RetrievedChunk, 'score'> {
+  selectionRank?: number; // Hybrid rank selects evidence; it is never confidence.
   score: number | null; // Context neighbors never inherit a seed's similarity.
   board: string;
   classLevel: number;
@@ -105,9 +108,17 @@ export interface TeachingAnswer {
 
 export interface GuardrailResult {
   decision: GateDecision;
-  reason?: 'no_candidates' | 'low_similarity';
+  reason?: 'no_candidates' | 'low_similarity' | 'ungrounded_output';
   top1: number;
   support: number;
+}
+
+// Produced only by server-side excerpt validation, never accepted from an HTTP request.
+export interface SemanticEvidenceDecision {
+  coverage: 'sufficient' | 'partial' | 'insufficient';
+  supportingChunkIds: string[];
+  supportingExcerpts: { chunkId: string; quote: string }[];
+  missingAspects: string[];
 }
 
 // What the LLM must return. We parse against this; we do not scrape prose.
@@ -120,6 +131,16 @@ export interface GroundedAnswer {
 
 // What the /api/ask route returns to the browser.
 export type AskResponse =
+  | {
+      status: 'sources_only';
+      requestId: string;
+      originalQuestion: string;
+      language: Language;
+      scope: AskScope & { sourceId: string; chapterNo: number };
+      reason: 'providers_unavailable';
+      message: string;
+      citations: Citation[];
+    }
   | {
       status: 'answered';
       confidence: { band: 'high' | 'medium'; top1: number; support: number };
@@ -256,6 +277,8 @@ export function displayChapterTitle(
 }
 
 export interface AskUnit {
+  sourceId?: string; // Optional only for older persisted browser state.
+  sourceLanguage?: string;
   chapterNo: number;
   chapterTitle: string | null;
   /** Public URL to the real source PDF in Storage, or null if it hasn't been uploaded (e.g.
