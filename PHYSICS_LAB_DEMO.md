@@ -119,7 +119,7 @@ reason to ask a different provider.
 
 ## Checks executed
 
-- `npm run test:lab`: 33 solver, contract, service-fixture, provider-policy and static UI tests
+- `npm run test:lab`: 37 solver, contract, service-fixture, provider-policy and static UI tests
   passed, including all enabled families, rest/signed motion, reversal, units/bounds, comparison,
   invalid actions/results, injection preflight, ownership/scope, duplicate/stale/deadline paths.
 - `npm run test:ask`: 172 existing Doubts/Quiz regression tests passed. These use fixtures;
@@ -172,3 +172,9 @@ pending. The automatically published initial preview needs Vercel cleanup and is
 acceptance result. A clone on another machine must have the matching reviewed content or
 the families fail closed. Model selection/parameter interpretation can still be wrong; explicit
 confirmation, strict validation, and code-owned results bound its effect.
+
+### Follow-up audit
+
+Quantity parsing, signed journey explanations and notebook restoration have regression coverage.
+An additional live proposal correctly preserved "from rest", long unit names and `.5 seconds`
+in 2,602 ms. The expanded browser flow and local API integration passed; browser AI uses fixtures.

@@ -29,10 +29,22 @@ export function validateProposal(raw: unknown, question?: string): { status: 'pr
   return { status: 'proposal', input, suggestedKeys: experiment.parameters.filter((p) => !seen.has(p.key)).map((p) => p.key) };
 }
 function checkExplicitQuantities(question: string, parameters: { key: keyof LabInput['parameters']; quantity: LabInput['parameters']['u'] }[]) {
-  const aliases: Record<string, string> = { seconds: 's', second: 's', minutes: 'min', minute: 'min', metres: 'm', meters: 'm', metre: 'm', meter: 'm', kilometres: 'km', kilometers: 'km', kilometre: 'km', kilometer: 'km', 'm/s^2': 'm/s²' };
   const normalized = question.replace(/−/g, '-');
-  const quantities = [...normalized.matchAll(/([+-]?\d+(?:\.\d+)?)\s*(m\/s(?:²|\^2)?|km\/h|seconds?|minutes?|metres?|meters?|kilometres?|kilometers?|min|km|s|m)(?![\p{L}\p{N}/^²])/giu)]
-    .map((match) => ({ value: Number(match[1]), unit: aliases[match[2].toLowerCase()] ?? match[2].toLowerCase() }));
+  const canonicalUnit = (raw: string): string => {
+    const unit = raw.toLowerCase().replace(/\s+/g, ' ');
+    if (/^met(?:er|re)s? per second(?: squared)?$/.test(unit)) return unit.endsWith(' squared') ? 'm/s²' : 'm/s';
+    if (/^kilomet(?:er|re)s? per hour$/.test(unit)) return 'km/h';
+    if (/^met(?:er|re)s?$/.test(unit)) return 'm';
+    if (/^kilomet(?:er|re)s?$/.test(unit)) return 'km';
+    if (/^seconds?$/.test(unit)) return 's';
+    if (/^minutes?$/.test(unit)) return 'min';
+    return unit === 'm/s^2' ? 'm/s²' : unit;
+  };
+  // Consume the entire numeric token: matching the 5 inside .5 or 1e5 would wrongly
+  // authorize a model changing the student's condition. Long unit names precede bare m.
+  const quantities = [...normalized.matchAll(/(?<![\p{L}\p{N}.,+\-])([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)\s*(m\/s(?:²|\^2)?|km\/h|met(?:er|re)s?\s+per\s+second(?:\s+squared)?|kilomet(?:er|re)s?\s+per\s+hour|seconds?|minutes?|metres?|meters?|kilometres?|kilometers?|min|km|s|m)(?![\p{L}\p{N}/^²])/giu)]
+    .map((match) => ({ value: Number(match[1]), unit: canonicalUnit(match[2]) }));
+  const startsAtRest = /\bfrom\s+rest\b|\b(?:starts?|begins?|initially)\s+(?:at\s+rest|stationary)\b/i.test(normalized);
   const compatible = (parameter: typeof parameters[number], quantity: typeof quantities[number]) => {
     const units = ['u', 'v2'].includes(parameter.key) ? ['m/s', 'km/h'] : ['duration', 'duration2'].includes(parameter.key) ? ['s', 'min'] : parameter.key === 'a' ? ['m/s²'] : ['m', 'km'];
     if (!units.includes(quantity.unit)) return false;
@@ -41,8 +53,10 @@ function checkExplicitQuantities(question: string, parameters: { key: keyof LabI
   };
   // Misread quantities must not silently become different supplied conditions. Code adds
   // omitted defaults separately, marks them as suggested, and requires confirmation.
-  if (quantities.some((quantity) => !parameters.some((parameter) => compatible(parameter, quantity)))
-    || parameters.some((parameter) => !quantities.some((quantity) => compatible(parameter, quantity)))) throw new Error('Explicit quantities were changed or invented.');
+  if ((startsAtRest && !parameters.some((parameter) => parameter.key === 'u' && parameter.quantity.value === 0))
+    || quantities.some((quantity) => !parameters.some((parameter) => compatible(parameter, quantity)))
+    || parameters.some((parameter) => !(startsAtRest && parameter.key === 'u' && parameter.quantity.value === 0)
+      && !quantities.some((quantity) => compatible(parameter, quantity)))) throw new Error('Explicit quantities were changed or invented.');
 }
 // This narrow preflight prevents common out-of-model/instruction requests from spending a call.
 // All model output is still validated. This is not claimed to be a general injection detector.
@@ -70,10 +84,16 @@ export function validateFeedback(raw: unknown, run: LabRun, baseline?: LabRun): 
 
 export function explanationBlocks(result: LabResult): Record<string, string> {
   const p = result.settings.parameters;
+  const v2 = p.v2 ?? 0;
+  const journeyMeaning = p.u * v2 < 0
+    ? 'The legs point in opposite directions, so their signed changes partly or fully cancel. The path lengths still add.'
+    : p.u === 0 && v2 === 0 ? 'Both legs are stationary: time passes without a change in position.'
+      : p.u === 0 || v2 === 0 ? 'A stationary leg adds elapsed time without adding path length.'
+        : 'Both legs point in the same direction, so distance equals the magnitude of displacement.';
   return {
     uniform: `Velocity stays at ${formatValue(p.u)} m/s for ${formatValue(result.duration)} s. With no change in direction, distance grows at a steady rate: a larger speed covers more distance in the same time. Here the cart travels ${formatValue(result.distance)} m.`,
     acceleration: `Starting at ${formatValue(p.u)} m/s, the velocity changes by ${formatValue(p.a ?? 0)} m/s each second for ${formatValue(result.duration)} s. The final velocity is ${formatValue(result.finalVelocity)} m/s. Negative acceleration means velocity decreases; it does not always mean speed decreases.`,
-    journey: `The two legs add ${formatValue(result.distance)} m to the total path, while the change from start to finish is ${formatValue(result.displacement)} m. Returning toward the start adds distance even while it reduces displacement. The instantaneous change between legs is idealized; its acceleration is not simulated.`,
+    journey: `The two legs add ${formatValue(result.distance)} m to the total path, while the signed change from start to finish is ${formatValue(result.displacement)} m. The magnitude of displacement is ${formatValue(Math.abs(result.displacement))} m. ${journeyMeaning} The instantaneous change between legs is idealized; its acceleration is not simulated.`,
     turning: result.turningTime === null ? '' : `Velocity reaches zero at ${formatValue(result.turningTime)} s, then reverses. The engine adds the path lengths before and after this turn. That gives ${formatValue(result.distance)} m travelled and ${formatValue(result.displacement)} m displacement.`,
     signed: `Right is positive and left is negative. A negative velocity describes direction. Distance is non-negative, while displacement keeps its sign. The cart finishes at ${formatValue(result.finalPosition)} m relative to the chosen origin.`,
     graphs: 'Each graph uses the same equations as the cart and results table. A position–time slope gives signed velocity; a distance–time slope gives speed. A velocity–time slope gives acceleration wherever velocity changes continuously.',

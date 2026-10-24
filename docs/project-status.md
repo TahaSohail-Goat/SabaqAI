@@ -1,5 +1,19 @@
 # Project status — what is real and what is a stub
 
+## Concept Lab follow-up audit - 2026-10-24
+
+Fixed proposal validation for long unit names, leading decimals, scientific notation and initial
+"from rest" conditions. Numeric tokens are consumed in full so `.5` cannot authorize `5`.
+Journey explanations now distinguish signed displacement from its magnitude and handle same-direction
+or stationary legs. Reopening a notebook run restores its committed question, reasoning, prediction
+and mode, and requires fresh confirmation.
+
+Four new regression cases bring `npm run test:lab` to 37 passing tests. Local real-auth API
+integration, lint and the expanded browser flow passed, including notebook restoration. The first
+browser attempt hit the configured temporary request limit; a later pass completed. One additional
+live proposal preserved zero initial velocity, 2 m/s^2 acceleration and 0.5 s duration from natural
+wording in 2,602 ms. Browser AI explanations remained labelled fixtures. The production build passed; these checks cover the Concept Lab, not every app module.
+
 ## Concept Lab: Class 9 Physics Kinematics — 2026-10-24
 
 Implemented `/concept-lab`, immediately after Doubts in the sidebar, on `feat/physics-lab`
