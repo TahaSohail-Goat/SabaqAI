@@ -42,6 +42,8 @@ async (page) => {
   await page.getByRole('combobox', { name: 'Velocity unit', exact: true }).selectOption('km/h');
   ensure(Math.abs(Number(await page.locator('#lab-u').inputValue()) - 14.4) < 1e-8, 'Unit switch changed SI velocity.');
   await page.getByRole('combobox', { name: 'Velocity unit', exact: true }).selectOption('m/s');
+  await page.getByRole('textbox', { name: 'Start with a question' }).fill('How far at constant velocity?');
+  await page.locator('#lab-reasoning').fill('I expect distance to grow steadily.');
   await confirm().check(); await predict().fill('20'); await page.getByRole('button', { name: 'Test my prediction', exact: true }).click();
   await results().waitFor(); await page.getByText(/browser fixture/).waitFor();
   ensure((await row('Total distance (m)').innerText()).includes('20'), 'Uniform distance was not 20 m.');
@@ -90,6 +92,12 @@ async (page) => {
   await page.getByText('The two legs add 40 m to the total path', { exact: false }).waitFor();
   ensure((await row('Total distance (m)').innerText()).includes('40'), 'Two-leg distance should be 40 m.');
   ensure(await page.getByRole('button', { name: 'Acceleration', exact: true }).count() === 0, 'Journey must not claim to simulate its acceleration.');
+  await page.getByRole('region', { name: 'Session summary' }).getByRole('button').filter({ hasText: '1. Steady on the straight' }).click();
+  ensure(await page.getByRole('textbox', { name: 'Start with a question' }).inputValue() === 'How far at constant velocity?', 'Notebook reopened the wrong question.');
+  ensure(await page.locator('#lab-reasoning').inputValue() === 'I expect distance to grow steadily.', 'Notebook reopened the wrong reasoning.');
+  ensure(await predict().inputValue() === '20', 'Notebook did not restore the recorded prediction.');
+  ensure(!await confirm().isChecked(), 'Reopened runs must require confirmation before another commit.');
+  await page.getByRole('button', { name: /03 · Distance & displacement/ }).click();
   const before = aiFixtures;
   await page.getByRole('textbox', { name: 'Start with a question' }).fill('Simulate a projectile with friction');
   await page.getByRole('button', { name: 'Find an experiment', exact: true }).click();
