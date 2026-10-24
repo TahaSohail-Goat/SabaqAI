@@ -67,6 +67,7 @@ Status reflects `docs/project-status.md` as of this writing.
 | **M13** | Settings & Account | **Frontend built** — theme/scope/logout real; password/delete disabled | M0 |
 | **M14** | Teacher / Parent view | Deferred — Phase 4 | M9 |
 | **M15** | Notifications | In-app implementation; see dated verification in project-status | M0, saved plans/quiz attempts, migration 0019 |
+| **M16** | Concept Lab — Class 9 Physics Kinematics | Implemented locally; see dated checks in project-status | M0, pinned chapter/PDF, migration 0025 |
 
 ---
 

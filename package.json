@@ -11,6 +11,9 @@
     "lint": "tsc --noEmit",
 
     "test:ask": "tsx --test tests/ask/*.test.ts tests/ask/*.test.tsx",
+    "test:lab": "tsx --test tests/lab/*.test.ts tests/lab/*.test.tsx",
+    "test:lab:e2e": "node scripts/test-lab-e2e.mjs",
+    "dev:lab": "node scripts/dev-lab.mjs",
 
     "test:notifications": "tsx --test tests/notifications.test.ts",
     "test:notifications:e2e": "node scripts/test-notifications-e2e.mjs",

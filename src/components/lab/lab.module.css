@@ -1,0 +1,9 @@
+.lab {
+  --lab-run-a: #9a5411;
+  --lab-run-b: #2368b2;
+}
+
+:global([data-theme='dark']) .lab {
+  --lab-run-a: #f2b669;
+  --lab-run-b: #81b9ff;
+}
