@@ -111,6 +111,32 @@ the long-answer grading path, not the model's ability to generate a long questio
 The first failed save left one local test attempt with no answer rows; it has not been deleted.
 The hosted Supabase project remains untouched.
 
+## Physics Lab feasibility: local stack refresh — 2026-10-23
+
+Historical pre-implementation audit; the newer Concept Lab entries above supersede its planned/not-implemented status.
+
+Started Docker Desktop; restart policies resumed the existing `sabaq-ask-review` recovery containers
+with retained database/Storage volumes and unchanged API/DB ports 54321/54322. Local Auth health and
+REST reads return 200. Read-only SQL confirms 494 chapters, 498 sources, 8,491 sections and 8,594 chunks.
+All eight Class 9 Physics textbook sources (176 chunks) match the historical snapshot and local OCR;
+all eight live PDFs download, parse and hash-match their caches. Application reader-adapter reads
+and a foreign-class/source rejection succeeded without generation or embedding calls.
+
+Live rows and matching scans confirm Unit 4 material in source 3, Unit 5 in source 4, Unit 7 in
+source 6 and Unit 9 in source 8. No corpus repair occurred. The hybrid RPC/index and Quiz review
+snapshot/lease features exist, but the migration ledger contains only the combined bootstrap row.
+**Current-state drift:** this running database lacks `notifications` and `notification_preferences`,
+despite historical local-migration entries below. Legacy match/ingest RPCs retain authenticated
+EXECUTE; active hybrid retrieval is service-role-only among tested API roles. No schema/grant changes
+or write tests were made. Sampled curriculum RLS reads enforce the tested profile/class boundary.
+
+The established `.env.local` + `.recovery/ask-local.env` launcher resolves to the local stack;
+root `.env.local` alone still targets hosted Supabase. No Next app listener was running or started.
+The stack is left running. No reset, restore, re-embedding, hosted operation or inference occurred.
+The refreshed [feasibility audit](../PHYSICS_LAB_FEASIBILITY.md) remains a conditional go for one
+uniform-motion experiment; Concept Lab is not implemented, and Beam/scientific/browser acceptance
+remain untested. This entry supersedes historical startup/schema assumptions only where checked.
+
 ## Sources-only fallback after both providers fail — 2026-10-23
 
 Doubts can return a separate `sources_only` result after both Gemini and Groq actually fail.
@@ -175,6 +201,25 @@ than counted as academic results. The new stage adds latency, not a speed improv
 threshold was calibrated on this small probe. See [evidence, measured times and actual check results](ask-evolution/FALSE_REFUSAL_FIX.md).
 No database writes, re-embedding, hosted changes or merge occurred. The earlier acceptance catalogue
 and unrelated uncommitted files are preserved.
+
+## Class 9 Doubts acceptance catalogue — 2026-10-22
+
+Added an evidence-linked [readable catalogue](ask-evolution/CLASS9_TEST_CATALOGUE.md) and
+`tests/ask/class9/catalogue.json`: 168 proposed cases across all eight locally available FBISE Class 9
+textbook collections (20 substantive cases each, plus eight cross-source identity attacks). The full
+inventory contains 76 chapter-source records; three chapters per collection are selected, with 61
+independently inspected OCR evidence rows. Islamiyat has papers but no local textbook; no paper was
+substituted. Book-wide edition IDs do not exist in the schema; historical manifest descriptions are
+clearly separated from verified database source identities. Urdu generic titles and severe OCR damage,
+broken formulas, and mixed source boundaries are explicit expected limitations.
+
+Strict offline checks validate coverage, catalogue integrity and Markdown consistency. The explicit
+read-only local validator additionally matched source/chunk identities, full-content hashes, excerpts
+and stored pages against current PostgreSQL records. Actual checks: lint and all 98 offline
+Ask/Quiz/catalogue tests passed, with no skips. These checks do **not** mean the 168 academic
+cases passed: no case was executed against Ask or paid providers. The production eval set/scorer,
+application behavior, database and embeddings are unchanged. This catalogue is an acceptance-review
+artifact, not a measured accuracy report.
 
 ## Doubts hybrid retrieval and exact source selection — 2026-10-22
 
