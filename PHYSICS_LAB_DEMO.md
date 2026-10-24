@@ -2,7 +2,14 @@
 
 ## Start the local demo
 
-This feature branch is stacked on `triage-branch` at `d87831d`. It is not merged or deployed.
+This feature branch is stacked on `triage-branch` at `d87831d` and remains unmerged.
+The first push triggered the repository's existing Vercel automation, which published a preview
+of `e6907e4`. `vercel.json` now disables automatic deployments specifically for `feat/physics-lab`
+using [Vercel's branch configuration](https://vercel.com/docs/project-configuration/git-configuration).
+The existing preview still needs removal through the Vercel account; no Vercel credentials or
+connected browser were available here. Its dashboard is
+<https://vercel.com/tahasohail85-5257s-projects/sabaq-ai/8x21TpfXhKmyuDjVcSQ3zadZQnyc>.
+No explicit deployment command or hosted DB migration was run.
 Use Node 24 and npm. The retained `.env.local` overlay points to
 `http://127.0.0.1:54321` and takes precedence over `.env`; never copy its credentials into Git.
 
@@ -160,7 +167,8 @@ chapter coverage, durable run history, force explanation, Urdu-specific teaching
 teacher approval, broad AI accuracy result, or zero-error guarantee is claimed. Scientific
 review here checked source pages/equations; independent teacher/pedagogy review is still pending.
 Live Groq fallback was tested with fixtures, not a deliberately induced live Gemini outage.
-Local migrations and restored PDFs are required; hosted migration, merge and deployment are
-intentionally pending. A clone on another machine must have the matching reviewed content or
+Local migrations and restored PDFs are required; hosted migration and merge are intentionally
+pending. The automatically published initial preview needs Vercel cleanup and is not a hosted
+acceptance result. A clone on another machine must have the matching reviewed content or
 the families fail closed. Model selection/parameter interpretation can still be wrong; explicit
 confirmation, strict validation, and code-owned results bound its effect.
