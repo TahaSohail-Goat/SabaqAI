@@ -14,6 +14,7 @@ type Theme = 'light' | 'dark';
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Where you are and what to do next.' },
   '/doubts': { title: 'Doubts', subtitle: 'Grounded answers with page citations, or an honest refusal.' },
+  '/concept-lab': { title: 'Concept Lab', subtitle: 'Predict, experiment, explain, compare. Class 9 Kinematics.' },
   '/chat': { title: 'Chat', subtitle: 'Open conversation with Gemini — not bound to your syllabus.' },
   '/quiz': { title: 'Quiz', subtitle: 'Board-pattern questions generated from your chapters.' },
   '/quiz/history': { title: 'Quiz history', subtitle: 'Every quiz you’ve submitted, with the solved paper.' },

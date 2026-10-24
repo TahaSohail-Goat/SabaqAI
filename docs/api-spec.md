@@ -1,5 +1,37 @@
 # API spec
 
+## Concept Lab (Class 9 Kinematics)
+
+`GET /api/lab` requires a real authenticated profile enrolled in FBISE Class 9 Physics. It
+returns `LabBootstrap`: a signed two-hour temporary session and current pinned textbook
+evidence, original chapter PDF/page mapping, per-family availability and stored-row citations.
+No client scope override is accepted. Missing/changed reviewed evidence disables the affected
+experiment; bootstrap scientific/configuration failures are operational errors.
+
+`POST /api/lab` is a strict discriminated request with shared `sessionToken`, UUID `requestId`,
+UUID `inputVersion`, and millisecond `issuedAt` (accepted within 90 seconds, plus 5 s clock skew).
+
+- `action: 'propose'`, `question` (3–800 characters): returns `proposal` with approved input
+  and explicitly `suggestedKeys`, `clarify`, `unsupported`, or `guidance_unavailable`.
+- `action: 'run'`, `confirmed: true`, `input: { experimentId, parameters }`, `mode`, finite
+  numeric `prediction` or null, `reasoning` (max 600), `question` (max 800), `baseRunToken` or
+  null: validates units/bounds, requires a prediction for guided mode, recomputes results and
+  returns an immutable signed `LabRun`. Every parameter is `{ value, unit }`; the registry
+  specifies exactly which parameters/units belong to each family. Comparisons require one
+  changed SI parameter against an owned, same-session signed baseline. No provider is called.
+- `action: 'explain'`, `runToken`, `compareToken` or null: recomputes authoritative runs and
+  returns `feedback` containing validated reviewed block IDs, actual run/result-field
+  references and a permitted follow-up. AI supplies no displayed scientific prose or numbers.
+  Provider failure/invalid output preserves the separately labelled deterministic explanation.
+
+Response shapes are shared in `src/lib/types.ts`; runtime schemas live in `src/lib/lab/contracts.ts`.
+HTTP 200 covers academic limitations, clarification and AI-unavailable teaching. Genuine
+errors use 400 invalid input, 401 authentication, 403 curriculum, 409 expired/foreign/stale or
+duplicate state, 429 quota, 503 configuration/evidence/DB, and 504 cancellation/deadline.
+All responses are no-store; errors have request IDs. Body cap 32 KB, orchestration deadline 25 s.
+Migration 0025 supplies service-only cross-instance receipts/rate coordination. See
+[demo, provider policy and checks](../PHYSICS_LAB_DEMO.md) and [scientific evidence](lab-evidence.md).
+
 ## Sources-only availability fallback
 
 `POST /api/ask` may return HTTP 200 with `status: "sources_only"` after both Gemini and Groq

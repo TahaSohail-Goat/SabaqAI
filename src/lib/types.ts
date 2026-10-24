@@ -1,6 +1,31 @@
 // Shared shapes. Keep these honest — the whole app agrees on them.
 import type { WrittenReview } from './quiz/grading';
 
+// Concept Lab has two evidence channels: stored textbook citations and code-owned runs.
+export type LabExperimentId = 'uniform' | 'acceleration' | 'journey';
+export type LabParameterKey = 'x0' | 'u' | 'a' | 'duration' | 'v2' | 'duration2';
+export type LabResultField = 'duration' | 'distance' | 'displacement' | 'finalPosition' | 'finalVelocity' | 'averageSpeed' | 'averageVelocity';
+export type LabUnit = 'm' | 'km' | 'm/s' | 'km/h' | 's' | 'min' | 'm/s²';
+export interface LabQuantity { value: number; unit: LabUnit }
+export interface LabInput { experimentId: LabExperimentId; parameters: { x0: LabQuantity; u: LabQuantity; duration: LabQuantity; a?: LabQuantity; v2?: LabQuantity; duration2?: LabQuantity } }
+export interface LabParameters { x0: number; u: number; duration: number; a?: number; v2?: number; duration2?: number }
+export interface LabSettings { experimentId: LabExperimentId; parameters: LabParameters }
+export interface LabSample { t: number; position: number; velocity: number; distance: number; acceleration: number | null }
+export interface LabResult extends Record<LabResultField, number> { settings: LabSettings; solverVersion: string; turningTime: number | null; samples: LabSample[] }
+export interface LabEvidence { version: string; unit: AskUnit; citations: Citation[]; available: Record<LabExperimentId, boolean>; reasons: Partial<Record<LabExperimentId, string>> }
+export interface LabBootstrap { sessionToken: string; sessionId: string; evidence: LabEvidence; expiresAt: number }
+export interface LabRun { id: string; sessionId: string; inputVersion: string; inputHash: string; evidenceVersion: string; registryVersion: string;
+  result: LabResult; prediction: number | null; reasoning: string; question: string; mode: 'guided' | 'exploration'; token: string }
+export interface LabGuidance { personalized: boolean; message: string; blocks: string[]; followupId: string | null; observations: { runId: string; field: LabResultField }[] }
+export type LabResponse =
+  | { status: 'proposal'; requestId: string; inputVersion: string; input: LabInput; suggestedKeys: LabParameterKey[] }
+  | { status: 'clarify'; requestId: string; inputVersion: string; message: string }
+  | { status: 'unsupported'; requestId: string; inputVersion: string; message: string }
+  | { status: 'guidance_unavailable'; requestId: string; inputVersion: string; message: string }
+  | { status: 'run'; requestId: string; inputVersion: string; run: LabRun }
+  | { status: 'feedback'; requestId: string; inputVersion: string; runId: string; guidance: LabGuidance }
+  | { status: 'error'; requestId: string; message: string; retryable: boolean };
+
 export interface QuizGradedQuestion {
   gradingState: 'graded' | 'unavailable';
   questionId: string;

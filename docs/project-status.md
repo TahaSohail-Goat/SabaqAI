@@ -1,5 +1,59 @@
 # Project status — what is real and what is a stub
 
+## Concept Lab: Class 9 Physics Kinematics — 2026-10-24
+
+Implemented `/concept-lab`, immediately after Doubts in the sidebar, on `feat/physics-lab`
+stacked on the freshly pulled `triage-branch` (`d87831d`). No merge or deployment is part of
+this change. The three approved families are uniform straight-line motion, constant acceleration,
+and a two-leg journey. The full prediction → experiment → reviewed explanation → one-variable
+comparison flow includes shared scene/graph scales, signed SI calculations, correct path length
+through reversals, manual/reduced-motion controls, temporary notebook, and existing PDF reader.
+
+The current **local** DB confirms source `a97af255-a158-41a0-9e9f-b341c7c0c059` as FBISE Class 9
+Physics Chapter 2, Kinematics. Original PDF pages were inspected. Source/chunk content versions
+and PDF bytes are pinned, with missing/changed evidence disabling the affected family. Chapter
+PDF page 1 maps to original page 35; browser opening book page 38 showed page 4 / 26. The full
+constant-acceleration position equation was independently checked against OpenStax §2.5 and is
+labelled separately from chapter support. No OCR, embeddings, corpus, or hosted data was changed.
+
+Lab-only prompts reuse the existing Gemini/Groq transport with one structured completion per
+transition and at most one recognized-failure Gemini-to-Groq fallback. Strict validation permits
+only registered experiments/parameters, reviewed blocks, actual run/result references and allowed
+follow-ups. Code renders scientific prose, numbers, units, formulas and comparisons; citation
+metadata comes from stored rows. Invalid/unavailable AI leaves an explicitly labelled reviewed
+deterministic explanation. Run/session/input/version/owner binding, request cancellation, stale
+response rejection, database-backed duplicate/rate coordination and finite deadlines are in place.
+
+Migration `0025_lab_request_receipts.sql` was applied only to the retained local recovery stack.
+The self-rolling-back `supabase/tests/003_lab_receipts.sql` passed grants/RLS, duplicate/cache,
+owner isolation, rate limit and expiry checks. `npm run test:lab` passed 33 tests;
+`npm run test:ask` passed the existing 172 Doubts/Quiz regressions. Real-auth API checks passed
+all three families, turning points, comparisons (including unequal durations), invalid/stale
+inputs, ownership/scope isolation, persisted duplicate replay and existing source/Quiz scope routes.
+An expanded check caught an acceleration run-token key-order mismatch; canonical hashing fixed
+it, and the all-family token regression plus repeat real API checks passed.
+
+Four small live Lab transitions succeeded across two acceptance passes: proposal/feedback took
+1,802/3,265 ms initially and 4,369/5,777 ms on the final API pass. The final pass logged one Gemini
+completion per transition. This is observed acceptance evidence, not a latency or accuracy promise.
+The Groq fallback policy was exercised with fixtures, not a forced live Gemini outage.
+
+Playwright passed desktop/360px, light/dark, reduced motion, prediction/confirmation, supported
+unit switching, pause/reset/keyboard clock, all families, comparisons, original-PDF page opening,
+exploration, stale proposal rejection and offline/retry. Browser AI responses were labelled
+fixtures to bound provider spending; auth/evidence/run endpoints were real local services. The
+two intentional network failures produced expected resource errors; no unexpected page errors
+were observed. Genuine screenshots remain ignored under `output/playwright/lab-*.png`.
+Lint and the production build passed; the final build was repeated after the token fix.
+
+The guarded `npm run dev:lab` launcher checks the established `.env.local` overlay and refuses
+hosted testing. A synthetic local demo account is retained privately in
+`.recovery/lab-demo-login.json`. [PHYSICS_LAB_DEMO.md](../PHYSICS_LAB_DEMO.md) contains exact startup,
+repeatable tests, example journeys, provider policy, architecture and limits;
+[lab-evidence.md](lab-evidence.md) records the scientific source review and implementation bounds.
+Only the listed models are covered. No durable run history, teacher approval, broad AI reliability
+result, new live Ask/Quiz generation result, hosted migration, merge, or deployment is claimed.
+
 ## Quiz MCQ selection visibility — 2026-10-23
 
 The live Quiz choice now uses the shared selected-surface/text tokens, a visible outline, and a

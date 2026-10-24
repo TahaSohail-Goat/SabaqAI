@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Search,
+  FlaskConical,
   MessagesSquare,
   Award,
   BookOpen,
@@ -127,6 +128,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapsed }:
           {!rail && <p className="px-3.5 mb-1.5 text-[10px] font-bold text-text-2 uppercase tracking-wider">Workspace</p>}
           <NavItem href="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onClose} collapsed={rail} exact />
           <NavItem href="/doubts" icon={Search} label="Doubts" onNavigate={onClose} collapsed={rail} />
+          <NavItem href="/concept-lab" icon={FlaskConical} label="Concept Lab" onNavigate={onClose} collapsed={rail} />
           <NavItem href="/chat" icon={MessagesSquare} label="Chat" onNavigate={onClose} collapsed={rail} />
           <NavItem href="/quiz" icon={Award} label="Quiz" onNavigate={onClose} collapsed={rail} />
           <NavItem href="/syllabus" icon={BookOpen} label="Syllabus" onNavigate={onClose} collapsed={rail} />
