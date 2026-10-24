@@ -1,0 +1,1312 @@
+# CODEX MASTER PROMPT: FORCE-SYNC MAIN, COMPLETE CODEBASE INGESTION, AND EXHAUSTIVE TECHNICAL DOCUMENTATION
+
+## ROLE AND OBJECTIVE
+
+You are acting as a **Principal Software Architect, Senior Full-Stack Engineer, Technical Auditor, Database Architect, DevOps Engineer, and Technical Documentation Specialist**.
+
+Your task is to analyze the entire project repository currently opened in your working environment.
+
+You must perform three major phases:
+
+1. **Identify the Git repository, switch to `main`, and force-synchronize it with the latest `origin/main`.**
+2. **Perform an exhaustive, systematic inspection of the complete project, including all relevant source files, configurations, dependencies, assets, schemas, integrations, and architecture.**
+3. **Generate an extremely detailed `explanation.md` document containing a comprehensive technical explanation of the entire project.**
+
+The final documentation must be sufficiently detailed for a completely new senior developer or AI coding agent to understand the project, its implementation, and its operational behavior without needing an initial walkthrough from the original developers.
+
+This is NOT a superficial README generation task.
+
+This is a full repository reverse-engineering, architecture-discovery, and technical-documentation assignment.
+
+---
+
+# PHASE 1: REPOSITORY IDENTIFICATION AND FORCE-SYNCHRONIZATION
+
+## Step 1.1: Identify the repository
+
+Start from the current working directory, wherever you have been launched.
+
+Execute:
+
+```bash
+pwd
+git rev-parse --show-toplevel
+git status
+git remote -v
+git branch -a
+```
+
+Determine:
+
+- The absolute repository root.
+- The current checked-out branch.
+- The Git remote configuration.
+- Whether `origin` exists.
+- Whether the repository has a local `main` branch.
+- Whether `origin/main` exists.
+- Whether uncommitted changes or untracked files exist.
+- Whether the repository contains Git submodules or Git worktrees.
+
+Operate on the Git repository associated with the current working directory.
+
+If the current directory is inside a nested directory, navigate to its Git repository root.
+
+Do not accidentally operate on a parent or unrelated repository.
+
+If the current directory is not inside a Git repository, clearly report the issue instead of guessing which repository to modify.
+
+## Step 1.2: Force-synchronize with remote main
+
+**The remote `origin/main` branch is the authoritative source of truth.**
+
+I explicitly authorize you to discard local tracked-file modifications and local commits that are not present on `origin/main` as part of this synchronization.
+
+The objective is to make the checked-out project's tracked files match the latest remote `main` exactly.
+
+First, fetch the latest remote state:
+
+```bash
+git fetch origin --prune
+```
+
+If a local `main` branch already exists:
+
+```bash
+git switch -f main
+git reset --hard origin/main
+```
+
+If the local `main` branch does not exist but `origin/main` does:
+
+```bash
+git switch -C main --track origin/main
+git reset --hard origin/main
+```
+
+If `main` is checked out in another Git worktree, diagnose and report the situation rather than modifying that worktree or bypassing Git protections.
+
+If the repository uses a detached HEAD, resolve it by switching to the appropriate local `main` branch.
+
+If the remote default branch is not `main`, report this inconsistency instead of silently substituting another branch.
+
+### Critical requirements
+
+- Do not merge.
+- Do not rebase.
+- Do not create a pull request.
+- Do not create a new feature branch.
+- Do not retain local tracked changes that conflict with `origin/main`.
+- Do not force-push anything.
+- Do not modify remote history.
+- Do not run `git clean -fdx`.
+- Do not delete untracked or ignored files automatically.
+- Do not delete local `.env` files, credentials, database dumps, or local development data.
+
+If untracked files obstruct the checkout, identify the exact conflicting paths and stop with an explanation instead of deleting them blindly.
+
+Use the equivalent PowerShell commands where necessary on Windows.
+
+### Step 1.3: Verify synchronization
+
+After synchronization, execute:
+
+```bash
+git branch --show-current
+git status
+git rev-parse HEAD
+git rev-parse origin/main
+git diff --exit-code HEAD origin/main
+```
+
+Confirm:
+
+1. The current branch is `main`.
+2. `HEAD` matches `origin/main`.
+3. The tracked working tree is clean.
+4. The latest remote state has been successfully obtained.
+
+Record the commit hash and synchronization outcome.
+
+If any step fails, report the exact failure. Do not falsely claim synchronization succeeded.
+
+**Do not begin the full project analysis until repository synchronization has been verified.**
+
+---
+
+# PHASE 2: EXHAUSTIVE REPOSITORY DISCOVERY
+
+You must now ingest and analyze the entire project.
+
+Your responsibility is to discover how the software actually works.
+
+**Do not restrict yourself to README files, Markdown documentation, package manifests, or top-level directories.**
+
+You must examine the implementation itself.
+
+## Step 2.1: Build a complete repository inventory
+
+Systematically identify every file and directory within the project.
+
+Classify files into categories including:
+
+- Frontend source code.
+- Backend source code.
+- API implementations.
+- Database schemas.
+- Database migrations.
+- ORM models.
+- Authentication and authorization code.
+- Middleware.
+- Route handlers.
+- Controllers.
+- Services.
+- Utilities.
+- Libraries.
+- Shared modules.
+- Type definitions and interfaces.
+- React/Vue/Angular/Svelte components, if applicable.
+- HTML templates.
+- CSS stylesheets.
+- JavaScript and TypeScript files.
+- Python files.
+- Java, C++, C#, Go, or other language files.
+- Configuration files.
+- Infrastructure-as-code files.
+- Docker configurations.
+- Deployment manifests.
+- CI/CD workflows.
+- Testing configurations.
+- Unit tests.
+- Integration tests.
+- End-to-end tests.
+- Static assets.
+- Images and icons.
+- Fonts and other UI resources.
+- Localization files.
+- Environment-variable templates.
+- Package manifests.
+- Lockfiles.
+- Scripts.
+- Documentation.
+- Generated code.
+- Vendored dependencies.
+- Git submodules.
+- Binary assets.
+- Database fixtures.
+- Seed files.
+- Any other project-specific artifacts.
+
+Identify hidden files and hidden directories such as:
+
+```text
+.github/
+.vscode/
+.env.example
+.gitignore
+.prettierrc
+.eslintrc
+.npmrc
+```
+
+These are examples only. Discover the actual files present.
+
+Exclude `.git` internal objects from source-code analysis.
+
+For large third-party or generated directories such as `node_modules`, `.next`, `dist`, `build`, `.venv`, and caches, inventory their existence and purpose, but do not waste time reading every third-party generated file.
+
+Investigate generated code or vendored dependencies when they contain project-specific behavior.
+
+**Do not treat ignored files as nonexistent.**
+
+Inspect relevant local-only configurations where safe, but never copy secret values into the documentation.
+
+## Step 2.2: Establish a systematic reading strategy
+
+Do not simply read a handful of files and infer the remainder.
+
+Proceed through the repository using a deliberate dependency-aware strategy.
+
+Begin with:
+
+1. Package manifests and lockfiles.
+2. Build and framework configurations.
+3. Application entry points.
+4. Directory and module structure.
+5. Routing architecture.
+6. Frontend modules.
+7. Backend modules.
+8. Database definitions and migrations.
+9. Authentication and authorization implementation.
+10. External service integrations.
+11. Shared code and utilities.
+12. Deployment and infrastructure.
+13. Tests.
+14. Assets and design resources.
+15. Documentation.
+16. Remaining relevant files not yet examined.
+
+Maintain an internal analysis inventory recording which files have been inspected.
+
+When a file imports another local module, trace that dependency.
+
+When a function calls another project function, investigate its implementation.
+
+When a route invokes a service, follow the complete route-to-service-to-database execution path.
+
+When a frontend component invokes an API, trace the API through its backend handler and persistence layer.
+
+Continue until the entire relevant application codebase has been covered.
+
+## Step 2.3: Read actual implementation details
+
+For every relevant source file, understand:
+
+- Why the file exists.
+- What responsibility it has.
+- What it exports.
+- What it imports.
+- Which other modules depend on it.
+- Which functions or classes it defines.
+- What inputs it accepts.
+- What outputs it produces.
+- What side effects it causes.
+- What state it maintains.
+- What database operations it performs.
+- What network operations it initiates.
+- What errors it handles.
+- What assumptions it makes.
+- How it contributes to the larger application.
+
+For especially important modules, inspect implementations function by function.
+
+Never claim to have read a file unless you actually inspected its contents.
+
+For large files, process them in sections rather than skipping them.
+
+For binary assets such as images, use available inspection or metadata tools to understand their purpose. Record any inspection limitations.
+
+If tool limitations prevent complete analysis, document the exact files or categories that were not fully inspected.
+
+---
+
+# PHASE 3: COMPLETE ARCHITECTURAL REVERSE ENGINEERING
+
+Construct a comprehensive internal model of the application before writing `explanation.md`.
+
+## Step 3.1: Understand the application's purpose
+
+Determine:
+
+- What the application is.
+- What problem it solves.
+- Who its intended users are.
+- What the application's main capabilities are.
+- What the core business logic does.
+- What user roles exist.
+- What workflows users follow.
+- How the overall system is organized.
+
+Distinguish between functionality that is implemented, partially implemented, and planned or documented but not implemented.
+
+Do not confuse intended behavior with actual behavior.
+
+## Step 3.2: Identify the complete technology stack
+
+Discover and document the exact technologies actually used.
+
+Include, where applicable:
+
+**Frontend**
+
+- Framework and version.
+- Programming languages.
+- UI libraries.
+- Component libraries.
+- Styling systems.
+- State management.
+- Routing.
+- Form handling.
+- Validation.
+- Animations.
+- HTTP clients.
+- Client-side caching.
+- Build tooling.
+
+**Backend**
+
+- Programming languages.
+- Runtime.
+- Framework.
+- API approach.
+- Middleware.
+- Authentication.
+- Authorization.
+- Validation.
+- Background jobs.
+- File processing.
+- Error handling.
+- Logging.
+- Rate limiting.
+
+**Database**
+
+- Database engine.
+- ORM or query builder.
+- Migration system.
+- Schema design.
+- Relationships.
+- Indexing.
+- Transactions.
+- Security mechanisms.
+- Caching mechanisms.
+
+**Infrastructure**
+
+- Hosting platform.
+- Deployment architecture.
+- Containerization.
+- CI/CD.
+- Object storage.
+- Authentication providers.
+- Observability.
+- External APIs.
+- Third-party infrastructure.
+
+For every major technology, explain:
+
+1. Where it is used.
+2. Why it appears to be used.
+3. How it integrates with other technologies.
+4. Its version, if verifiable.
+5. The relevant configuration files.
+
+Do not invent technologies that are not supported by repository evidence.
+
+---
+
+# PHASE 4: FRONTEND ARCHITECTURE ANALYSIS
+
+If the project has a frontend, investigate it thoroughly.
+
+Document:
+
+## Component architecture
+
+- Every significant reusable component.
+- Page-level components.
+- Layout components.
+- Shared UI components.
+- Custom hooks.
+- Context providers.
+- Global state.
+- Local state.
+- Component composition.
+- Prop and data flow.
+
+## Routing
+
+- All implemented routes.
+- Public routes.
+- Protected routes.
+- Dynamic routes.
+- Nested routes.
+- Route guards.
+- Redirect behavior.
+- Route-specific layouts.
+
+## UI and design system
+
+- Color palette.
+- Theme architecture.
+- Typography.
+- Spacing conventions.
+- Responsive breakpoints.
+- Dark/light mode behavior.
+- Animations.
+- Icons.
+- Asset conventions.
+- Reusable visual patterns.
+- Accessibility support.
+
+Extract actual values from project configurations and stylesheets wherever feasible.
+
+## Frontend behavior
+
+Explain:
+
+- How pages load data.
+- How forms are submitted.
+- How errors are displayed.
+- How authentication state is managed.
+- How sessions persist.
+- How client-side data is cached.
+- How loading states operate.
+- How components communicate.
+- How API requests are issued.
+- How navigation works.
+- How frontend permissions are enforced.
+
+For each major page, document what it displays, its inputs, its interactions, and the services it depends upon.
+
+---
+
+# PHASE 5: BACKEND AND API ARCHITECTURE ANALYSIS
+
+If a backend exists, inspect its implementation thoroughly.
+
+Identify every implemented API endpoint.
+
+For each endpoint, document:
+
+- HTTP method.
+- Route/path.
+- Purpose.
+- Authentication requirements.
+- Authorization requirements.
+- Request parameters.
+- Request body.
+- Validation.
+- Response structure.
+- Status codes.
+- Error conditions.
+- Controller or handler.
+- Services invoked.
+- Database interactions.
+- External integrations.
+- Relevant implementation files.
+
+Organize endpoints by their business domain.
+
+Also investigate:
+
+- Server initialization.
+- Middleware registration.
+- Request lifecycle.
+- Dependency injection.
+- Service architecture.
+- Reusable business logic.
+- Event handling.
+- Background processing.
+- Webhooks.
+- Scheduled jobs.
+- File uploads and downloads.
+- Error handlers.
+- Logging.
+- Security controls.
+- Rate limits.
+
+Trace important backend flows end to end.
+
+---
+
+# PHASE 6: DATABASE ARCHITECTURE ANALYSIS
+
+Examine every available source of database structure and behavior.
+
+Inspect:
+
+- SQL schema files.
+- Database migrations.
+- ORM models.
+- Database functions.
+- Stored procedures.
+- Triggers.
+- Views.
+- Indexes.
+- Constraints.
+- Seed data.
+- Row-Level Security policies.
+- Database access permissions.
+- Query implementations.
+- Storage bucket definitions, if applicable.
+
+Document every identifiable application table.
+
+For each table, include:
+
+- Table name.
+- Purpose.
+- Columns.
+- Data types.
+- Primary keys.
+- Foreign keys.
+- Unique constraints.
+- Nullability.
+- Defaults.
+- Indexes.
+- Relationships.
+- Referencing application modules.
+- Access restrictions.
+
+Explain:
+
+- One-to-one relationships.
+- One-to-many relationships.
+- Many-to-many relationships.
+- Junction tables.
+- Data ownership.
+- Cascading operations.
+- Deletion behavior.
+- Data lifecycle.
+- Transaction boundaries.
+- Security policies.
+- Important query patterns.
+
+Where possible, generate an accurate Mermaid ER diagram.
+
+If database schema details are not present in the repository, explicitly state that they cannot be fully verified.
+
+Do not invent tables or columns.
+
+If the application uses Supabase, Firebase, Prisma, Drizzle, PostgreSQL, SQLite, MongoDB, or another system, analyze that specific implementation in depth.
+
+---
+
+# PHASE 7: AUTHENTICATION, AUTHORIZATION, AND SECURITY
+
+Determine exactly how identity and access work.
+
+Document:
+
+- Registration.
+- Login.
+- Logout.
+- Password handling.
+- OAuth providers.
+- Session management.
+- JWT/token usage.
+- Token refresh behavior.
+- Cookies.
+- Role-based authorization.
+- Permission checks.
+- Route protection.
+- API security.
+- Database access control.
+- Row-Level Security.
+- Admin privileges.
+- User ownership checks.
+- Secret management.
+- Input validation.
+- Upload validation.
+- CORS.
+- CSRF protections where relevant.
+- Rate limiting.
+- External service authentication.
+
+Construct a role-permission matrix where supported by implementation.
+
+Explain both frontend and backend authorization enforcement.
+
+Identify verified security risks without unnecessarily exposing secret values.
+
+Do not mistake frontend-only visibility restrictions for backend authorization.
+
+---
+
+# PHASE 8: THIRD-PARTY SERVICES AND INTEGRATIONS
+
+Find every external dependency or service used by the project.
+
+Examples include:
+
+- Authentication providers.
+- AI model APIs.
+- OCR services.
+- Payment providers.
+- Email services.
+- SMS gateways.
+- Maps APIs.
+- Cloud storage.
+- Analytics.
+- Error monitoring.
+- External databases.
+- Search services.
+- Messaging providers.
+- Realtime services.
+
+For each integration, explain:
+
+1. Its purpose.
+2. The application feature using it.
+3. Which modules implement it.
+4. Which API endpoints or SDK methods are involved.
+5. How credentials are configured.
+6. What data is sent and received.
+7. How failures are handled.
+8. Whether it is required or optional.
+9. Any observable limitations or fallback behavior.
+
+Never print actual API keys, private credentials, passwords, or tokens into `explanation.md`.
+
+You may document variable names such as `API_KEY` but never their secret values.
+
+---
+
+# PHASE 9: AI, OCR, SEARCH, AND DATA PROCESSING
+
+If this project contains AI, machine learning, OCR, embeddings, retrieval, or document processing, perform a deep analysis.
+
+Document:
+
+- Model providers.
+- Model identifiers.
+- Model configuration.
+- Prompt templates.
+- Prompt construction.
+- AI request lifecycle.
+- File ingestion.
+- PDF processing.
+- OCR pipeline.
+- Text extraction.
+- Text normalization.
+- Chunking.
+- Embedding generation.
+- Vector storage.
+- Similarity search.
+- Retrieval logic.
+- Ranking.
+- Context assembly.
+- RAG pipelines.
+- Chat history.
+- Response generation.
+- Streaming.
+- Token handling.
+- Caching.
+- Usage limits.
+- Error recovery.
+- Data persistence.
+
+Trace complete pipelines from input to final output.
+
+Example:
+
+```text
+User uploads document
+    ↓
+Upload handler
+    ↓
+Validation
+    ↓
+Storage
+    ↓
+OCR/text extraction
+    ↓
+Processing and chunking
+    ↓
+Embedding generation
+    ↓
+Database persistence
+    ↓
+Retrieval
+    ↓
+AI context construction
+    ↓
+Model inference
+    ↓
+Final response
+```
+
+This is illustrative only. Describe the actual implementation discovered.
+
+For each stage, identify the responsible functions, modules, and persistence mechanisms.
+
+---
+
+# PHASE 10: CONFIGURATION, ENVIRONMENT, AND DEPLOYMENT
+
+Study how the project is installed, configured, built, and deployed.
+
+Document:
+
+- Supported runtime versions.
+- Required dependencies.
+- Package manager.
+- Installation commands.
+- Environment variables.
+- Development commands.
+- Production build commands.
+- Production startup.
+- Database initialization.
+- Migration commands.
+- Seed commands.
+- Docker setup.
+- Service dependencies.
+- Local development setup.
+- Deployment files.
+- Cloud services.
+- CI/CD workflows.
+- Testing commands.
+- Health checks.
+- Operational requirements.
+
+Create an environment-variable reference table containing:
+
+| Variable | Purpose | Required | Used By |
+|---|---|---|---|
+
+Include all identifiable environment variables, without their values.
+
+Distinguish development, testing, and production configuration where appropriate.
+
+Explain how services communicate and depend on each other.
+
+If deployment details are missing, identify the missing information rather than inventing it.
+
+---
+
+# PHASE 11: TESTING, QUALITY, AND DEPENDENCIES
+
+Inspect the existing testing architecture.
+
+Document:
+
+- Test frameworks.
+- Unit tests.
+- Integration tests.
+- End-to-end tests.
+- Test fixtures.
+- Mocking strategies.
+- Test configurations.
+- Coverage tooling.
+- Linting.
+- Static analysis.
+- Formatting.
+- Type checking.
+- Build verification.
+- CI test execution.
+
+Identify which subsystems have tests and which appear untested.
+
+Run reasonable non-destructive verification commands when dependencies are available.
+
+Do not install large dependencies, launch destructive scripts, connect to production services, or modify external systems solely for this analysis.
+
+Record exactly which verification commands succeeded, failed, or could not be executed.
+
+Analyze dependencies from manifests and actual usage.
+
+Explain why significant libraries are present and where they are used.
+
+Identify unused or potentially redundant dependencies only when evidence supports that conclusion.
+
+---
+
+# PHASE 12: COMPLETE FEATURE AND USER-FLOW RECONSTRUCTION
+
+Identify every significant implemented feature.
+
+For each feature, document:
+
+1. Feature name.
+2. Purpose.
+3. Intended users.
+4. Entry points.
+5. Frontend pages/components.
+6. Backend handlers.
+7. Business logic.
+8. Database entities.
+9. External services.
+10. Data flow.
+11. Authentication and permissions.
+12. Error handling.
+13. Relevant implementation files.
+14. Current implementation status.
+
+Reconstruct significant end-to-end user journeys.
+
+Examples, where applicable:
+
+- New user registration.
+- Authentication.
+- Dashboard loading.
+- Data creation and retrieval.
+- Document uploading.
+- Search.
+- AI chat.
+- Administrative workflows.
+- Payments.
+- Realtime messaging.
+- Account management.
+- Logout.
+
+Explain what actually happens internally at every important step.
+
+---
+
+# PHASE 13: IDENTIFY ARCHITECTURAL RISKS AND INCOMPLETE AREAS
+
+Review the codebase for observable issues.
+
+Consider:
+
+- Tight coupling.
+- Duplicate logic.
+- Large monolithic modules.
+- Missing abstraction.
+- Unhandled exceptions.
+- Missing validation.
+- Improper access control.
+- Hardcoded configuration.
+- Inconsistent data models.
+- Missing migrations.
+- Unused modules.
+- Incomplete features.
+- Dead code.
+- Performance bottlenecks.
+- Database query inefficiencies.
+- Inconsistent error handling.
+- Missing tests.
+- Missing documentation.
+- Fragile deployment assumptions.
+
+Distinguish:
+
+**Verified issue:** Directly supported by implementation.
+
+**Potential concern:** Reasonable risk requiring further confirmation.
+
+**Not verifiable:** Cannot be determined using available repository evidence.
+
+Do not fabricate vulnerabilities, bugs, or performance measurements.
+
+The objective is accurate technical documentation, not speculative criticism.
+
+---
+
+# PHASE 14: GENERATE THE FINAL `explanation.md`
+
+After completing the repository analysis, create this file:
+
+```text
+<repository-root>/explanation.md
+```
+
+This must be a complete, standalone technical reference.
+
+Do not create a short summary.
+
+Do not impose an arbitrary word-count or token-count limit.
+
+Use as much detail as necessary to document the entire project accurately.
+
+Write clear professional English.
+
+Use Markdown headings, tables, code snippets, architecture diagrams, dependency maps, and file references wherever they improve clarity.
+
+## REQUIRED DOCUMENT STRUCTURE
+
+The document must contain the following sections, with additional subsections wherever necessary.
+
+### 1. Project Overview
+- Project name.
+- Project purpose.
+- Product description.
+- Target users.
+- Main capabilities.
+- Major subsystems.
+- Overall implementation status.
+
+### 2. Repository Snapshot and Analysis Scope
+- Git repository information.
+- Analyzed branch.
+- Analyzed commit hash.
+- Analysis date.
+- Repository inventory summary.
+- Inspected file categories.
+- Excluded/generated directories.
+- Unreadable or unsupported files.
+- Analysis limitations.
+
+### 3. Executive Technical Summary
+- Main architecture.
+- Frontend technologies.
+- Backend technologies.
+- Database technologies.
+- External integrations.
+- Deployment model.
+- Technical architecture summary.
+
+### 4. Complete Technology Stack
+Create a detailed table:
+
+| Layer | Technology | Version | Purpose | Configuration/Files |
+|---|---|---|---|---|
+
+### 5. Repository Structure
+Include an annotated directory tree explaining the responsibility of important files and directories.
+
+For very large projects, divide the structure by subsystem while maintaining complete coverage.
+
+### 6. High-Level System Architecture
+Explain all major system components.
+
+Provide Mermaid diagrams where appropriate.
+
+### 7. Application Bootstrapping and Execution Lifecycle
+Explain how the project starts and initializes its components.
+
+### 8. Frontend Architecture
+Include components, routing, state, styling, UI patterns, and data flow.
+
+### 9. Complete Page and Route Reference
+Explain every significant implemented frontend page and route.
+
+### 10. Backend Architecture
+Describe controllers, services, middleware, business logic, jobs, and request lifecycle.
+
+### 11. Complete API Reference
+Provide endpoint-level technical documentation.
+
+### 12. Database Architecture
+Describe storage technologies and their configuration.
+
+### 13. Database Schema Reference
+Include verified tables, columns, keys, relationships, indexes, views, functions, and policies.
+
+### 14. Authentication and Authorization
+Explain identity, sessions, roles, permissions, and enforcement points.
+
+### 15. Security Architecture
+Explain implemented security mechanisms and verified limitations.
+
+### 16. External Services and Integrations
+Document third-party providers and data exchanged.
+
+### 17. AI/ML/OCR/RAG Architecture
+Include this section if those technologies exist; otherwise clearly mark it not applicable.
+
+### 18. File Upload, Processing, and Storage Architecture
+Explain file handling and persistence where applicable.
+
+### 19. Complete Feature Inventory
+Document all implemented features and their technical implementations.
+
+### 20. End-to-End User Workflows
+Trace significant user operations through frontend, backend, database, and external systems.
+
+### 21. State Management and Data Flow
+Explain how information travels through the system.
+
+### 22. Internal Module Dependencies
+Explain relationships between major modules and services.
+
+### 23. Configuration and Environment Variables
+Provide a complete variable-name reference without exposing secret values.
+
+### 24. Build and Development Workflow
+Explain local installation, startup, and development practices.
+
+### 25. Deployment and Infrastructure Architecture
+Explain production deployment and service dependencies based on actual evidence.
+
+### 26. CI/CD and Automation
+Document workflows, scripts, and automation.
+
+### 27. Testing and Quality Assurance
+Document test architecture and verification results.
+
+### 28. Error Handling, Logging, and Observability
+Explain how errors and operational events are handled.
+
+### 29. Performance, Scalability, and Caching
+Explain implemented approaches and potential constraints.
+
+### 30. Dependency Analysis
+Describe major direct dependencies and their purpose.
+
+### 31. Detailed Source-File Reference
+This is a critical section.
+
+Create an inventory of all relevant project-owned files.
+
+For each, document:
+
+- Relative path.
+- File responsibility.
+- Important exports/functions/classes.
+- Dependencies.
+- Features that rely upon it.
+- Important implementation details.
+
+Use tables for compact entries and dedicated subsections for complex files.
+
+Avoid treating filenames as sufficient documentation.
+
+### 32. Important Functions, Classes, and Interfaces
+Document major implementation-level constructs, their behavior, inputs, outputs, and dependencies.
+
+### 33. Data Models and Contracts
+Describe application-level types, request/response contracts, and persisted entities.
+
+### 34. Architecture Diagrams
+Include accurate Mermaid diagrams for:
+- System architecture.
+- Important data flows.
+- Authentication flow.
+- Database relationships.
+- Major feature workflows.
+- Deployment architecture, if known.
+
+### 35. Known Issues, Risks, and Technical Debt
+Separate confirmed findings from potential concerns.
+
+### 36. Incomplete, Stubbed, and Planned Features
+Identify what is and is not actually implemented.
+
+### 37. Future Maintenance and Extension Guide
+Explain how a developer can safely extend major subsystems.
+
+### 38. Developer Onboarding Guide
+Explain the essential steps a new developer needs to understand and work on this project.
+
+### 39. Technical Glossary
+Define project-specific terms, abbreviations, services, and concepts.
+
+### 40. Evidence, Assumptions, and Unverified Details
+Identify significant conclusions that cannot be fully established from repository contents.
+
+### 41. Final Comprehensive Technical Summary
+Synthesize how the entire system works and how its major parts connect.
+
+---
+
+# PHASE 15: DOCUMENTATION QUALITY REQUIREMENTS
+
+The resulting `explanation.md` must satisfy all of these requirements.
+
+## Completeness
+
+Cover every major implemented subsystem.
+
+Do not omit technical details merely because they are complicated.
+
+Do not stop after documenting the frontend.
+
+Do not stop after documenting the backend.
+
+Do not stop after documenting the database.
+
+Continue until all relevant implementation areas have been covered.
+
+## Accuracy
+
+All factual claims must be grounded in the actual repository.
+
+Whenever practical, reference exact relative file paths and relevant function or class names.
+
+Distinguish between:
+
+- Directly verified implementation facts.
+- Architectural inferences.
+- Documentation-based claims.
+- Unknown or missing information.
+
+## Depth
+
+Explain not only WHAT the software does, but HOW it works internally.
+
+For example, instead of writing:
+
+"Authentication is implemented with Supabase."
+
+Explain the actual authentication lifecycle, responsible modules, token/session handling, protected routes, authorization checks, database permissions, and failure paths, to the extent supported by code.
+
+Apply that level of technical precision to every major subsystem.
+
+## Cross-component understanding
+
+Do not document files as disconnected pieces.
+
+Explain relationships between components.
+
+Connect:
+
+```text
+Frontend
+  → API
+  → Backend service
+  → Business logic
+  → Database
+  → External integrations
+  → Response
+  → UI update
+```
+
+Adapt these relationships to the actual application.
+
+## No hallucinated implementation
+
+Do not invent:
+
+- API endpoints.
+- Database schemas.
+- Environment variables.
+- Libraries.
+- Cloud platforms.
+- User roles.
+- Features.
+- Security mechanisms.
+- Performance claims.
+
+If something cannot be confirmed, explicitly state that.
+
+## No fake completeness
+
+Do not claim 100% file analysis if some relevant files were not inspected.
+
+Maintain transparent coverage records.
+
+If the context window becomes constrained, continue the analysis in manageable batches and use persistent intermediate notes where appropriate.
+
+Do not rely only on a high-level summary of the codebase.
+
+Revisit source files when necessary to confirm details.
+
+---
+
+# PHASE 16: COMPLETENESS AUDIT
+
+Before finishing, perform a final coverage audit.
+
+Compare the generated documentation against the repository inventory.
+
+Verify:
+
+- Every relevant source directory was inspected.
+- Every important project-owned file is documented.
+- All significant frontend pages are represented.
+- All API endpoints are represented.
+- All database entities are represented where schemas are available.
+- All significant user roles are represented.
+- All major integrations are represented.
+- All environment-variable names are represented.
+- All significant business workflows are explained.
+- All important dependencies are explained.
+- Missing or unverifiable details are clearly identified.
+
+Perform a second pass over modules that appear insufficiently documented.
+
+Check that Mermaid diagrams are syntactically sensible and reflect discovered architecture.
+
+Ensure the Markdown is readable, logically organized, and internally consistent.
+
+Avoid excessive repetition, but never sacrifice substantive technical information merely to shorten the file.
+
+---
+
+# PHASE 17: FINAL REPOSITORY STATE
+
+Only create or update the required `explanation.md` documentation file after the initial synchronization, unless temporary analysis files are essential.
+
+Do not modify application source code.
+
+Do not modify database migrations.
+
+Do not install or upgrade packages without necessity.
+
+Do not refactor existing features.
+
+Do not alter API behavior.
+
+Do not change configuration values.
+
+Do not modify deployment infrastructure.
+
+Do not create commits or push changes unless explicitly instructed.
+
+After writing the documentation, verify:
+
+```bash
+git branch --show-current
+git status --short
+git diff -- explanation.md
+```
+
+If `explanation.md` is newly created and untracked, inspect it directly because ordinary `git diff` will not display untracked contents.
+
+The expected final state is:
+
+- Current branch: `main`.
+- Existing tracked application files: unchanged from the synchronized remote state.
+- `explanation.md`: created or updated with complete documentation.
+- No commits.
+- No pushes.
+- No unrelated file modifications.
+
+---
+
+# PHASE 18: FINAL RESPONSE TO USER
+
+After completing the entire task, provide a detailed execution report directly in the Codex chat.
+
+Include:
+
+**Git synchronization**
+- Repository path.
+- Branch before synchronization.
+- Branch after synchronization.
+- Remote used.
+- Final commit hash.
+- Whether synchronization succeeded.
+
+**Repository inspection**
+- Total number of files discovered.
+- Number of relevant project-owned files inspected.
+- Number of files not fully inspected.
+- Source languages identified.
+- Main frameworks and libraries.
+- Significant subsystems discovered.
+
+**Technical discoveries**
+- Main architectural design.
+- Database technologies.
+- Backend organization.
+- Frontend organization.
+- Authentication system.
+- External integrations.
+- Deployment approach.
+- Important data flows.
+
+**Documentation created**
+- Absolute path of `explanation.md`.
+- Major sections included.
+- Approximate word count.
+- Completeness and limitations.
+- Any areas needing manual verification.
+
+**Verification**
+- Commands executed.
+- Checks that passed.
+- Checks that failed or were skipped.
+- Final Git status.
+
+Conclude with a clear statement explaining whether the project has been successfully force-synchronized and documented.
+
+---
+
+# NON-NEGOTIABLE FINAL INSTRUCTIONS
+
+1. Work on the repository associated with your current working directory.
+2. Switch to `main`.
+3. Fetch and hard-reset against `origin/main`.
+4. Do not delete untracked files or secrets.
+5. Treat the synchronized remote code as the authoritative implementation.
+6. Analyze the entire relevant project, not merely README/Markdown files.
+7. Read actual source code, configurations, schemas, scripts, and tests.
+8. Trace dependencies, imports, functions, and data flows.
+9. Understand the architecture as an interconnected system.
+10. Generate an exceptionally detailed `explanation.md` at the repository root.
+11. Document every significant implementation detail supported by evidence.
+12. Include relevant architectures, technology stacks, database schemas, API contracts, security mechanisms, and operational workflows.
+13. Reference actual files and implementation constructs.
+14. Never fabricate missing information.
+15. Do not expose credentials.
+16. Do not alter application behavior.
+17. Do not commit or push anything.
+18. Audit documentation completeness before finishing.
+19. Report all inspection limitations truthfully.
+20. **Execute the task rather than merely explaining how you would do it.**
+
+Your final objective is to produce a technical knowledge base that enables another experienced engineer or AI coding assistant to understand, maintain, debug, extend, and deploy the application using `explanation.md` as its primary architectural reference.
+
+**BEGIN EXECUTION NOW.**
