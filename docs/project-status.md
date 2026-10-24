@@ -3,8 +3,12 @@
 ## Concept Lab: Class 9 Physics Kinematics — 2026-10-24
 
 Implemented `/concept-lab`, immediately after Doubts in the sidebar, on `feat/physics-lab`
-stacked on the freshly pulled `triage-branch` (`d87831d`). No merge or deployment is part of
-this change. The three approved families are uniform straight-line motion, constant acceleration,
+stacked on the freshly pulled `triage-branch` (`d87831d`). The PR remains unmerged. The first
+push unexpectedly triggered the existing Vercel Git integration, which completed a preview at
+commit `e6907e4`. A branch-specific `vercel.json` rule now disables automatic deployments for
+`feat/physics-lab`. Removing that already-created preview requires Vercel access, unavailable in
+this session. No explicit deployment command or hosted migration was run. The three approved
+families are uniform straight-line motion, constant acceleration,
 and a two-leg journey. The full prediction → experiment → reviewed explanation → one-variable
 comparison flow includes shared scene/graph scales, signed SI calculations, correct path length
 through reversals, manual/reduced-motion controls, temporary notebook, and existing PDF reader.
@@ -52,7 +56,8 @@ hosted testing. A synthetic local demo account is retained privately in
 repeatable tests, example journeys, provider policy, architecture and limits;
 [lab-evidence.md](lab-evidence.md) records the scientific source review and implementation bounds.
 Only the listed models are covered. No durable run history, teacher approval, broad AI reliability
-result, new live Ask/Quiz generation result, hosted migration, merge, or deployment is claimed.
+result, new live Ask/Quiz generation result, hosted migration or merge is claimed. The automatic
+preview is not a hosted acceptance result; its cleanup remains pending Vercel account access.
 
 ## Quiz MCQ selection visibility — 2026-10-23
 
